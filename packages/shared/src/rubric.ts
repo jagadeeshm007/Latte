@@ -64,7 +64,7 @@ export const DEFAULT_RUBRIC: RubricItem[] = [
     type: "mandatory",
     label: "Risk and charges disclosure",
     description:
-      "The agent states that returns are not guaranteed or are subject to market risk where relevant, and discloses premiums, charges or exclusions of the product discussed.",
+      "The agent discloses the key terms of the product discussed. For market-linked or investment plans: that returns are not guaranteed or are subject to market risk, plus charges and lock-in. For term or health plans: the premium and the main exclusions or waiting periods. Not applicable on a service call where no product is sold or changed.",
   },
   {
     key: "consent",
@@ -99,13 +99,13 @@ export const DEFAULT_RUBRIC: RubricItem[] = [
     type: "prohibited",
     label: "Misrepresentation",
     description:
-      "The agent misstates what the product is or does: calls insurance a fixed deposit or savings account, claims government backing that does not exist, hides lock-in or surrender charges, or promises cover the policy does not give.",
+      "The agent misstates what the product is or what it covers: calls insurance a fixed deposit, FD or savings account; claims government backing that does not exist; denies a lock-in, surrender charge, waiting period or exclusion that applies; or promises cover from day one or for conditions the policy excludes. A claim of guaranteed or risk-free returns belongs to guaranteed_returns, not to this item.",
   },
   {
     key: "need_discovery",
     type: "quality",
     label: "Need discovery",
     description:
-      "The agent asks about the customer's needs, goals, dependants, income or existing cover before recommending a product.",
+      "On a sales call, the agent asks about the customer's needs, goals, dependants, income or existing cover before recommending a product. Not applicable on a service call with no product recommendation.",
   },
 ];

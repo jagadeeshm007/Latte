@@ -1,0 +1,49 @@
+{
+  "key": "4ad74ae4dfc3d06e6623547b107ae524",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-c921bd83-24d3-4163-af30-563b616aa0df",
+      "object": "chat.completion",
+      "created": 1791993996,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greets, gives name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Agent verifies DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Key terms like risk, charges, lock‑in not disclosed.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [14, 15],\n      \"note\": \"Agent obtains explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [16],\n      \"note\": \"Free‑look period explained.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [8],\n      \"note\": \"Agent claims a guaranteed 9% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No incorrect product description beyond guaranteed claim.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [10],\n      \"note\": \"Agent asks about customer's goals and dependants.\"\n    }\n  ],\n  \"coaching\": [\n    \"Do not state guaranteed returns; such claims are prohibited.\",\n    \"Provide complete product disclosure, including risks, charges, and lock‑in periods, before selling.\",\n    \"Obtain consent only after full, accurate disclosure and avoid any misleading statements.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.413086636,
+        "prompt_tokens": 1575,
+        "prompt_time": 0.026989673,
+        "completion_tokens": 794,
+        "completion_time": 2.731825585,
+        "total_tokens": 2369,
+        "total_time": 2.7588152580000003,
+        "prompt_tokens_details": {
+          "cached_tokens": 1024
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 348
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_803c0ba83d",
+      "x_groq": {
+        "id": "req_01m4xjmntsegcvjmzsjja5hsrm",
+        "seed": 1127773455
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

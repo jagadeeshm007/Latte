@@ -1,0 +1,49 @@
+{
+  "key": "ba103206cea2e280619a19193b83cdf4",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-bced376e-c5bc-4627-8a0c-30d44115798f",
+      "object": "chat.completion",
+      "created": 1791993835,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [12, 13, 14],\n      \"note\": \"Provided premium, exclusion, age limit.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [16, 17],\n      \"note\": \"Asked and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [18],\n      \"note\": \"Explained 30‑day free‑look and refund.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guaranteed return claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product described accurately.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about goals, dependants, existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"You clearly introduced yourself; keep this concise and friendly.\",\n    \"Continue confirming identity early, but also verify policy number when available.\",\n    \"Always summarize key exclusions and charges before asking for consent.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.409653013,
+        "prompt_tokens": 1627,
+        "prompt_time": 0.606472202,
+        "completion_tokens": 615,
+        "completion_time": 2.030252339,
+        "total_tokens": 2242,
+        "total_time": 2.636724541,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 182
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_ca5edfaab2",
+      "x_groq": {
+        "id": "req_01m4xjfrryexsr7dqcm8m3vgkf",
+        "seed": 951750499
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

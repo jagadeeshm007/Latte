@@ -1,0 +1,46 @@
+{
+  "key": "8a67933841f34f6e56503b0e569826a7",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-e8bd5571-7810-4822-9c0c-8652131749ca",
+      "object": "chat.completion",
+      "created": 1791993849,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not explain market risk, non‑guaranteed returns, charges or lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Asked and received explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [19],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Claimed a guaranteed 12% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Stated the ULIP has no risk, which is inaccurate.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9, 10],\n      \"note\": \"Asked about dependents and existing cover before recommendation.\"\n    }\n  ],\n  \"coaching\": [\n    \"Explain market risk, non‑guaranteed nature, charges and lock‑in when selling ULIPs.\",\n    \"Avoid stating any guaranteed returns; use neutral language about potential performance.\",\n    \"Always provide a clear risk disclaimer and correct any statements that imply no risk.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.470495627,
+        "prompt_tokens": 1731,
+        "prompt_time": 0.095730819,
+        "completion_tokens": 784,
+        "completion_time": 1.641406419,
+        "total_tokens": 2515,
+        "total_time": 1.7371372379999999,
+        "completion_tokens_details": {
+          "reasoning_tokens": 311
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_e5b4e54fbb",
+      "x_groq": {
+        "id": "req_01m4xjg6nwef2rryrv2m8t38ew",
+        "seed": 1435432139
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

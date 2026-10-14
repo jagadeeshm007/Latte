@@ -1,0 +1,28 @@
+{
+  "name": "@scc/evals",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build-calls": "tsx src/build-calls.ts",
+    "eval": "tsx --env-file-if-exists=../.env src/run.ts",
+    "eval:record": "EVAL_MODE=record tsx --env-file-if-exists=../.env src/run.ts",
+    "render": "tsx --env-file-if-exists=../.env src/render.ts",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@scc/api": "workspace:*",
+    "@scc/gateway": "workspace:*",
+    "@scc/shared": "workspace:*",
+    "tsx": "4.23.15",
+    "zod": "4.6.5",
+    "wavefile": "11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.4",
+    "@vitest/coverage-v8": "4.1.11",
+    "vitest": "4.1.11"
+  }
+}

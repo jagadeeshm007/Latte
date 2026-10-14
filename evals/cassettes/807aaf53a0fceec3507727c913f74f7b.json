@@ -1,0 +1,46 @@
+{
+  "key": "807aaf53a0fceec3507727c913f74f7b",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-4ed38161-037e-4aeb-8c5a-656ba25a9f39",
+      "object": "chat.completion",
+      "created": 1791993935,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Explained market‑linked nature, no guaranteed returns, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20, 21],\n      \"note\": \"Asked to proceed and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [22],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Incorrectly claimed government protection like post office schemes.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about savings goal, dependants, and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid stating government backing unless it is factual; verify product claims before speaking.\",\n    \"Continue using clear disclosure of risks and charges as you did.\",\n    \"Maintain the strong discovery questions to tailor recommendations.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.215718892,
+        "prompt_tokens": 1743,
+        "prompt_time": 0.088010541,
+        "completion_tokens": 654,
+        "completion_time": 1.366377372,
+        "total_tokens": 2397,
+        "total_time": 1.454387913,
+        "completion_tokens_details": {
+          "reasoning_tokens": 205
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_4727af4560",
+      "x_groq": {
+        "id": "req_01m4xjjwd4e7hsb6s7dehbpn68",
+        "seed": 869149730
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

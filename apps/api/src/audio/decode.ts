@@ -1,5 +1,10 @@
+import { createRequire } from "node:module";
+
 import { MPEGDecoder } from "mpg123-decoder";
-import { WaveFile } from "wavefile";
+import type * as Wavefile from "wavefile";
+
+// wavefile ships CommonJS that Node ESM cannot read named exports from; load it with require.
+const { WaveFile } = createRequire(import.meta.url)("wavefile") as typeof Wavefile;
 
 // Decodes an uploaded recording into float samples per channel. Stereo is
 // required: the agent is on the left channel and the customer on the right
@@ -44,7 +49,7 @@ export async function decodeAudio(bytes: Uint8Array, mimeType: string): Promise<
 }
 
 function decodeWav(bytes: Uint8Array): Omit<DecodedAudio, "durationMs"> {
-  let wav: WaveFile;
+  let wav: Wavefile.WaveFile;
   try {
     wav = new WaveFile(bytes);
   } catch {

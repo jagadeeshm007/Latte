@@ -1,0 +1,49 @@
+{
+  "key": "22a562f306daee51388f9f0c7f3c0422",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-225bc829-b058-4e9d-beed-99df161a08a2",
+      "object": "chat.completion",
+      "created": 1791993922,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Explained market‑linked nature, no guarantee, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20],\n      \"note\": \"Asked to proceed and received explicit yes.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [22],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Claimed money will definitely double, implying guaranteed return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product described accurately; no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7],\n      \"note\": \"Asked about savings goal and dependents.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid stating guaranteed outcomes; always qualify returns as market‑dependent.\",\n    \"When highlighting benefits, balance with clear risk disclosures to maintain compliance.\",\n    \"Continue asking discovery questions, but ensure all claims remain non‑guaranteed.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.346123981,
+        "prompt_tokens": 1729,
+        "prompt_time": 0.293000656,
+        "completion_tokens": 665,
+        "completion_time": 1.387895107,
+        "total_tokens": 2394,
+        "total_time": 1.680895763,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 219
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_dee443f41b",
+      "x_groq": {
+        "id": "req_01m4xjjez1e0ht95bkbb84zxa9",
+        "seed": 1296376933
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "key": "a7b7b8380e21e5e5136fe7a6fa015753",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-cc613fad-721b-4b9e-9e18-11224874ae43",
+      "object": "chat.completion",
+      "created": 1791993894,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No verification of DOB, policy number or registered mobile.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [10, 11],\n      \"note\": \"Provided premium amount and waiting period details.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [13, 14],\n      \"note\": \"Asked and received explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [15],\n      \"note\": \"Explained 30‑day free‑look and cancellation terms.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product description was accurate; no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [4],\n      \"note\": \"Asked about saving goal and dependants.\"\n    }\n  ],\n  \"coaching\": [\n    \"Always perform an identity check (DOB or policy number) before discussing policy details.\",\n    \"When presenting health plans, also mention any major exclusions beyond waiting periods.\",\n    \"Confirm the customer's understanding of the free‑look period before ending the call.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.216384278,
+        "prompt_tokens": 1567,
+        "prompt_time": 0.083525045,
+        "completion_tokens": 685,
+        "completion_time": 1.489224194,
+        "total_tokens": 2252,
+        "total_time": 1.572749239,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 238
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_5a93aea882",
+      "x_groq": {
+        "id": "req_01m4xjhkjzeb5s3jdczqcw8tw3",
+        "seed": 2032917483
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "id": "19-health-no-waiting-period-en",
+  "title": "Health plan: waiting periods denied",
+  "language": "english",
+  "product": "Health Plus",
+  "agentCode": "AG003",
+  "voices": {
+    "agent": "troy",
+    "customer": "hannah"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Good morning, this is Vikram calling from Suraksha Life Insurance. Am I speaking with Mr Thomas?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, speaking. Who is this again?"
+    },
+    {
+      "s": "A",
+      "t": "Vikram from Suraksha Life. You had asked for a call back about our plans on our website."
+    },
+    {
+      "s": "C",
+      "t": "Oh yes, I did. Go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "s": "C",
+      "t": "It is the fourteenth of August, nineteen eighty six."
+    },
+    {
+      "s": "A",
+      "t": "Thank you, that matches our records."
+    },
+    {
+      "s": "A",
+      "t": "Can I ask what you are mainly saving for, and who depends on your income?"
+    },
+    {
+      "s": "C",
+      "t": "Mostly my daughter's education. She is six. My wife and my mother depend on me too."
+    },
+    {
+      "s": "A",
+      "t": "And do you already have any life cover?"
+    },
+    {
+      "s": "C",
+      "t": "Only a small group policy through my office."
+    },
+    {
+      "s": "A",
+      "t": "Our Health Plus family floater covers you, your wife and your daughter for ten lakh a year."
+    },
+    {
+      "s": "C",
+      "t": "What about my mother? She has diabetes."
+    },
+    {
+      "s": "A",
+      "t": "Your mother's diabetes is covered from the very first day. There is no waiting period of any kind on this plan.",
+      "plant": "misrepresentation"
+    },
+    {
+      "s": "C",
+      "t": "Really? Other companies said two years."
+    },
+    {
+      "s": "A",
+      "t": "Not with us. The premium is about eighteen thousand five hundred a year."
+    },
+    {
+      "s": "A",
+      "t": "Would you like me to go ahead and generate the proposal in your name?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, please go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Once you receive the policy document you have a thirty day free look period. If you change your mind in that time, you can cancel and get your premium back after small deductions."
+    },
+    {
+      "s": "C",
+      "t": "Good to know."
+    },
+    {
+      "s": "A",
+      "t": "Thank you for your time. You will receive the documents by email today."
+    },
+    {
+      "s": "C",
+      "t": "Thank you, bye."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "missed",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "clear",
+    "false_urgency": "clear",
+    "misrepresentation": "breach",
+    "need_discovery": "met"
+  },
+  "planted": [
+    "misrepresentation"
+  ]
+}

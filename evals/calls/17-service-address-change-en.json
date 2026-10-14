@@ -1,0 +1,65 @@
+{
+  "id": "17-service-address-change-en",
+  "title": "Service call: address change, no sale",
+  "language": "english",
+  "product": "Term Shield",
+  "agentCode": "AG004",
+  "voices": {
+    "agent": "austin",
+    "customer": "diana"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Good afternoon, this is Neha from Suraksha Life customer service. Am I speaking with Mr Fernandes?"
+    },
+    {
+      "s": "C",
+      "t": "Yes. I want to change my address on the policy."
+    },
+    {
+      "s": "A",
+      "t": "Sure. For security, please confirm your policy number and date of birth."
+    },
+    {
+      "s": "C",
+      "t": "Policy number ST four five nine one two, born second March nineteen seventy nine."
+    },
+    {
+      "s": "A",
+      "t": "Thank you, verified. What is the new address?"
+    },
+    {
+      "s": "C",
+      "t": "Flat twelve, Lake View Apartments, Pune."
+    },
+    {
+      "s": "A",
+      "t": "Shall I update this as your correspondence address on the policy?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, please."
+    },
+    {
+      "s": "A",
+      "t": "Done. You will get a confirmation message within a day. Anything else?"
+    },
+    {
+      "s": "C",
+      "t": "No, that is all. Thanks."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "not_applicable",
+    "consent": "met",
+    "cooling_off": "not_applicable",
+    "guaranteed_returns": "clear",
+    "false_urgency": "clear",
+    "misrepresentation": "clear",
+    "need_discovery": "not_applicable"
+  },
+  "planted": []
+}

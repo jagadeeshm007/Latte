@@ -1,0 +1,117 @@
+{
+  "id": "01-clean-ulip-en",
+  "title": "Clean ULIP sale, every item done",
+  "language": "english",
+  "product": "Suraksha ULIP",
+  "agentCode": "AG001",
+  "voices": {
+    "agent": "troy",
+    "customer": "hannah"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Good morning, this is Ravi calling from Suraksha Life Insurance. Am I speaking with Mr Sharma?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, speaking. Who is this again?"
+    },
+    {
+      "s": "A",
+      "t": "Ravi from Suraksha Life. You had asked for a call back about our plans on our website."
+    },
+    {
+      "s": "C",
+      "t": "Oh yes, I did. Go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "s": "C",
+      "t": "It is the fourteenth of August, nineteen eighty six."
+    },
+    {
+      "s": "A",
+      "t": "Thank you, that matches our records."
+    },
+    {
+      "s": "A",
+      "t": "Can I ask what you are mainly saving for, and who depends on your income?"
+    },
+    {
+      "s": "C",
+      "t": "Mostly my daughter's education. She is six. My wife and my mother depend on me too."
+    },
+    {
+      "s": "A",
+      "t": "And do you already have any life cover?"
+    },
+    {
+      "s": "C",
+      "t": "Only a small group policy through my office."
+    },
+    {
+      "s": "A",
+      "t": "Based on that, I would suggest our Suraksha ULIP. Part of your premium buys life cover and the rest is invested in funds you choose."
+    },
+    {
+      "s": "C",
+      "t": "How much would I need to pay?"
+    },
+    {
+      "s": "A",
+      "t": "For five lakh of cover, around fifty thousand rupees a year for ten years."
+    },
+    {
+      "s": "A",
+      "t": "Please note this is a market linked plan, so returns are not guaranteed and depend on how the funds perform."
+    },
+    {
+      "s": "A",
+      "t": "There is a premium allocation charge of four percent in the first year, and the money is locked in for five years."
+    },
+    {
+      "s": "C",
+      "t": "Okay, understood."
+    },
+    {
+      "s": "A",
+      "t": "Would you like me to go ahead and generate the proposal in your name?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, please go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Once you receive the policy document you have a thirty day free look period. If you change your mind in that time, you can cancel and get your premium back after small deductions."
+    },
+    {
+      "s": "C",
+      "t": "Good to know."
+    },
+    {
+      "s": "A",
+      "t": "Thank you for your time. You will receive the documents by email today."
+    },
+    {
+      "s": "C",
+      "t": "Thank you, bye."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "met",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "clear",
+    "false_urgency": "clear",
+    "misrepresentation": "clear",
+    "need_discovery": "met"
+  },
+  "planted": []
+}

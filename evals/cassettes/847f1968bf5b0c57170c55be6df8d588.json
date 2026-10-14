@@ -1,0 +1,46 @@
+{
+  "key": "847f1968bf5b0c57170c55be6df8d588",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-1d847ff8-fe85-4ea7-bf7e-e589fb5cb24a",
+      "object": "chat.completion",
+      "created": 1791994003,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [2, 3],\n      \"note\": \"Agent verified policy number and DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"not_applicable\",\n      \"segments\": [],\n      \"note\": \"No product discussed, only address change.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [6, 7],\n      \"note\": \"Agent asked to update address and received explicit yes.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"not_applicable\",\n      \"segments\": [],\n      \"note\": \"No purchase or policy change requiring cooling‑off.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No return guarantees were mentioned.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No pressure or false deadline was applied.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Agent gave accurate information, no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"not_applicable\",\n      \"segments\": [],\n      \"note\": \"Service call, no product recommendation needed.\"\n    }\n  ],\n  \"coaching\": [\n    \"Confirm spelling of the new address before updating to avoid errors.\",\n    \"Offer to send a written confirmation email or SMS for the address change.\",\n    \"Ask if the customer needs assistance with any other policy services before ending the call.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.345134213,
+        "prompt_tokens": 1324,
+        "prompt_time": 0.062425137,
+        "completion_tokens": 659,
+        "completion_time": 1.3787980100000001,
+        "total_tokens": 1983,
+        "total_time": 1.441223147,
+        "completion_tokens_details": {
+          "reasoning_tokens": 216
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_02b0d31eca",
+      "x_groq": {
+        "id": "req_01m4xjmy7yetx9a01w4761xg7d",
+        "seed": 246312759
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

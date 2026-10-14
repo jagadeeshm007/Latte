@@ -1,0 +1,104 @@
+{
+  "id": "13-all-three-breaches-en",
+  "title": "Guarantee, urgency and misrepresentation in one call",
+  "language": "english",
+  "product": "Suraksha ULIP",
+  "agentCode": "AG004",
+  "voices": {
+    "agent": "troy",
+    "customer": "hannah"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Good morning, this is Neha calling from Suraksha Life Insurance. Am I speaking with Mr Rao?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, speaking. Who is this again?"
+    },
+    {
+      "s": "A",
+      "t": "Neha from Suraksha Life. You had asked for a call back about our plans on our website."
+    },
+    {
+      "s": "C",
+      "t": "Oh yes, I did. Go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "s": "C",
+      "t": "It is the fourteenth of August, nineteen eighty six."
+    },
+    {
+      "s": "A",
+      "t": "Thank you, that matches our records."
+    },
+    {
+      "s": "A",
+      "t": "Based on that, I would suggest our Suraksha ULIP. Part of your premium buys life cover and the rest is invested in funds you choose."
+    },
+    {
+      "s": "C",
+      "t": "How much would I need to pay?"
+    },
+    {
+      "s": "A",
+      "t": "For five lakh of cover, around fifty thousand rupees a year for ten years."
+    },
+    {
+      "s": "A",
+      "t": "This is assured return of ten percent, fully guaranteed.",
+      "plant": "guaranteed_returns"
+    },
+    {
+      "s": "C",
+      "t": "And can I take the money out if I need it?"
+    },
+    {
+      "s": "A",
+      "t": "Yes, it works exactly like a savings account, there is no lock-in.",
+      "plant": "misrepresentation"
+    },
+    {
+      "s": "C",
+      "t": "I need to think."
+    },
+    {
+      "s": "A",
+      "t": "Sir, the scheme closes today, decide now or you will regret it.",
+      "plant": "false_urgency"
+    },
+    {
+      "s": "C",
+      "t": "Fine, go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Thank you for your time. You will receive the documents by email today."
+    },
+    {
+      "s": "C",
+      "t": "Thank you, bye."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "missed",
+    "consent": "missed",
+    "cooling_off": "missed",
+    "guaranteed_returns": "breach",
+    "false_urgency": "breach",
+    "misrepresentation": "breach",
+    "need_discovery": "missed"
+  },
+  "planted": [
+    "guaranteed_returns",
+    "misrepresentation",
+    "false_urgency"
+  ]
+}

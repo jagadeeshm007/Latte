@@ -4,7 +4,7 @@ import { createGateway, type Gateway } from "@scc/gateway";
 import { DEFAULT_RUBRIC, DEFAULT_RUBRIC_NAME, type Role } from "@scc/shared";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { pino } from "pino";
-import { vi } from "vitest";
+import { type Mock, vi } from "vitest";
 
 import { buildApp } from "../../src/app.ts";
 import { createVerifier } from "../../src/auth.ts";
@@ -171,6 +171,8 @@ export async function testApp(pool: Pool) {
   return { app, storage, queue, sign: tokens.sign };
 }
 
+type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+
 /** fakeGateway answers stt and chat calls from the functions given, through the real gateway. */
 export function fakeGateway(
   pool: Pool,
@@ -178,9 +180,9 @@ export function fakeGateway(
     stt?: (body: FormData) => unknown;
     chat?: (body: Record<string, unknown>) => unknown;
   },
-): { gateway: Gateway; fetch: ReturnType<typeof vi.fn> } {
+): { gateway: Gateway; fetch: Mock<FetchLike> } {
   const store = new PgUsageStore(pool);
-  const fetch = vi.fn((url: string, init: RequestInit) => {
+  const fetch = vi.fn<FetchLike>((url, init) => {
     if (url.endsWith("/audio/transcriptions") && responses.stt) {
       return Promise.resolve(
         new Response(JSON.stringify(responses.stt(init.body as FormData)), { status: 200 }),

@@ -1,0 +1,49 @@
+{
+  "key": "212d2903c67097276ffebbcb4ee322ea",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-3e293be7-e6e8-4f1e-839b-df7139e5c56f",
+      "object": "chat.completion",
+      "created": 1791993908,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussing policy.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [12, 13, 14],\n      \"note\": \"Provided premium, cover amount, exclusions and no maturity benefit.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Agent proceeded without explicit customer agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [19],\n      \"note\": \"Explained 30‑day free‑look and cancellation terms.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was claimed.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product described accurately; no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about savings goal, dependents, and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Always obtain explicit consent before moving to proposal or payment steps.\",\n    \"Confirm the customer’s agreement after presenting key details before proceeding.\",\n    \"Reiterate the free‑look period and cancellation process after the customer agrees.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.41388978,
+        "prompt_tokens": 1658,
+        "prompt_time": 0.36247692,
+        "completion_tokens": 641,
+        "completion_time": 1.4623265029999999,
+        "total_tokens": 2299,
+        "total_time": 1.824803423,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 191
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_bb691ea66b",
+      "x_groq": {
+        "id": "req_01m4xjj0vqewasaffq1qd1ecyr",
+        "seed": 1600660046
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

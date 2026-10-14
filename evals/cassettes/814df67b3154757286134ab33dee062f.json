@@ -1,0 +1,46 @@
+{
+  "key": "814df67b3154757286134ab33dee062f",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-331980df-ba0e-4cc1-95dc-eb31286e91fc",
+      "object": "chat.completion",
+      "created": 1791993796,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussing policy.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [14, 15],\n      \"note\": \"Explained market risk, charges, lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Asked to proceed and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [19],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guaranteed return claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product described accurately.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 8],\n      \"note\": \"Asked about goals, dependents, existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"You correctly introduced yourself; keep it concise and repeat the company name once more for clarity.\",\n    \"After disclosing charges and lock‑in, confirm the customer understands before moving to consent.\",\n    \"Always summarize the free‑look terms and ask if the customer has any further questions.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.221934189,
+        "prompt_tokens": 1666,
+        "prompt_time": 0.226391882,
+        "completion_tokens": 609,
+        "completion_time": 1.28075009,
+        "total_tokens": 2275,
+        "total_time": 1.5071419719999999,
+        "completion_tokens_details": {
+          "reasoning_tokens": 158
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_69334c0be3",
+      "x_groq": {
+        "id": "req_01m4xjekx7ejhaeftkq4tegfc4",
+        "seed": 1691771725
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

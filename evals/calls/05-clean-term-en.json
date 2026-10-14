@@ -1,0 +1,113 @@
+{
+  "id": "05-clean-term-en",
+  "title": "Clean term plan sale",
+  "language": "english",
+  "product": "Term Shield",
+  "agentCode": "AG002",
+  "voices": {
+    "agent": "austin",
+    "customer": "diana"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Good morning, this is Anita calling from Suraksha Life Insurance. Am I speaking with Mr Reddy?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, speaking. Who is this again?"
+    },
+    {
+      "s": "A",
+      "t": "Anita from Suraksha Life. You had asked for a call back about our plans on our website."
+    },
+    {
+      "s": "C",
+      "t": "Oh yes, I did. Go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "s": "C",
+      "t": "It is the fourteenth of August, nineteen eighty six."
+    },
+    {
+      "s": "A",
+      "t": "Thank you, that matches our records."
+    },
+    {
+      "s": "A",
+      "t": "Can I ask what you are mainly saving for, and who depends on your income?"
+    },
+    {
+      "s": "C",
+      "t": "Mostly my daughter's education. She is six. My wife and my mother depend on me too."
+    },
+    {
+      "s": "A",
+      "t": "And do you already have any life cover?"
+    },
+    {
+      "s": "C",
+      "t": "Only a small group policy through my office."
+    },
+    {
+      "s": "A",
+      "t": "For your family, a term plan gives the most cover for the money. Our Term Shield gives one crore of cover."
+    },
+    {
+      "s": "C",
+      "t": "And the cost?"
+    },
+    {
+      "s": "A",
+      "t": "The premium is fourteen thousand two hundred rupees a year. It is pure protection, so nothing is paid back at maturity."
+    },
+    {
+      "s": "A",
+      "t": "Suicide within the first year is excluded, and the cover ends at age sixty five."
+    },
+    {
+      "s": "C",
+      "t": "Fine, that is clear."
+    },
+    {
+      "s": "A",
+      "t": "Would you like me to go ahead and generate the proposal in your name?"
+    },
+    {
+      "s": "C",
+      "t": "Yes, please go ahead."
+    },
+    {
+      "s": "A",
+      "t": "Once you receive the policy document you have a thirty day free look period. If you change your mind in that time, you can cancel and get your premium back after small deductions."
+    },
+    {
+      "s": "C",
+      "t": "Good to know."
+    },
+    {
+      "s": "A",
+      "t": "Thank you for your time. You will receive the documents by email today."
+    },
+    {
+      "s": "C",
+      "t": "Thank you, bye."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "met",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "clear",
+    "false_urgency": "clear",
+    "misrepresentation": "clear",
+    "need_discovery": "met"
+  },
+  "planted": []
+}

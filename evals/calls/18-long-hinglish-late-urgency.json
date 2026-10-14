@@ -1,0 +1,196 @@
+{
+  "id": "18-long-hinglish-late-urgency",
+  "title": "Long Hinglish call with false urgency near the end",
+  "language": "hinglish",
+  "product": "Suraksha ULIP",
+  "agentCode": "AG001",
+  "voices": {
+    "agent": "daniel",
+    "customer": "autumn"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "Namaste, main Ravi bol raha hoon Suraksha Life Insurance se. Kya meri baat Patil ji se ho rahi hai?"
+    },
+    {
+      "s": "C",
+      "t": "Haan ji, boliye."
+    },
+    {
+      "s": "A",
+      "t": "Aapne website pe call back request kiya tha, usi ke baare mein call kiya hai."
+    },
+    {
+      "s": "C",
+      "t": "Haan haan, bataiye."
+    },
+    {
+      "s": "A",
+      "t": "Aage badhne se pehle, verification ke liye apni date of birth confirm kar dijiye."
+    },
+    {
+      "s": "C",
+      "t": "Chaudah August, unnees sau chhiyaasi."
+    },
+    {
+      "s": "A",
+      "t": "Dhanyavaad, record se match ho gaya."
+    },
+    {
+      "s": "A",
+      "t": "Aap kis cheez ke liye save karna chahte hain, aur ghar mein kaun kaun aap pe depend karta hai?"
+    },
+    {
+      "s": "C",
+      "t": "Beti ki padhai ke liye. Woh chhe saal ki hai. Biwi aur maa bhi mujh pe depend hain."
+    },
+    {
+      "s": "A",
+      "t": "Abhi koi life cover hai aapke paas?"
+    },
+    {
+      "s": "C",
+      "t": "Bas office wala chhota sa group policy hai."
+    },
+    {
+      "s": "A",
+      "t": "Beti abhi chhe saal ki hai, toh college ke liye lagbhag baarah saal hain. Aap kitna fund target kar rahe hain?"
+    },
+    {
+      "s": "C",
+      "t": "Shayad pachees lakh, engineering ya medical ke liye."
+    },
+    {
+      "s": "A",
+      "t": "Aur aapki monthly income approximately kitni hai, agar aap batana chahein?"
+    },
+    {
+      "s": "C",
+      "t": "Lagbhag ek lakh mahina."
+    },
+    {
+      "s": "A",
+      "t": "Koi loan ya EMI chal raha hai abhi?"
+    },
+    {
+      "s": "C",
+      "t": "Ghar ka home loan hai, pandrah saal baaki hain."
+    },
+    {
+      "s": "A",
+      "t": "Toh pehle zaroori hai ki family ke liye cover sahi ho, phir investment."
+    },
+    {
+      "s": "C",
+      "t": "Haan, yeh baat sahi hai."
+    },
+    {
+      "s": "A",
+      "t": "Toh main aapko Suraksha ULIP suggest karunga. Premium ka ek hissa life cover mein jaata hai aur baaki funds mein invest hota hai."
+    },
+    {
+      "s": "C",
+      "t": "Kitna premium dena hoga?"
+    },
+    {
+      "s": "A",
+      "t": "Paanch lakh cover ke liye, saal ka lagbhag pachaas hazaar, das saal tak."
+    },
+    {
+      "s": "C",
+      "t": "Fund kaun se options hain?"
+    },
+    {
+      "s": "A",
+      "t": "Equity fund, balanced fund aur debt fund hain. Aap saal mein chaar baar free mein switch kar sakte hain."
+    },
+    {
+      "s": "C",
+      "t": "Equity mein zyada risk hoga na?"
+    },
+    {
+      "s": "A",
+      "t": "Haan, equity mein short term mein upar neeche hota hai, lambe samay mein growth ka chance zyada hai."
+    },
+    {
+      "s": "A",
+      "t": "Ek baat clear kar doon, yeh market linked plan hai, isliye returns guaranteed nahi hain, fund performance pe depend karte hain."
+    },
+    {
+      "s": "A",
+      "t": "Pehle saal chaar percent allocation charge hai, aur paanch saal ka lock-in period hai."
+    },
+    {
+      "s": "C",
+      "t": "Theek hai, samajh gaya."
+    },
+    {
+      "s": "C",
+      "t": "Premium monthly de sakta hoon?"
+    },
+    {
+      "s": "A",
+      "t": "Haan, monthly mode mein lagbhag chaar hazaar do sau rupaye hoga."
+    },
+    {
+      "s": "C",
+      "t": "Aur agar beech mein premium nahi de paaya toh?"
+    },
+    {
+      "s": "A",
+      "t": "Paanch saal ke lock-in ke baad aap policy continue ya surrender kar sakte hain, uske rules document mein hain."
+    },
+    {
+      "s": "C",
+      "t": "Theek hai, main sochta hoon, agle hafte bataunga."
+    },
+    {
+      "s": "A",
+      "t": "Sir agle hafte tak yeh plan band ho jayega, company ne bola hai aaj raat tak hi booking hogi.",
+      "plant": "false_urgency"
+    },
+    {
+      "s": "C",
+      "t": "Itni jaldi? Achha theek hai."
+    },
+    {
+      "s": "A",
+      "t": "Kya main aapke naam se proposal generate kar doon?"
+    },
+    {
+      "s": "C",
+      "t": "Haan, kar dijiye."
+    },
+    {
+      "s": "A",
+      "t": "Policy document milne ke baad aapke paas tees din ka free look period hai. Us dauraan cancel karenge toh thode deductions ke baad premium wapas mil jayega."
+    },
+    {
+      "s": "C",
+      "t": "Achha, theek hai."
+    },
+    {
+      "s": "A",
+      "t": "Aapka samay dene ke liye dhanyavaad. Documents aaj email pe aa jayenge."
+    },
+    {
+      "s": "C",
+      "t": "Theek hai, bye."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "met",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "clear",
+    "false_urgency": "breach",
+    "misrepresentation": "clear",
+    "need_discovery": "met"
+  },
+  "planted": [
+    "false_urgency"
+  ]
+}

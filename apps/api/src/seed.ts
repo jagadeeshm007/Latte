@@ -56,13 +56,20 @@ try {
       );
       if (rows[0]) ids.set(a.code, rows[0].id);
     }
-    if (!(await activeRubric(db))) {
-      await saveRubricVersion(db, {
+    // A manager's edit always wins; only a seed-owned rubric (no author) is
+    // refreshed when the default in packages/shared changes.
+    const active = await activeRubric(db);
+    const seedOwned = active
+      ? (await db.query("SELECT 1 FROM rubrics WHERE id = $1 AND created_by IS NULL", [active.id]))
+          .rowCount === 1
+      : true;
+    if (!active || (seedOwned && JSON.stringify(active.items) !== JSON.stringify(DEFAULT_RUBRIC))) {
+      const saved = await saveRubricVersion(db, {
         name: DEFAULT_RUBRIC_NAME,
         items: DEFAULT_RUBRIC,
         createdBy: null,
       });
-      out("rubric: version 1 created");
+      out(`rubric: version ${String(saved.version)} created from the default`);
     }
     return ids;
   });
