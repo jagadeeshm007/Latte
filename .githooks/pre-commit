@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# pre-commit: check the staged files only (what the commit will contain, not
+# the working tree), block secrets, forbidden and oversized files. Fast: it
+# never runs the test suite; pre-push runs the gate.
+HOOK_NAME=pre-commit
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
+# Staged paths into a bash array (bash 3.2: no mapfile). Paths may contain
+# spaces, so every later command gets them through run_on, never unquoted.
+files=()
+while IFS= read -r -d '' f; do files+=("$f"); done < <(staged_files0)
+count=${#files[@]}
+# Zero added, copied, modified or renamed files. A gate that examined nothing
+# did not pass, so this fails unless the empty input is explained by one of
+# three cases git itself treats as a real commit:
+#   - deletions only: nothing to scan, and the deletions are counted;
+#   - a merge whose result equals HEAD (MERGE_HEAD present; a clean merge
+#     runs pre-merge-commit, not this hook);
+#   - an empty commit the engineer asked for with --allow-empty, or a
+#     reword with --amend, read from the git command line that ran the hook.
+# Anything else (the hook run by hand, or `git commit` with nothing staged)
+# fails with the count.
+if [ "$count" -eq 0 ]; then
+  deleted="$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')"
+  [ "$deleted" -eq 0 ] || { hook_note "0 files to scan, $deleted deletion(s) staged; nothing else to check"; exit 0; }
+  git_dir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+  [ ! -f "$git_dir/MERGE_HEAD" ] || { hook_note "0 staged files: merge commit whose tree equals HEAD"; exit 0; }
+  # Only the git process that ran the hook counts; a shell whose command line
+  # happens to mention the flag does not.
+  # ps is missing in slim images and busybox's ps has no -o args= -p, so
+  # read /proc first where it exists (Linux) and fall back to ps (macOS).
+  parent=""
+  if [ -r "/proc/$PPID/cmdline" ]; then
+    parent="$(tr '\000' ' ' < "/proc/$PPID/cmdline" 2>/dev/null | sed 's/ *$//')"
+  fi
+  [ -n "$parent" ] || parent="$(ps -o args= -p "$PPID" 2>/dev/null || true)"
+  case "${parent%% *}" in
+    git|*/git|git.exe|*/git.exe)
+      case " $parent " in
+        *" --allow-empty "*) hook_note "0 staged files: empty commit requested with --allow-empty"; exit 0;;
+        *" --amend "*) hook_note "0 staged files: --amend with no content change (reword)"; exit 0;;
+      esac;;
+  esac
+  hook_fail "0 staged files, nothing checked (stage a change; use --allow-empty for an intentional empty commit)"
+fi
+
+# by_ext <regex>: the staged paths whose name matches, one per line.
+by_ext() { printf '%s\n' "${files[@]}" | grep -E "$1" || true; }
+# run_on <lines> <cmd...>: run cmd with the newline-separated paths as arguments.
+run_on() { local list="$1"; shift; printf '%s\n' "$list" | tr '\n' '\0' | xargs -0 "$@"; }
+
+# 1. Forbidden files.
+bad="$(printf '%s\n' "${files[@]}" | grep -Ev '(^|/)\.env\.(example|sample|template)$' | grep -E '(^|/)\.env(\..*)?$|\.(pem|key|p12|jks|keystore|mobileprovision)$|service-account.*\.json$|google-services\.json$|GoogleService-Info\.plist$' || true)"
+[ -z "$bad" ] || hook_fail "secret or credential file staged: $(printf '%s' "$bad" | tr '\n' ' ')"
+root_notes="$(printf '%s\n' "${files[@]}" | grep -E '^(NOTES|SUMMARY|TODO)\.md$' || true)"
+[ -z "$root_notes" ] || hook_fail "root notes file staged ($root_notes); use .scratch/ or docs/"
+# The Claude Code sandbox holds 0-byte placeholders for protected paths in
+# whichever directory a command runs (the root, or a package such as web/); a
+# `git add -A` in that window stages them. A real .vscode or .idea is a
+# directory and a real .mcp.json has content, so an empty regular file under
+# one of these names, or under a .claude directory, is a placeholder.
+placeholders=""
+for f in "${files[@]}"; do
+  named=0
+  case "${f##*/}" in
+    .vscode|.idea|.mcp.json|.gitmodules|.githooks|.ripgreprc|.bashrc|.bash_profile|.zshrc|.zprofile|.profile|.gitconfig) named=1;;
+  esac
+  case "/$f" in
+    */.claude/agents|*/.claude/commands|*/.claude/hooks|*/.claude/launch.json|*/.claude/loop.md|*/.claude/output-styles|*/.claude/routines|*/.claude/scheduled_tasks.json|*/.claude/skills|*/.claude/workflows) named=1;;
+  esac
+  if [ "$named" = 1 ] && [ -f "$f" ] && [ ! -s "$f" ]; then placeholders="$placeholders $f"; fi
+done
+[ -z "$placeholders" ] || hook_fail "sandbox placeholder file(s) staged:$placeholders (empty, left by the Claude Code sandbox); unstage them: git restore --staged$placeholders"
+
+# Oversized files, measured on the staged blob (lib.sh MAX_FILE_KB).
+if [ "$MAX_FILE_KB" -gt 0 ]; then
+  big=""
+  for f in "${files[@]}"; do
+    size="$(git cat-file -s ":$f" 2>/dev/null || echo 0)"
+    [ "$size" -le $((MAX_FILE_KB * 1024)) ] || big="$big $f ($((size / 1024)) KiB)"
+  done
+  [ -z "$big" ] || hook_fail "file(s) over ${MAX_FILE_KB} KiB staged:$big"
+fi
+
+# 2. Secret patterns in the added lines of the staged diff. Documented
+# placeholders (.env.example and friends) and the hooks themselves, which
+# spell the patterns out, are excluded from the scan.
+secret_re='AKIA[0-9A-Z]{16}'
+secret_re="$secret_re|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+secret_re="$secret_re|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{20,}"
+secret_re="$secret_re|glpat-[A-Za-z0-9_-]{20}"
+secret_re="$secret_re|sk-ant-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|sk-[A-Za-z0-9]{32,}"
+secret_re="$secret_re|xox[baprs]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,}"
+secret_re="$secret_re|AIza[0-9A-Za-z_-]{35}"
+secret_re="$secret_re|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}"
+scan_files="$(printf '%s\n' "${files[@]}" | grep -Ev '(^|/)\.env\.(example|sample|template)$|(^|/)\.githooks/' || true)"
+if [ -n "$scan_files" ]; then
+  hit="$(run_on "$scan_files" git diff --cached -U0 -- | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -E "$secret_re" | head -1 || true)"
+  [ -z "$hit" ] || hook_fail "a credential-shaped string is in the staged diff: $(printf '%s' "$hit" | cut -c1-40)..."
+fi
+
+# 3. Format and lint what is staged, by extension, with what the repo has.
+# gofmt reads the staged blob, so a file fixed in the working tree but not
+# re-added still fails, and an unstaged edit in progress does not. The other
+# tools read the working tree; a file with unstaged changes is named.
+partial="$(git diff --name-only | grep -Fxf <(printf '%s\n' "${files[@]}") || true)"
+[ -z "$partial" ] || hook_note "staged and also modified since (linters other than gofmt read the working copy): $(printf '%s' "$partial" | tr '\n' ' ')"
+go_files="$(by_ext '\.go$')"
+if [ -n "$go_files" ]; then
+  if command -v gofmt >/dev/null; then
+    unformatted=""
+    while IFS= read -r f; do
+      out="$(git show ":$f" | gofmt -l 2>&1)" || out="syntax error"
+      [ -z "$out" ] || unformatted="$unformatted $f"
+    done <<< "$go_files"
+    [ -z "$unformatted" ] || hook_fail "gofmt, staged version:$unformatted (gofmt -w the file, then git add it)"
+  else
+    hook_note "gofmt not on PATH (GUI clients often run hooks with a short PATH); Go files not format-checked"
+  fi
+fi
+ts_files="$(by_ext '\.(ts|tsx|js|jsx|json|css|md)$')"
+if [ -n "$ts_files" ] && [ -x node_modules/.bin/prettier ]; then
+  run_on "$ts_files" node_modules/.bin/prettier --check --log-level warn || hook_fail "prettier: run make fix"
+fi
+py_files="$(by_ext '\.py$')"
+if [ -n "$py_files" ]; then
+  if command -v ruff >/dev/null; then
+    run_on "$py_files" ruff format --check --quiet || hook_fail "ruff format: run make fix"
+    run_on "$py_files" ruff check --quiet || hook_fail "ruff check failed"
+  elif command -v uv >/dev/null && [ -f pyproject.toml ]; then
+    run_on "$py_files" uv run --quiet ruff format --check --quiet || hook_fail "ruff format: run make fix"
+  fi
+fi
+kt_files="$(by_ext '\.kts?$')"
+if [ -n "$kt_files" ] && command -v ktlint >/dev/null; then
+  run_on "$kt_files" ktlint || hook_fail "ktlint: run make fix"
+fi
+swift_files="$(by_ext '\.swift$')"
+if [ -n "$swift_files" ] && command -v swiftformat >/dev/null; then
+  run_on "$swift_files" swiftformat --lint || hook_fail "swiftformat: run make fix"
+fi
+tf_files="$(by_ext '\.tf$')"
+if [ -n "$tf_files" ] && command -v terraform >/dev/null; then
+  run_on "$tf_files" terraform fmt -check >/dev/null || hook_fail "terraform fmt: run make fix"
+fi
+
+# 4. Em dashes in staged prose (lib.sh NO_EM_DASH).
+prose="$(by_ext '\.(md|txt)$')"
+if [ "$NO_EM_DASH" = 1 ] && [ -n "$prose" ]; then
+  dashes=""
+  while IFS= read -r f; do
+    git show ":$f" | grep -qF "$EM_DASH" && dashes="$dashes $f"
+  done <<< "$prose"
+  [ -z "$dashes" ] || hook_fail "em dash in:$dashes"
+fi
+
+hook_note "$count staged file(s) checked"
+exit 0

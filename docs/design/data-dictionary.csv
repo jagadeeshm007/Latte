@@ -1,0 +1,113 @@
+Table,Column,Type,Nullable,Key,Default,References,On Delete,Personal Data,Description,Why
+teams,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the team,every row needs a stable id that does not leak counts
+teams,name,text,No,UQ,,,,No,Team name as managers know it,AC-US-01-001-1 records the team; AC-US-01-008-1 groups by it
+teams,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+products,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the product,every row needs a stable id that does not leak counts
+products,name,text,No,UQ,,,,No,Product name,AC-US-01-001-1 records the product; AC-US-01-008-1 groups by it
+products,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+agents,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the agent,every row needs a stable id that does not leak counts
+agents,team_id,uuid,No,FK,,teams.id,RESTRICT,No,Team the agent belongs to,AC-US-01-008-1 groups by team; a team with agents cannot be deleted
+agents,name,text,No,,,,,Yes,Agent display name,AC-US-01-001-1 records the agent on each call
+agents,external_code,text,Yes,UQ,,,,No,Agent code from the distributor's HR system,uploads name agents by code to avoid duplicate names
+agents,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+profiles,id,uuid,No,PK,,,,No,The Supabase Auth user id (JWT sub),"AC-US-00-003-1 maps a signed-in user to a role; the id is issued by Auth, not generated here"
+profiles,email,text,No,UQ,,,,Yes,"Sign-in email, copied from Auth for display",reviewers are named on decisions (AC-US-01-006-2)
+profiles,display_name,text,No,,,,,Yes,Name shown in the UI,the review record shows who decided (AC-US-01-006-2)
+profiles,role,user_role,No,,,,,No,The user's single role,REQ-001: one role per user decides every permission
+profiles,agent_id,uuid,Yes,FK,,agents.id,RESTRICT,No,Agent record of a user whose role is agent,AC-US-00-001-2: an agent reads only calls of their own agent record
+profiles,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+profiles,updated_at,timestamptz,No,,now(),,,No,When the row last changed,audit of edits; set by the application on every update
+rubrics,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the rubric version,every row needs a stable id that does not leak counts
+rubrics,version,integer,No,UQ,,,,No,Monotonic version number,AC-US-01-004-2: scores show the version they were judged by
+rubrics,name,text,No,,,,,No,Human name of the rubric,managers tell versions apart in the rubric screen (US-01-004)
+rubrics,items,jsonb,No,,,,,No,"Rubric items: key, type, label, description, examples",AC-US-01-004-1: a manager edits items; the scorer reads them (US-01-003)
+rubrics,is_active,boolean,No,,false,,,No,Whether this version scores new calls,AC-US-01-004-1: the saved version becomes active
+rubrics,created_by,uuid,Yes,FK,,profiles.id,SET NULL,No,Manager who saved the version; null for the seeded default,audit of who changed the compliance rubric
+rubrics,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+calls,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the call,every row needs a stable id that does not leak counts
+calls,agent_id,uuid,No,FK,,agents.id,RESTRICT,No,Agent on the left channel,AC-US-01-001-1 records the agent; tenet 4 filters agent reads by it
+calls,team_id,uuid,No,FK,,teams.id,RESTRICT,No,Team at the time of the call,AC-US-01-001-1 records team per call; agents can move teams later
+calls,product_id,uuid,No,FK,,products.id,RESTRICT,No,Product discussed,AC-US-01-001-1 records the product; AC-US-01-008-1 groups by it
+calls,call_date,date,No,,,,,No,Date the call took place,AC-US-01-001-1 records the date; AC-US-01-008-2 filters by range
+calls,batch_id,uuid,No,,,,,No,Upload batch shared by files uploaded together,AC-US-01-001-2: one batch id per multi-file upload
+calls,uploaded_by,uuid,No,FK,,profiles.id,RESTRICT,No,QA reviewer or manager who uploaded,audit of who put the recording in (Q-002)
+calls,original_filename,text,No,,,,,Yes,File name as uploaded,reviewers recognise calls by their source file; file names often carry customer names
+calls,mime_type,text,No,,,,,No,audio/wav or audio/mpeg,AC-US-01-001-3 refuses other types; the decoder is chosen by it
+calls,size_bytes,bigint,No,,,,,No,File size,"AC-US-01-001-3 refuses files over 50 MB, the Supabase per-file cap"
+calls,storage_path,text,Yes,,,,,No,Object path in the private recordings bucket; null once purged,AC-US-02-003-2 signs a URL for it; AC-US-02-003-4 clears it on purge
+calls,duration_ms,integer,Yes,,,,,No,"Recording length, known after decoding",talk ratio and scaling numbers need call length (REQ-014)
+calls,status,call_status,No,,'uploaded',,,No,Pipeline state,AC-US-01-002-1 and AC-US-01-002-2 move it; the call list shows it
+calls,error,text,Yes,,,,,No,"Reason the call failed, safe to show users",AC-US-01-001-4 and AC-US-01-002-5 show why a call failed
+calls,retention_until,date,No,,,,,No,Date after which the audio is purged,AC-US-02-003-4: the purge job deletes audio past this date (Q-004)
+calls,audio_purged_at,timestamptz,Yes,,,,,No,When the audio was deleted,"AC-US-02-003-4: transcript stays, the UI shows audio is gone"
+calls,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+calls,updated_at,timestamptz,No,,now(),,,No,When the row last changed,audit of edits; set by the application on every update
+transcript_segments,id,bigint,No,PK,generated always as identity,,,No,Row id,high-volume child rows; a bigint keeps the index small
+transcript_segments,call_id,uuid,No,FK,,calls.id,CASCADE,No,Call the segment belongs to,AC-US-01-002-2 saves segments per call
+transcript_segments,seq,integer,No,,,,,No,"Order of the segment in the call, both channels merged by start time",the judge cites segments by number (US-01-003); findings point at it
+transcript_segments,channel,speaker_channel,No,,,,,No,Agent or customer,AC-US-01-001-5 labels left as agent and right as customer
+transcript_segments,start_ms,integer,No,,,,,No,"Start in call time, milliseconds",AC-US-01-002-3: times match the recording; AC-US-01-006-1 seeks to it
+transcript_segments,end_ms,integer,No,,,,,No,"End in call time, milliseconds",talk ratio sums segment durations (AC-US-01-003-4)
+transcript_segments,text,text,No,,,,,Yes,Transcribed words,the judge reads it and quotes are matched against it (AC-US-01-003-6)
+transcript_segments,language,text,Yes,,,,,No,Language Whisper detected for the chunk,AC-US-01-002-4 saves the detected language
+transcript_segments,avg_logprob,real,Yes,,,,,No,Whisper confidence for the segment,low-confidence text is shown dimmed so reviewers distrust it
+transcript_segments,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+model_calls,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the model call,every row needs a stable id that does not leak counts
+model_calls,provider,text,No,,,,,No,"groq, openrouter or gemini",AC-US-02-001-2: provider is configuration; cost depends on it
+model_calls,model,text,No,,,,,No,Model id sent to the provider,AC-US-02-001-4 records the model
+model_calls,kind,model_kind,No,,,,,No,"chat, stt or tts",cost is computed differently per kind (AC-US-02-001-4)
+model_calls,purpose,text,No,,,,,No,"What the call was for: score, transcribe, seed_tts, eval",spend is reported by purpose on the usage page
+model_calls,call_id,uuid,Yes,FK,,calls.id,SET NULL,No,"Call the model call served, if any",AC-US-01-003-1 counts chat calls per call
+model_calls,status,model_call_status,No,,,,,No,"ok, error or refused",AC-US-02-001-5 records refusals; failed calls still cost
+model_calls,input_tokens,integer,No,,0,,,No,Prompt tokens billed,AC-US-02-001-4 logs tokens
+model_calls,cached_tokens,integer,No,,0,,,No,Prompt tokens served from cache at half price,cost is exact only with cached tokens priced apart
+model_calls,output_tokens,integer,No,,0,,,No,"Completion tokens, reasoning included",AC-US-02-001-4 logs tokens; the 1000 cap applies to them
+model_calls,audio_seconds,"numeric(10,2)",No,,0,,,No,Billed audio seconds for transcription,Whisper is billed per audio hour with a 10 s minimum
+model_calls,characters,integer,No,,0,,,No,Characters voiced for TTS,Orpheus is billed per character
+model_calls,cost_usd,"numeric(12,6)",No,,0,,,No,Cost of this call in US dollars,AC-US-02-001-5: the budget is the sum of this column
+model_calls,latency_ms,integer,No,,0,,,No,Wall time of the request,operators see slow provider periods on the usage page
+model_calls,error,text,Yes,,,,,No,"Provider or gateway error summary, no content",explains failed and refused rows
+model_calls,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+scores,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the score,every row needs a stable id that does not leak counts
+scores,call_id,uuid,No,FK,,calls.id,CASCADE,No,Scored call; one current score each,AC-US-01-003-1: a scored call has one judgement
+scores,rubric_id,uuid,No,FK,,rubrics.id,RESTRICT,No,Rubric version used,AC-US-01-004-2: scores keep their version
+scores,model_call_id,uuid,Yes,FK,,model_calls.id,SET NULL,No,The judge call that produced it,AC-US-01-003-1 ties the one chat call to the score
+scores,overall_score,"numeric(5,2)",Yes,,,,,No,"Percent of applicable mandatory and quality items met, zero if any breach; null when the judge failed",the scorecard shows a score per call (AC-US-00-001-1)
+scores,judge_status,text,No,,,,,No,"ok when the judge produced valid findings, failed otherwise","a call whose judge failed still reaches QA as unscored with its rule findings (REQ-017, HLD review)"
+scores,judge_error,text,Yes,,,,,No,"Why the judge failed, safe to show reviewers",reviewers see why a queued call is unscored
+scores,talk_ratio,"numeric(4,3)",No,,,,,No,Agent speech time over total speech time,AC-US-01-003-4: computed in code (REQ-014)
+scores,coaching_notes,jsonb,No,,'[]'::jsonb,,,No,Up to three notes from the judge,AC-US-00-002-2 shows them per call
+scores,needs_review,boolean,No,,,,,No,Whether routing sent the call to QA,AC-US-01-005-1 to AC-US-01-005-3
+scores,review_status,review_status,No,,,,,No,"not_required, pending or done",AC-US-01-006-4: completing a review takes the call off the queue
+scores,reviewed_by,uuid,Yes,FK,,profiles.id,RESTRICT,No,Reviewer who completed the review,audit of the human decision (AC-US-01-006-4)
+scores,reviewed_at,timestamptz,Yes,,,,,No,When the review was completed,queue age and agreement over time
+scores,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+scores,updated_at,timestamptz,No,,now(),,,No,When the row last changed,audit of edits; set by the application on every update
+findings,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the finding,every row needs a stable id that does not leak counts
+findings,score_id,uuid,No,FK,,scores.id,CASCADE,No,Score the finding belongs to,a rescore replaces the score and its findings together
+findings,call_id,uuid,No,FK,,calls.id,CASCADE,No,"Call, copied from the score for direct reads",agent scorecard and coaching counts filter findings by the agent's calls (US-00-002)
+findings,item_key,text,No,,,,,No,"Rubric item key, such as guaranteed_returns",AC-US-01-007-1 groups agreement by item
+findings,item_type,rubric_item_type,No,,,,,No,"mandatory, prohibited or quality",routing reads it (AC-US-01-005-1 and AC-US-01-005-2)
+findings,status,finding_status,No,,,,,No,"met, missed, partial, breach, clear or not_applicable",AC-US-01-003-2 and AC-US-01-003-3
+findings,source,finding_source,No,,,,,No,"llm, rule or reviewer",AC-US-01-003-7 adds rule findings; AC-US-01-006-3 adds reviewer findings
+findings,quote,text,Yes,,,,,Yes,Words from the transcript that evidence the finding,REQ-015 links every finding to its quote
+findings,segment_seq,integer,Yes,,,,,No,Transcript segment cited,tenet 2: times come from this segment
+findings,start_ms,integer,Yes,,,,,No,"Start of the evidence, copied from the segment",AC-US-01-006-1 seeks the player here
+findings,end_ms,integer,Yes,,,,,No,"End of the evidence, copied from the segment",the UI highlights the span
+findings,channel,speaker_channel,Yes,,,,,No,Who said the quoted words,a breach by the agent differs from words the customer said
+findings,rationale,text,Yes,,,,,No,Short reason from the judge or reviewer,reviewers decide faster with the judge's reason (US-01-006)
+findings,grounded,boolean,No,,true,,,No,Whether the quote matched the cited segment,AC-US-01-003-6 marks ungrounded findings and routes them
+findings,created_by,uuid,Yes,FK,,profiles.id,RESTRICT,No,Reviewer who added a missed finding,AC-US-01-006-3 records who added it
+findings,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+finding_reviews,id,uuid,No,PK,gen_random_uuid(),,,No,Identifier of the review,every row needs a stable id that does not leak counts
+finding_reviews,finding_id,uuid,No,FK,,findings.id,CASCADE,No,Finding decided on,AC-US-01-006-2: one decision per finding
+finding_reviews,reviewer_id,uuid,No,FK,,profiles.id,RESTRICT,No,Reviewer who decided,AC-US-01-006-2 saves the reviewer
+finding_reviews,decision,review_decision,No,,,,,No,agree or disagree,REQ-018
+finding_reviews,note,text,Yes,,,,,Yes,Optional reviewer note,AC-US-01-006-2 allows a note; notes may repeat call details
+finding_reviews,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency
+finding_reviews,updated_at,timestamptz,No,,now(),,,No,When the row last changed,audit of edits; set by the application on every update
+audit_events,id,bigint,No,PK,generated always as identity,,,No,Row id,append-only log; bigint keeps it compact
+audit_events,actor_id,uuid,Yes,FK,,profiles.id,RESTRICT,No,User who acted; null for system jobs,AC-US-02-003-2: access is audited by user; the purge job has no user
+audit_events,action,text,No,,,,,No,"What happened, such as audio_url_issued",AC-US-02-003-2 names the access
+audit_events,call_id,uuid,Yes,FK,,calls.id,SET NULL,No,Call acted on,trace which recording was accessed
+audit_events,created_at,timestamptz,No,,now(),,,No,When the row was created,audit and ordering by recency

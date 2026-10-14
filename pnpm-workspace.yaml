@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+  - evals
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+  msw: false

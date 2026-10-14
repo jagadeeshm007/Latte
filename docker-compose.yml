@@ -1,0 +1,13 @@
+# Local Postgres for the API integration tests (make db). Same major as Supabase.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: scc_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["${POSTGRES_PORT:-54329}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 20

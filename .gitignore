@@ -1,0 +1,25 @@
+
+# Bearing
+.scratch/
+deliverables/
+.bearing/state/
+.claude/settings.local.json
+# 0-byte placeholders the Claude Code sandbox holds while a command runs
+/.bashrc
+/.bash_profile
+/.zshrc
+/.zprofile
+/.profile
+/.ripgreprc
+/.gitconfig
+
+
+# node
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

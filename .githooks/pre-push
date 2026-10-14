@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# pre-push: judged on the refs git hands the hook, not on the checked-out
+# branch, so `git push origin HEAD:main` is refused like `git push` from main.
+# Per ref: no push to or deletion of a protected branch, the branch name
+# convention, and every commit's message re-checked (a commit made with
+# --no-verify is caught here). Then the confirmation lib.sh's PUSH_CONFIRM
+# asks for, and the full gate once before anything leaves the machine.
+HOOK_NAME=pre-push
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
+remote="${1:-origin}"
+zero='0000000000000000000000000000000000000000'
+tmp="$(mktemp "${TMPDIR:-/tmp}/pre-push.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+
+# Commits already on a protected branch here or on the remote are not this
+# push's to answer for: older history that predates the rules must not block
+# every new branch.
+known=()
+for b in $PROTECTED_BRANCHES; do
+  git rev-parse -q --verify "refs/heads/$b" >/dev/null && known+=("refs/heads/$b")
+done
+
+# git feeds one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+refs=0; commits=0; checked=0; dest=""; pushed_shas=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -n "$local_ref" ] || continue
+  refs=$((refs+1))
+  case "$remote_ref" in
+    refs/heads/*) rbranch="${remote_ref#refs/heads/}" ;;
+    *) hook_note "$remote_ref: not a branch, branch rules not applied"; continue ;;
+  esac
+  if is_protected "$rbranch"; then
+    [ "$local_sha" = "$zero" ] && hook_fail "deleting $rbranch on $remote is not allowed"
+    hook_fail "direct push to $rbranch is not allowed (from $local_ref); open a merge request"
+  fi
+  [ "$local_sha" = "$zero" ] && { hook_note "delete $rbranch"; continue; }
+  printf '%s' "$rbranch" | grep -Eq "$BRANCH_RE" \
+    || hook_fail "branch '$rbranch' does not match (${BRANCH_PREFIXES})/<TASK-ID>-<ShortName> or release/vX.Y.Z"
+  if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    range=("$local_sha" --not --remotes="$remote" ${known[@]+"${known[@]}"})
+  else
+    range=("$remote_sha..$local_sha")
+  fi
+  n=0; task="$(task_of "$rbranch")"
+  for c in $(git rev-list --no-merges "${range[@]}"); do
+    git log -1 --format=%B "$c" > "$tmp"
+    problem="$(message_problem "$tmp" "$task")" || hook_fail "commit $(git rev-parse --short "$c") on $rbranch: $problem (reword it: git rebase -i)"
+    n=$((n+1))
+  done
+  commits=$((commits+n)); checked=$((checked+1))
+  dest="${dest:-$rbranch}"; pushed_shas="$pushed_shas $local_sha"
+  hook_note "$local_ref -> $remote_ref: $n new commit message(s) checked"
+done
+[ "$refs" -gt 0 ] || hook_fail "git handed the hook 0 refs; nothing checked"
+[ "$checked" -gt 0 ] || { hook_note "$refs ref(s), none a branch update; gate not needed"; exit 0; }
+
+# Confirmation (lib.sh PUSH_CONFIRM). The engineer pushes; a coding agent
+# does not.
+agent=""
+for v in CLAUDECODE CLAUDE_CODE_ENTRYPOINT CODEX_SANDBOX CODEX_SANDBOX_NETWORK_DISABLED GEMINI_CLI CURSOR_AGENT; do
+  [ -n "${!v:-}" ] && { agent="$v"; break; }
+done
+case "$PUSH_CONFIRM" in
+  off) ;;
+  agents) [ -z "$agent" ] || hook_fail "a coding agent is pushing ($agent is set); the engineer runs git push" ;;
+  *)
+    [ -z "$agent" ] || hook_fail "a coding agent is pushing ($agent is set); the engineer runs git push"
+    # A pipeline that pushes opts in with both a CI marker and the kit flag.
+    if { [ "${CI:-}" = true ] || [ -n "${GITLAB_CI:-}${GITHUB_ACTIONS:-}" ]; } && [ "${BEARING_PUSH_CONFIRMED:-0}" = 1 ]; then
+      hook_note "push confirmed by CI (BEARING_PUSH_CONFIRMED=1)"
+    else
+      { exec 3<>/dev/tty; } 2>/dev/null \
+        || hook_fail "no terminal to confirm the push (PUSH_CONFIRM=tty in .githooks/lib.sh); push from a terminal, or set PUSH_CONFIRM=agents"
+      printf 'Push %s to %s? Type the branch name to confirm (60 s): ' "$dest" "$remote" >&3
+      read -r -t 60 typed <&3 || typed=""
+      exec 3>&-
+      [ "$typed" = "$dest" ] || hook_fail "push not confirmed"
+    fi ;;
+esac
+
+# The gate runs on the working tree, which is what was pushed only when HEAD
+# is the pushed commit and nothing tracked is modified. Say so when it is not.
+head="$(git rev-parse -q --verify HEAD || true)"
+case " $pushed_shas " in *" $head "*) ;; *) hook_note "the gate runs on the checkout ($head), not on the pushed ref(s)";; esac
+git diff --quiet HEAD -- 2>/dev/null || hook_note "tracked files are modified; the gate result includes uncommitted changes"
+if [ "$GATE_CMD" = "make check" ]; then
+  makefile=""
+  for m in GNUmakefile makefile Makefile; do [ -f "$m" ] && { makefile="$m"; break; }; done
+  [ -n "$makefile" ] || hook_fail "no Makefile; add a check target or set GATE_CMD in .githooks/lib.sh"
+  grep -qE '^check:' "$makefile" || hook_fail "no check target in $makefile; add one or set GATE_CMD in .githooks/lib.sh"
+fi
+hook_note "running $GATE_CMD"
+bash -c "$GATE_CMD" </dev/null || hook_fail "$GATE_CMD failed; nothing was pushed"
+hook_note "$checked branch ref(s), $commits commit message(s) checked, gate passed"
+exit 0

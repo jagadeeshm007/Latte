@@ -1,0 +1,17 @@
+{
+  "project": "SalesCall",
+  "group": "SalesCall",
+  "repos": [
+    {
+      "name": "SalesCallPlatform",
+      "git_path": "SalesCall/Server/SalesCallPlatform",
+      "stack": "node-api",
+      "tech": "pnpm workspace: Express 5 API and pg-boss worker (TypeScript), React 19 + Vite + coss ui web app, shared Zod schemas, evals",
+      "responsibility": "The whole product: API, worker, model gateway, web app, eval harness; uses the hosted Supabase project",
+      "apps": [
+        {"path": "apps/api", "name": "API and worker", "for": "QA reviewers, agents and managers through the web app; the background jobs"},
+        {"path": "apps/web", "name": "Web app", "for": "QA reviewers, sales agents and managers in a browser"}
+      ]
+    }
+  ]
+}

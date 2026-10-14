@@ -1,0 +1,12 @@
+| Enum | Values | Why the set is closed |
+| --- | --- | --- |
+| `user_role` | qa_reviewer, agent, manager | the three roles the PRD names (REQ-001); a new role is a product decision |
+| `call_status` | uploaded, transcribing, transcribed, scoring, scored, failed | the pipeline states of US-01-001 to US-01-003; each is a step a job moves |
+| `speaker_channel` | agent, customer | stereo has two channels, left agent and right customer (REQ-005) |
+| `rubric_item_type` | mandatory, prohibited, quality | the three item kinds the spec lists (REQ-011 to REQ-013) |
+| `finding_status` | met, missed, partial, breach, clear, not_applicable | met, missed and partial for mandatory and quality items; breach and clear for prohibited items; not_applicable when the call gives no occasion |
+| `finding_source` | llm, rule, reviewer | who produced the finding: the judge, the rule net (tenet 3) or a QA reviewer adding a miss (Q-008) |
+| `review_status` | not_required, pending, done | routing state of US-01-005 and US-01-006 |
+| `review_decision` | agree, disagree | the two choices REQ-018 gives a reviewer |
+| `model_kind` | chat, stt, tts | the three kinds of model call the gateway makes (ADR-0005 to ADR-0007) |
+| `model_call_status` | ok, error, refused | refused records a budget refusal (AC-US-02-001-5) as well as success and failure |

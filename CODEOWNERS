@@ -1,0 +1,23 @@
+# Code ownership and the approval rule.
+#
+# Every Merge Request needs one peer and one lead. GitLab reads this file for
+# the "Code Owners" approval rule; set the rule to require approval from code
+# owners and the number of approvals to two in the project settings.
+#
+# Replace the placeholders with GitLab usernames or groups.
+
+*                       @lead @engineering
+
+# The standard itself: any change to how agents and CI behave needs the lead.
+/AGENTS.md              @lead
+/CLAUDE.md              @lead
+/.claude/               @lead
+/.githooks/             @lead
+/.gitlab-ci.yml         @lead
+/.gitlab/               @lead
+/CODEOWNERS             @lead
+/SECURITY.md            @lead
+
+# Boundaries get a second look.
+/**/migrations/         @lead
+/docs/adr/              @lead
