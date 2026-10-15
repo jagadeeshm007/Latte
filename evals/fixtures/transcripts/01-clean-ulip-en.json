@@ -1,0 +1,215 @@
+{
+  "segments": [
+    {
+      "seq": 0,
+      "channel": "agent",
+      "startMs": 490,
+      "endMs": 6410,
+      "text": "Good morning. This is Ravi calling from Suraksha Life Insurance. Am I speaking with Mr. Sharma?"
+    },
+    {
+      "seq": 1,
+      "channel": "customer",
+      "startMs": 7300,
+      "endMs": 9500,
+      "text": "Yes, speaking. Who is this again?"
+    },
+    {
+      "seq": 2,
+      "channel": "agent",
+      "startMs": 10760,
+      "endMs": 15860,
+      "text": "Ravi from Suraksha Life. You had asked for a callback about our plans on our website."
+    },
+    {
+      "seq": 3,
+      "channel": "customer",
+      "startMs": 17140,
+      "endMs": 19420,
+      "text": "Oh, yes, I did. Go ahead."
+    },
+    {
+      "seq": 4,
+      "channel": "agent",
+      "startMs": 20570,
+      "endMs": 24330,
+      "text": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "seq": 5,
+      "channel": "customer",
+      "startMs": 26110,
+      "endMs": 28770,
+      "text": "It is the 14th of August, 1986."
+    },
+    {
+      "seq": 6,
+      "channel": "agent",
+      "startMs": 30530,
+      "endMs": 32450,
+      "text": "Thank you. That matches our records."
+    },
+    {
+      "seq": 7,
+      "channel": "agent",
+      "startMs": 33390,
+      "endMs": 38090,
+      "text": "Can I ask what you are mainly saving for and who depends on your income?"
+    },
+    {
+      "seq": 8,
+      "channel": "customer",
+      "startMs": 39810,
+      "endMs": 41210,
+      "text": "Mostly my daughter's education."
+    },
+    {
+      "seq": 9,
+      "channel": "customer",
+      "startMs": 42310,
+      "endMs": 43090,
+      "text": "She is six."
+    },
+    {
+      "seq": 10,
+      "channel": "customer",
+      "startMs": 43790,
+      "endMs": 46410,
+      "text": "My wife and my mother depend on me, too."
+    },
+    {
+      "seq": 11,
+      "channel": "agent",
+      "startMs": 47710,
+      "endMs": 49330,
+      "text": "And do you already have any life cover?"
+    },
+    {
+      "seq": 12,
+      "channel": "agent",
+      "startMs": 49330,
+      "endMs": 57770,
+      "text": "Based on that, I would suggest our Sraksha ULAP."
+    },
+    {
+      "seq": 13,
+      "channel": "customer",
+      "startMs": 50770,
+      "endMs": 53070,
+      "text": "Only a small group policy through my office."
+    },
+    {
+      "seq": 14,
+      "channel": "agent",
+      "startMs": 58830,
+      "endMs": 63610,
+      "text": "Part of your premium buys life cover and the rest is invested in funds you choose."
+    },
+    {
+      "seq": 15,
+      "channel": "customer",
+      "startMs": 65020,
+      "endMs": 66200,
+      "text": "How much would I need to pay?"
+    },
+    {
+      "seq": 16,
+      "channel": "agent",
+      "startMs": 67680,
+      "endMs": 72860,
+      "text": "For 5 lakh of cover, around 50,000 rupees a year for 10 years."
+    },
+    {
+      "seq": 17,
+      "channel": "agent",
+      "startMs": 73920,
+      "endMs": 76060,
+      "text": "Please note this is a market-linked plan,"
+    },
+    {
+      "seq": 18,
+      "channel": "agent",
+      "startMs": 76300,
+      "endMs": 79280,
+      "text": "so returns are not guaranteed and depend on how the funds perform."
+    },
+    {
+      "seq": 19,
+      "channel": "agent",
+      "startMs": 80320,
+      "endMs": 84940,
+      "text": "There is a premium allocation charge of 4% in the first year,"
+    },
+    {
+      "seq": 20,
+      "channel": "agent",
+      "startMs": 84940,
+      "endMs": 87500,
+      "text": "and the money is locked in for 5 years."
+    },
+    {
+      "seq": 21,
+      "channel": "agent",
+      "startMs": 87620,
+      "endMs": 93520,
+      "text": "Would you like me to go ahead and generate the proposal in your name?"
+    },
+    {
+      "seq": 22,
+      "channel": "customer",
+      "startMs": 88700,
+      "endMs": 89560,
+      "text": "Okay, understood."
+    },
+    {
+      "seq": 23,
+      "channel": "customer",
+      "startMs": 94670,
+      "endMs": 96350,
+      "text": "Yes, please go ahead."
+    },
+    {
+      "seq": 24,
+      "channel": "agent",
+      "startMs": 97620,
+      "endMs": 101180,
+      "text": "Once you receive the policy document, you have a 30-day free look period."
+    },
+    {
+      "seq": 25,
+      "channel": "agent",
+      "startMs": 101640,
+      "endMs": 106700,
+      "text": "If you change your mind in that time, you can cancel and get your premium back after small deductions."
+    },
+    {
+      "seq": 26,
+      "channel": "agent",
+      "startMs": 107030,
+      "endMs": 111310,
+      "text": "Thank you for your time."
+    },
+    {
+      "seq": 27,
+      "channel": "customer",
+      "startMs": 108630,
+      "endMs": 109270,
+      "text": "Good to know."
+    },
+    {
+      "seq": 28,
+      "channel": "agent",
+      "startMs": 111850,
+      "endMs": 114050,
+      "text": "You will receive the documents by email today."
+    },
+    {
+      "seq": 29,
+      "channel": "customer",
+      "startMs": 115430,
+      "endMs": 116630,
+      "text": "Thank you. Bye."
+    }
+  ],
+  "planted": []
+}

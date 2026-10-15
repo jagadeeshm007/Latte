@@ -21,7 +21,14 @@ import {
   saveRubricVersion,
   usageThisMonth,
 } from "../repo/reference.ts";
-import { addReviewerFinding, completeReview, findingCall, upsertReview } from "../repo/scores.ts";
+import {
+  addReviewerFinding,
+  completeReview,
+  findingCall,
+  rescoreAfterReview,
+  scoreRubricItems,
+  upsertReview,
+} from "../repo/scores.ts";
 
 const idParam = z.object({ id: z.uuid() });
 
@@ -55,15 +62,22 @@ export function reviewRouter(deps: AppDeps): Router {
     const found = await findingCall(pool, id);
     if (!found) throw new NotFoundError("finding not found");
     if (found.review_status === "done") throw new ConflictError("this review is already complete");
-    await upsertReview(pool, id, currentUser(req).id, body.decision, body.note ?? null);
+    const user = currentUser(req);
+    await inTransaction(pool, async (client) => {
+      await upsertReview(client, id, user.id, body.decision, body.note ?? null);
+      // Each decision is audited, so a later overwrite keeps the earlier one on record.
+      await audit(client, user.id, "finding_decided", found.call_id);
+    });
     res.status(204).end();
   });
 
   router.post("/calls/:id/findings", qa, async (req, res) => {
     const { id } = idParam.parse(req.params);
     const body = addFindingRequestSchema.parse(req.body);
-    const rubric = await rubricOrFail(deps);
-    const item = rubric.items.find((i) => i.key === body.itemKey);
+    // The call's own rubric version: the dialog lists its items, not today's (review finding 7).
+    const items = await scoreRubricItems(pool, id);
+    if (!items) throw new ConflictError("this call has no open review");
+    const item = items.find((i) => i.key === body.itemKey);
     if (!item) throw new AppError("unknown rubric item", 400, "validation_error");
     if (!statusFits(item, body.status))
       throw new AppError(
@@ -103,7 +117,10 @@ export function reviewRouter(deps: AppDeps): Router {
     const user = currentUser(req);
     const outcome = await inTransaction(pool, async (client) => {
       const result = await completeReview(client, id, user.id);
-      if (result === "done") await audit(client, user.id, "review_completed", id);
+      if (result === "done") {
+        await rescoreAfterReview(client, id);
+        await audit(client, user.id, "review_completed", id);
+      }
       return result;
     });
     if (outcome === "undecided")

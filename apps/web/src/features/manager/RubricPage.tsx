@@ -167,7 +167,10 @@ export function RubricEditor({ rubric }: { rubric: Rubric }) {
         </div>
         <ul className="divide-y">
           {items.map((item, index) => (
-            <li key={index} className="grid gap-2 px-4 py-2.5 md:grid-cols-[12rem_9rem_1fr_2rem]">
+            <li
+              key={index}
+              className="grid items-start gap-2 px-4 py-2.5 md:grid-cols-[12rem_9rem_1fr_2rem]"
+            >
               <div className="flex flex-col gap-1">
                 <Input
                   size="sm"

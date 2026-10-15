@@ -134,6 +134,7 @@ One uploaded recording and its pipeline state. Serves US-01-001, US-01-002, US-0
 - `idx_calls_product_id_call_date` on (product_id, call_date): dashboard by product and date range (US-01-008); FK index.
 - `idx_calls_status_created_at` on (status, created_at DESC): call list filtered by status.
 - `idx_calls_batch_id` on (batch_id): show an upload batch.
+- `uq_calls_storage_path` on (storage_path) WHERE storage_path IS NOT NULL: one call per uploaded object, so a repeated confirm cannot spend the budget twice (migration 0002).
 - `idx_calls_uploaded_by` on (uploaded_by): FK index.
 - `idx_calls_retention_until` on (retention_until) WHERE audio_purged_at IS NULL: purge job finds calls due; the query must repeat WHERE audio_purged_at IS NULL.
 

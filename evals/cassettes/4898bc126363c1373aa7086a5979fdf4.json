@@ -7,41 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-1fc5d876-1e5b-4fa2-a3e5-1fdcb7488c8d",
+      "id": "chatcmpl-3c5fea56-b692-4043-a3c9-3e4072783d89",
       "object": "chat.completion",
-      "created": 1791993988,
+      "created": 1792040569,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [15, 16, 17],\n      \"note\": \"Explained market‑linked nature, no guarantee, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [19, 20],\n      \"note\": \"Asked to proceed and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [21],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Agent never claimed guaranteed returns.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false statements about product or coverage.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7],\n      \"note\": \"Asked about saving goal and dependants.\"\n    }\n  ],\n  \"coaching\": [\n    \"Confirm the customer's policy number as an additional identity check for stronger verification.\",\n    \"After disclosure, summarize key risks and charges in plain language to ensure customer understanding.\",\n    \"Reiterate the free‑look period before ending the call to reinforce cooling‑off rights.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [15, 16, 17],\n      \"note\": \"Explained market‑linked nature, no guarantee, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [19, 20],\n      \"note\": \"Asked to proceed and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [21],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guaranteed‑return claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product described accurately.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about goals, dependents and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Confirm the customer's name early to personalize the call.\",\n    \"Summarize key product features again before closing to reinforce understanding.\",\n    \"Ask if the customer has any remaining questions before ending the call.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.41641469,
+        "queue_time": 0.315364986,
         "prompt_tokens": 1724,
-        "prompt_time": 0.214630344,
-        "completion_tokens": 630,
-        "completion_time": 2.835991781,
-        "total_tokens": 2354,
-        "total_time": 3.050622125,
-        "prompt_tokens_details": {
-          "cached_tokens": 1024
-        },
+        "prompt_time": 0.078112749,
+        "completion_tokens": 622,
+        "completion_time": 1.31100268,
+        "total_tokens": 2346,
+        "total_time": 1.389115429,
         "completion_tokens_details": {
-          "reasoning_tokens": 178
+          "reasoning_tokens": 182
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_bb691ea66b",
+      "system_fingerprint": "fp_df9620fe21",
       "x_groq": {
-        "id": "req_01m4xjmddqe5wszkevjzwanvgf",
-        "seed": 606432176
+        "id": "req_01m4yz20ycebwaqrn119f5w847",
+        "seed": 1922270294
       },
       "service_tier": "on_demand"
     }

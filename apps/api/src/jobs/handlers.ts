@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { BudgetExceededError, type Gateway, RateLimitedError } from "@scc/gateway";
 import type { Logger } from "pino";
 
 import { AudioError } from "../audio/decode.ts";
-import { transcribeRecording } from "../audio/transcribe.ts";
+import { type SttChunkResult, transcribeRecording } from "../audio/transcribe.ts";
 import { inTransaction, type Pool } from "../db/pool.ts";
 import * as calls from "../repo/calls.ts";
 import { activeRubric, audit } from "../repo/reference.ts";
@@ -27,18 +29,31 @@ export interface JobDeps {
 export interface JobInfo {
   callId: string;
   retryCount: number;
+  /** How many times a rate limit has already pushed this call back. */
+  reschedules?: number;
 }
 
 const BUDGET_MESSAGE = "Model budget exhausted for this month; raise LLM_BUDGET_USD, then retry";
+/** A job left in flight this long has crashed or expired; its call may be claimed again. */
+export const STALE_SECONDS = 20 * 60;
+/** After this many rate-limit reschedules the call fails with a reason instead of waiting forever. */
+export const MAX_RESCHEDULES = 12;
+
+// Chunks already transcribed in this process, so a rate limit part way through
+// a recording does not pay for the earlier chunks again on the next attempt.
+const chunkCache = new Map<string, SttChunkResult>();
+const CHUNK_CACHE_MAX = 500;
+function remember(key: string, value: SttChunkResult): void {
+  if (chunkCache.size >= CHUNK_CACHE_MAX) {
+    const oldest = chunkCache.keys().next().value;
+    if (oldest !== undefined) chunkCache.delete(oldest);
+  }
+  chunkCache.set(key, value);
+}
 
 export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<void> {
   const { pool, log } = deps;
-  const call = await calls.claimCall(
-    pool,
-    job.callId,
-    ["uploaded", "transcribing"],
-    "transcribing",
-  );
+  const call = await calls.claimCall(pool, job.callId, "uploaded", "transcribing", STALE_SECONDS);
   if (!call) {
     log.info({ callId: job.callId }, "transcribe: call not in a transcribable state, skipped");
     return;
@@ -53,11 +68,16 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
       bytes,
       call.mime_type,
       async (wav, durationSeconds, label) => {
+        const key = `${call.id}:${createHash("sha256").update(wav).digest("hex")}`;
+        const cached = chunkCache.get(key);
+        if (cached) return cached;
         const result = await deps.gateway.callModel(
           { kind: "stt", audio: wav, filename: `${call.id}-${label}.wav`, durationSeconds },
           { purpose: "transcribe", callId: call.id },
         );
-        return { language: result.language, segments: result.segments };
+        const chunk = { language: result.language, segments: result.segments };
+        remember(key, chunk);
+        return chunk;
       },
     );
     await inTransaction(pool, async (client) => {
@@ -68,13 +88,13 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
     await deps.enqueue(QUEUES.score, { callId: call.id });
     log.info({ callId: call.id, segments: transcript.segments.length }, "transcribed");
   } catch (error) {
-    await handleFailure(deps, job, error, QUEUES.transcribe);
+    await handleFailure(deps, job, error, QUEUES.transcribe, "uploaded");
   }
 }
 
 export async function handleScore(deps: JobDeps, job: JobInfo): Promise<void> {
   const { pool, log } = deps;
-  const call = await calls.claimCall(pool, job.callId, ["transcribed", "scoring"], "scoring");
+  const call = await calls.claimCall(pool, job.callId, "transcribed", "scoring", STALE_SECONDS);
   if (!call) {
     log.info({ callId: job.callId }, "score: call not in a scorable state, skipped");
     return;
@@ -134,7 +154,7 @@ export async function handleScore(deps: JobDeps, job: JobInfo): Promise<void> {
       "scored",
     );
   } catch (error) {
-    await handleFailure(deps, job, error, QUEUES.score);
+    await handleFailure(deps, job, error, QUEUES.score, "transcribed");
   }
 }
 
@@ -143,15 +163,27 @@ async function handleFailure(
   job: JobInfo,
   error: unknown,
   queue: "transcribe" | "score",
+  /** The state that lets the next attempt claim the call again. */
+  ready: "uploaded" | "transcribed",
 ): Promise<void> {
   const { pool, log } = deps;
   if (error instanceof RateLimitedError) {
+    const reschedules = (job.reschedules ?? 0) + 1;
+    if (reschedules > MAX_RESCHEDULES) {
+      await calls.markFailed(
+        pool,
+        job.callId,
+        "The model provider kept rate limiting this call; retry later or raise the plan limits",
+      );
+      return;
+    }
     const seconds = Math.ceil(error.waitMs / 1000) + 1;
     log.warn(
-      { callId: job.callId, seconds, model: error.model },
+      { callId: job.callId, seconds, model: error.model, reschedules },
       `${queue}: rate limited, rescheduled`,
     );
-    await deps.enqueue(queue, { callId: job.callId }, { startAfterSeconds: seconds });
+    await calls.setStatus(pool, job.callId, ready);
+    await deps.enqueue(queue, { callId: job.callId, reschedules }, { startAfterSeconds: seconds });
     return;
   }
   if (error instanceof AudioError) {
@@ -173,6 +205,8 @@ async function handleFailure(
     );
     return;
   }
+  // Hand the call back so pg-boss's retry of this job can claim it.
+  await calls.setStatus(pool, job.callId, ready);
   throw error;
 }
 
@@ -202,6 +236,7 @@ export async function handlePurge(
     await storage.remove(stale);
     orphans += stale.length;
   }
-  log.info({ purged, orphans }, "purge done");
+  const stuck = await calls.failStuckCalls(pool, 2 * 3600);
+  log.info({ purged, orphans, stuck }, "purge done");
   return { purged, orphans };
 }

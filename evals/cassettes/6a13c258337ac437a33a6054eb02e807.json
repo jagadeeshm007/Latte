@@ -7,38 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-3f96f7ac-7088-4c67-bf92-f10e8d539b23",
+      "id": "chatcmpl-d150ef4e-3be6-4fe6-bce6-5feb6d0d9387",
       "object": "chat.completion",
-      "created": 1791993952,
+      "created": 1792040533,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No risk, market or lock‑in disclosure provided.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Agent never asked for explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No free‑look or cooling‑off period mentioned.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [10],\n      \"note\": \"Claimed a fully guaranteed 10% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [14],\n      \"note\": \"Pressed customer with ‘scheme closes today’ deadline.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [12],\n      \"note\": \"Stated ULIP works like a savings account with no lock‑in.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not ask about customer’s needs or existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Ask open‑ended questions to uncover the customer's needs before recommending a product.\",\n    \"Always disclose market risks, charges and lock‑in periods for ULIPs; avoid any guaranteed return statements.\",\n    \"Never use pressure tactics; give the customer time and explain the cooling‑off period clearly.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Failed to disclose market risk, charges, lock‑in; gave misleading guarantee.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No explicit agreement obtained before proceeding.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No free‑look or cooling‑off period mentioned.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [10],\n      \"note\": \"Claimed a fully guaranteed 10% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [14],\n      \"note\": \"Pressed customer with ‘scheme closes today’ urgency.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [12],\n      \"note\": \"Stated ULIP works like a savings account with no lock‑in, which is false.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not ask about customer needs, goals, or existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Ask open‑ended questions to uncover the customer's needs before recommending a product.\",\n    \"Provide full, accurate disclosures of risks, charges, and lock‑in periods for ULIPs.\",\n    \"Never claim guaranteed returns or create false urgency; obtain clear consent before proceeding.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.410483583,
+        "queue_time": 0.309328153,
         "prompt_tokens": 1517,
-        "prompt_time": 0.176797876,
-        "completion_tokens": 733,
-        "completion_time": 1.52616159,
-        "total_tokens": 2250,
-        "total_time": 1.702959466,
+        "prompt_time": 0.084173264,
+        "completion_tokens": 720,
+        "completion_time": 1.495127464,
+        "total_tokens": 2237,
+        "total_time": 1.579300728,
         "completion_tokens_details": {
-          "reasoning_tokens": 262
+          "reasoning_tokens": 245
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_fe269835c7",
+      "system_fingerprint": "fp_c800245357",
       "x_groq": {
-        "id": "req_01m4xjkcfpe9ea02bdb3qmx16e",
-        "seed": 1514163361
+        "id": "req_01m4yz0xjbetsrn2eyc767qc2d",
+        "seed": 1381046346
       },
       "service_tier": "on_demand"
     }

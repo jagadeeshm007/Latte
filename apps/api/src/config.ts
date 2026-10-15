@@ -26,6 +26,8 @@ const envSchema = z.object({
   SUPABASE_POOLER_HOST: z.string().default("aws-0-ap-south-1.pooler.supabase.com"),
   DB_POOL_MAX: z.coerce.number().int().min(1).default(3),
   DB_SSL: boolString,
+  // Path to the Supabase root CA (Dashboard > Database > SSL). When set, the server certificate is verified.
+  DB_SSL_CA: z.string().min(1).optional(),
 
   SUPABASE_URL: z.url(),
   SUPABASE_SECRET_KEY: z.string().min(10),
@@ -107,4 +109,15 @@ export function jwksUrl(config: Pick<Config, "SUPABASE_URL" | "SUPABASE_JWKS_URL
     config.SUPABASE_JWKS_URL ??
     `${config.SUPABASE_URL.replace(/\/+$/, "")}/auth/v1/.well-known/jwks.json`
   );
+}
+
+/** sslOptions verifies the server with the given CA when one is configured (security review). */
+export function sslOptions(
+  config: Pick<Config, "DATABASE_URL" | "DB_SSL" | "DB_SSL_CA" | "SUPABASE_POOLER_HOST">,
+  readCa: (path: string) => string,
+): { ca: string; rejectUnauthorized: true } | { rejectUnauthorized: false } | undefined {
+  if (!usesTls(config)) return undefined;
+  return config.DB_SSL_CA
+    ? { ca: readCa(config.DB_SSL_CA), rejectUnauthorized: true }
+    : { rejectUnauthorized: false };
 }

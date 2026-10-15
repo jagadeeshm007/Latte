@@ -51,6 +51,12 @@ export default defineConfig({
     url: `http://localhost:${String(port)}`,
     reuseExistingServer: !isCI,
     timeout: 120_000,
+    // Specs mock the API and Supabase; these hosts never resolve, so nothing real is called.
+    env: {
+      VITE_API_URL: "http://api.e2e",
+      VITE_SUPABASE_URL: "https://e2e-ref.supabase.co",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "e2e",
+    },
   },
   projects: [
     ...[...desktop, ...mobile].map((p) => ({ ...p, testIgnore: /visual\// })),

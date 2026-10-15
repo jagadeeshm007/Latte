@@ -7,38 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-99b57f9b-c3ca-4844-a8bf-d9f37e0d282e",
+      "id": "chatcmpl-9bfa19df-7d75-44a2-9e56-3760aea1fc1c",
       "object": "chat.completion",
-      "created": 1791994042,
+      "created": 1792040642,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"partial\",\n      \"segments\": [15, 18],\n      \"note\": \"Provided premium and coverage but omitted exclusions/waiting periods.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [16, 17],\n      \"note\": \"Asked and received explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [18],\n      \"note\": \"Explained 30‑day free‑look period.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [13],\n      \"note\": \"Incorrectly claimed no waiting period for diabetes coverage.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about goals, dependants, and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Verify product waiting periods before stating them to avoid misrepresentation.\",\n    \"Provide full disclosure of key exclusions and any waiting periods alongside premium details.\",\n    \"Confirm all statements with policy documents to ensure accuracy.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [15, 13],\n      \"note\": \"Provided premium amount and stated no waiting period.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [16, 17],\n      \"note\": \"Asked and received explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [18],\n      \"note\": \"Explained 30‑day free‑look period.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [13],\n      \"note\": \"Claimed no waiting period for pre‑existing diabetes, likely inaccurate.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about savings goal, dependants, and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Verify policy terms before stating no waiting period to avoid misrepresentation.\",\n    \"When discussing health cover, clearly outline any exclusions or conditions that may apply.\",\n    \"Continue using open‑ended discovery questions to understand customer needs.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.216446409,
+        "queue_time": 0.498625638,
         "prompt_tokens": 1627,
-        "prompt_time": 0.087514233,
-        "completion_tokens": 715,
-        "completion_time": 1.491377608,
-        "total_tokens": 2342,
-        "total_time": 1.578891841,
+        "prompt_time": 0.090044067,
+        "completion_tokens": 702,
+        "completion_time": 1.471763227,
+        "total_tokens": 2329,
+        "total_time": 1.5618072939999998,
         "completion_tokens_details": {
-          "reasoning_tokens": 267
+          "reasoning_tokens": 248
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_c15aa9c1b7",
+      "system_fingerprint": "fp_8655ddce88",
       "x_groq": {
-        "id": "req_01m4xjp4n5e9yrkeejdhhhs3af",
-        "seed": 1407286100
+        "id": "req_01m4yz4819ek4bbpy3f8fghszf",
+        "seed": 1035020225
       },
       "service_tier": "on_demand"
     }

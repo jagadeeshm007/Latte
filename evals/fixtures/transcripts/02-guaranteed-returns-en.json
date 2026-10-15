@@ -1,0 +1,222 @@
+{
+  "segments": [
+    {
+      "seq": 0,
+      "channel": "agent",
+      "startMs": 670,
+      "endMs": 4190,
+      "text": "Good morning, this is Ravi calling from Siraksha Life Insurance."
+    },
+    {
+      "seq": 1,
+      "channel": "agent",
+      "startMs": 4550,
+      "endMs": 6030,
+      "text": "Am I speaking with Mrs. Iyer?"
+    },
+    {
+      "seq": 2,
+      "channel": "customer",
+      "startMs": 6820,
+      "endMs": 9320,
+      "text": "Yes, speaking. Who is this again?"
+    },
+    {
+      "seq": 3,
+      "channel": "agent",
+      "startMs": 10530,
+      "endMs": 11830,
+      "text": "Ravi from Siraksha Life."
+    },
+    {
+      "seq": 4,
+      "channel": "agent",
+      "startMs": 12390,
+      "endMs": 15130,
+      "text": "You had asked for a callback about our plans on our website."
+    },
+    {
+      "seq": 5,
+      "channel": "customer",
+      "startMs": 16800,
+      "endMs": 18740,
+      "text": "Oh, yes, I did."
+    },
+    {
+      "seq": 6,
+      "channel": "customer",
+      "startMs": 19560,
+      "endMs": 20220,
+      "text": "Go ahead."
+    },
+    {
+      "seq": 7,
+      "channel": "agent",
+      "startMs": 22220,
+      "endMs": 27100,
+      "text": "Before we discuss anything, may I confirm your date of birth for verification?"
+    },
+    {
+      "seq": 8,
+      "channel": "customer",
+      "startMs": 29060,
+      "endMs": 31740,
+      "text": "It is the 14th of August, 1986."
+    },
+    {
+      "seq": 9,
+      "channel": "agent",
+      "startMs": 33470,
+      "endMs": 35370,
+      "text": "Thank you. That matches our records."
+    },
+    {
+      "seq": 10,
+      "channel": "agent",
+      "startMs": 36910,
+      "endMs": 41710,
+      "text": "Can I ask what you are mainly saving for, and who depends on your income?"
+    },
+    {
+      "seq": 11,
+      "channel": "customer",
+      "startMs": 43040,
+      "endMs": 44780,
+      "text": "Mostly my daughter's education."
+    },
+    {
+      "seq": 12,
+      "channel": "customer",
+      "startMs": 45560,
+      "endMs": 48520,
+      "text": "She is six. My wife and my mother depend on me, too."
+    },
+    {
+      "seq": 13,
+      "channel": "agent",
+      "startMs": 49650,
+      "endMs": 51810,
+      "text": "And do you already have any life cover?"
+    },
+    {
+      "seq": 14,
+      "channel": "customer",
+      "startMs": 53530,
+      "endMs": 56030,
+      "text": "Only a small group policy through my office."
+    },
+    {
+      "seq": 15,
+      "channel": "agent",
+      "startMs": 58260,
+      "endMs": 61320,
+      "text": "Based on that, I would suggest our Sraksha ULF."
+    },
+    {
+      "seq": 16,
+      "channel": "agent",
+      "startMs": 61820,
+      "endMs": 65300,
+      "text": "Part of your premium buys life cover, and the rest is invested in funds you choose."
+    },
+    {
+      "seq": 17,
+      "channel": "customer",
+      "startMs": 67460,
+      "endMs": 68400,
+      "text": "How much would I need to pay?"
+    },
+    {
+      "seq": 18,
+      "channel": "agent",
+      "startMs": 70620,
+      "endMs": 75140,
+      "text": "For 5 lakh of cover, around 50,000 rupees a year for 10 years."
+    },
+    {
+      "seq": 19,
+      "channel": "customer",
+      "startMs": 76910,
+      "endMs": 79050,
+      "text": "Is there any risk with the investment part?"
+    },
+    {
+      "seq": 20,
+      "channel": "agent",
+      "startMs": 80650,
+      "endMs": 85350,
+      "text": "Honestly, madam, this plan gives guaranteed 12% returns every year."
+    },
+    {
+      "seq": 21,
+      "channel": "agent",
+      "startMs": 85670,
+      "endMs": 87150,
+      "text": "There is no risk at all."
+    },
+    {
+      "seq": 22,
+      "channel": "customer",
+      "startMs": 88580,
+      "endMs": 90360,
+      "text": "That sounds very good."
+    },
+    {
+      "seq": 23,
+      "channel": "agent",
+      "startMs": 92060,
+      "endMs": 95600,
+      "text": "Would you like me to go ahead and generate the proposal in your name?"
+    },
+    {
+      "seq": 24,
+      "channel": "agent",
+      "startMs": 95870,
+      "endMs": 103130,
+      "text": "Once you receive the policy document, you have a 30-day free look period."
+    },
+    {
+      "seq": 25,
+      "channel": "customer",
+      "startMs": 97160,
+      "endMs": 98480,
+      "text": "Yes, please go ahead."
+    },
+    {
+      "seq": 26,
+      "channel": "customer",
+      "startMs": 98660,
+      "endMs": 121800,
+      "text": "Good to know. Thank you. Bye."
+    },
+    {
+      "seq": 27,
+      "channel": "agent",
+      "startMs": 103690,
+      "endMs": 107970,
+      "text": "If you change your mind in that time, you can cancel and get your premium back after small deductions."
+    },
+    {
+      "seq": 28,
+      "channel": "agent",
+      "startMs": 112800,
+      "endMs": 114660,
+      "text": "Thank you for your time."
+    },
+    {
+      "seq": 29,
+      "channel": "agent",
+      "startMs": 115260,
+      "endMs": 117460,
+      "text": "You will receive the documents by email today."
+    }
+  ],
+  "planted": [
+    {
+      "key": "guaranteed_returns",
+      "startMs": 80458,
+      "endMs": 87417,
+      "text": "Honestly madam, this plan gives guaranteed twelve percent returns every year. There is no risk at all."
+    }
+  ]
+}

@@ -31,6 +31,7 @@ export class MonoRecordingError extends AudioError {
 }
 
 export const MAX_DURATION_MS = 2 * 60 * 60 * 1000;
+const MP3_PIECE_BYTES = 256 * 1024;
 
 export async function decodeAudio(bytes: Uint8Array, mimeType: string): Promise<DecodedAudio> {
   const decoded = mimeType === "audio/mpeg" ? await decodeMp3(bytes) : decodeWav(bytes);
@@ -56,11 +57,21 @@ function decodeWav(bytes: Uint8Array): Omit<DecodedAudio, "durationMs"> {
     throw new AudioError("File is not a readable WAV recording");
   }
   // toBitDepth resets wav.fmt in place, so copy the values first.
-  const { numChannels, sampleRate, audioFormat } = wav.fmt as {
+  const { numChannels, sampleRate, audioFormat, byteRate } = wav.fmt as {
     numChannels: number;
     sampleRate: number;
     audioFormat: number;
+    byteRate: number;
   };
+  // Check the header before decoding, so a crafted file cannot make the worker
+  // allocate gigabytes first and fail later (security review).
+  if (!(sampleRate > 0) || !(byteRate > 0) || !(numChannels > 0)) {
+    throw new AudioError("File is not a readable WAV recording");
+  }
+  const dataBytes = (wav.data as { chunkSize: number }).chunkSize;
+  if ((dataBytes / byteRate) * 1000 > MAX_DURATION_MS) {
+    throw new AudioError("Recording is longer than 2 hours");
+  }
   if (audioFormat === 6) {
     wav.fromALaw();
   } else if (audioFormat === 7) {
@@ -78,11 +89,36 @@ async function decodeMp3(bytes: Uint8Array): Promise<Omit<DecodedAudio, "duratio
   const decoder = new MPEGDecoder();
   await decoder.ready;
   try {
-    const result = decoder.decode(bytes);
-    if (result.samplesDecoded === 0) {
+    // Decode in pieces and stop at the duration cap, so a long low-bitrate file
+    // is refused before it fills memory (security review).
+    const parts: Float32Array[][] = [];
+    let sampleRate = 0;
+    let total = 0;
+    for (let offset = 0; offset < bytes.length; offset += MP3_PIECE_BYTES) {
+      const result = decoder.decode(bytes.subarray(offset, offset + MP3_PIECE_BYTES));
+      if (result.samplesDecoded === 0) continue;
+      sampleRate = result.sampleRate;
+      total += result.samplesDecoded;
+      if ((total / sampleRate) * 1000 > MAX_DURATION_MS) {
+        throw new AudioError("Recording is longer than 2 hours");
+      }
+      parts.push(result.channelData);
+    }
+    if (total === 0 || sampleRate <= 0) {
       throw new AudioError("File is not a readable MP3 recording");
     }
-    return { sampleRate: result.sampleRate, channels: result.channelData };
+    const channelCount = Math.max(...parts.map((p) => p.length));
+    const channels = Array.from({ length: channelCount }, (_, c) => {
+      const out = new Float32Array(total);
+      let at = 0;
+      for (const p of parts) {
+        const piece = p[c] ?? p[0] ?? new Float32Array(0);
+        out.set(piece, at);
+        at += piece.length;
+      }
+      return out;
+    });
+    return { sampleRate, channels };
   } finally {
     decoder.free();
   }

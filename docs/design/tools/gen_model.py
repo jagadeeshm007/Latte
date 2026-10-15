@@ -512,6 +512,12 @@ TABLES = [
                 "call list filtered by status",
             ),
             ("idx_calls_batch_id", "", "(batch_id)", "show an upload batch"),
+            (
+                "uq_calls_storage_path",
+                "UNIQUE",
+                "(storage_path) WHERE storage_path IS NOT NULL",
+                "one call per uploaded object, so a repeated confirm cannot spend the budget twice (migration 0002)",
+            ),
             ("idx_calls_uploaded_by", "", "(uploaded_by)", "FK index"),
             (
                 "idx_calls_retention_until",
@@ -1182,7 +1188,7 @@ TABLES = [
         checks=[
             (
                 "chk_audit_events_action",
-                "action IN ('audio_url_issued', 'call_uploaded', 'rubric_saved', 'review_completed', 'audio_purged')",
+                "action IN ('audio_url_issued', 'call_uploaded', 'rubric_saved', 'review_completed', 'audio_purged', 'finding_decided', 'call_retried')",
                 "an unknown action name",
             )
         ],

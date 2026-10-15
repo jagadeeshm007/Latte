@@ -1,0 +1,46 @@
+{
+  "key": "4f63c137a43d259e6e69887403dd8e5c",
+  "summary": "chat openai/gpt-oss-120b, 2 messages",
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "json": {
+      "id": "chatcmpl-fff135a6-344c-4f0c-845b-415906d8e916",
+      "object": "chat.completion",
+      "created": 1792040378,
+      "model": "openai/gpt-oss-120b",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [7, 8],\n      \"note\": \"Verified DOB before discussing policy.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not disclose that returns are not guaranteed or mention risks/charges.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [23, 25],\n      \"note\": \"Asked and received explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [24],\n      \"note\": \"Provided 30‑day free‑look information.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [20],\n      \"note\": \"Claimed guaranteed 12% returns.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No incorrect product description beyond guaranteed claim.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [10],\n      \"note\": \"Asked about saving goal and dependents.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid stating any guaranteed returns; clearly explain market risk and that returns are not assured.\",\n    \"Provide full product disclosure: risks, charges, lock‑in periods, and exclusions before quoting price.\",\n    \"After confirming identity, summarize key terms and obtain consent before moving to proposal.\"\n  ]\n}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "queue_time": 0.30538785,
+        "prompt_tokens": 1734,
+        "prompt_time": 0.076518057,
+        "completion_tokens": 706,
+        "completion_time": 1.472803039,
+        "total_tokens": 2440,
+        "total_time": 1.549321096,
+        "completion_tokens_details": {
+          "reasoning_tokens": 249
+        }
+      },
+      "usage_breakdown": null,
+      "system_fingerprint": "fp_854fa9be4c",
+      "x_groq": {
+        "id": "req_01m4yyw6f9eph94a43j81k77bv",
+        "seed": 972933250
+      },
+      "service_tier": "on_demand"
+    }
+  }
+}

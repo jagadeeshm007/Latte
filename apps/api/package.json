@@ -13,6 +13,7 @@
     "start:worker": "tsx --env-file-if-exists=../../.env src/worker.ts",
     "migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
     "seed": "tsx --env-file-if-exists=../../.env src/seed.ts",
+    "seed:reset-passwords": "tsx --env-file-if-exists=../../.env src/seed.ts --reset-passwords",
     "env:check": "tsx --env-file-if-exists=../../.env src/env-check.ts",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",

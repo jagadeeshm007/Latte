@@ -13,7 +13,12 @@ import {
   testPool,
 } from "./helpers.ts";
 import type { Pool } from "../../src/db/pool.ts";
-import { handleScore, handleTranscribe } from "../../src/jobs/handlers.ts";
+import {
+  handlePurge,
+  handleScore,
+  handleTranscribe,
+  MAX_RESCHEDULES,
+} from "../../src/jobs/handlers.ts";
 import { RETRY_LIMIT } from "../../src/jobs/queue.ts";
 
 // Edge paths: failures, retries, validation, paging and CORS.
@@ -242,6 +247,11 @@ describe("listing and validation", () => {
 
   it("refuses a missed finding with a status that does not fit the item, or an unknown line", async () => {
     const callId = await insertCall("scored");
+    await pool.query(
+      `INSERT INTO scores (call_id, rubric_id, overall_score, judge_status, talk_ratio, needs_review, review_status)
+       SELECT $1, id, 50, 'ok', 0.5, true, 'pending' FROM rubrics WHERE is_active`,
+      [callId],
+    );
     const headers = await auth(fx.users.qa);
 
     await request(ctx.app)
@@ -263,7 +273,7 @@ describe("listing and validation", () => {
       .post(`/api/calls/${callId}/findings`)
       .set(headers)
       .send({ itemKey: "greeting", status: "missed" })
-      .expect(409);
+      .expect(201);
   });
 
   it("lists rubric versions and the reference data", async () => {
@@ -320,5 +330,199 @@ describe("CORS", () => {
       .expect(200);
 
     expect(res.headers["x-request-id"]).toBe("abc-123");
+  });
+});
+
+describe("security review fixes", () => {
+  async function signed(user: string) {
+    const res = await request(ctx.app)
+      .post("/api/uploads/sign")
+      .set(await auth(user))
+      .send({ files: [{ name: "a.wav", type: "audio/wav", size: 100 }] })
+      .expect(200);
+    const path = (res.body as { uploads: { path: string }[] }).uploads[0]!.path;
+    ctx.storage.objects.set(path, new Uint8Array([1]));
+    return path;
+  }
+  const file = (path: string) => ({
+    path,
+    originalFilename: "a.wav",
+    mimeType: "audio/wav",
+    sizeBytes: 100,
+    agentId: fx.agentA,
+    teamId: fx.teamId,
+    productId: fx.productId,
+    callDate: "2026-10-01",
+  });
+
+  it("confirms an uploaded file once: a repeat answers 409 and creates no second call", async () => {
+    const path = await signed(fx.users.qa);
+    const headers = await auth(fx.users.qa);
+
+    await request(ctx.app)
+      .post("/api/uploads/confirm")
+      .set(headers)
+      .send({ files: [file(path)] })
+      .expect(201);
+    await request(ctx.app)
+      .post("/api/uploads/confirm")
+      .set(headers)
+      .send({ files: [file(path)] })
+      .expect(409);
+    await request(ctx.app)
+      .post("/api/uploads/confirm")
+      .set(headers)
+      .send({ files: [file(path), file(path)] })
+      .expect(409);
+
+    const n = await pool.query("SELECT 1 FROM calls WHERE storage_path = $1", [path]);
+    expect(n.rowCount).toBe(1);
+  });
+
+  it("refuses a path that only starts with the caller's id", async () => {
+    await request(ctx.app)
+      .post("/api/uploads/confirm")
+      .set(await auth(fx.users.qa))
+      .send({ files: [file(`${fx.users.qa}/../${fx.users.manager}/x.wav`)] })
+      .expect(403);
+  });
+
+  it("queues a retry once when two reviewers press it together, and audits it", async () => {
+    const callId = await insertCall("failed");
+    const headers = await auth(fx.users.qa);
+
+    const results = await Promise.all([
+      request(ctx.app).post(`/api/calls/${callId}/retry`).set(headers),
+      request(ctx.app).post(`/api/calls/${callId}/retry`).set(headers),
+    ]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([202, 409]);
+    expect(ctx.queue.sent).toHaveLength(1);
+    const audit = await pool.query(
+      "SELECT 1 FROM audit_events WHERE action = 'call_retried' AND call_id = $1",
+      [callId],
+    );
+    expect(audit.rowCount).toBe(1);
+  });
+
+  it("lets a call stuck in the pipeline be retried and marks long-stuck calls failed in the purge", async () => {
+    const stuck = await insertCall("transcribing");
+    await pool.query("UPDATE calls SET updated_at = now() - interval '3 hours' WHERE id = $1", [
+      stuck,
+    ]);
+
+    await handlePurge({
+      pool,
+      storage: ctx.storage,
+      gateway: fakeGateway(pool, {}).gateway,
+      enqueue: recordingQueue().enqueue,
+      log,
+    });
+
+    const row = await pool.query<{ status: string }>("SELECT status FROM calls WHERE id = $1", [
+      stuck,
+    ]);
+    expect(row.rows[0]!.status).toBe("failed");
+    await request(ctx.app)
+      .post(`/api/calls/${stuck}/retry`)
+      .set(await auth(fx.users.qa))
+      .expect(202);
+  });
+
+  it("fails a call after too many rate-limit reschedules", async () => {
+    const callId = await insertCall();
+    const path = (
+      await pool.query<{ storage_path: string }>("SELECT storage_path FROM calls WHERE id = $1", [
+        callId,
+      ])
+    ).rows[0]!.storage_path;
+    const { encodeWav } = await import("../../src/audio/wav.ts");
+    const tone = new Float32Array(32_000).map((_, i) => 0.4 * Math.sin(i / 3));
+    ctx.storage.objects.set(path, encodeWav([tone, tone], 16_000));
+    const { gateway, fetch } = fakeGateway(pool, {});
+    fetch.mockImplementation(() =>
+      Promise.resolve(new Response("slow", { status: 429, headers: { "retry-after": "5" } })),
+    );
+
+    await handleTranscribe(deps(gateway), { callId, retryCount: 0, reschedules: MAX_RESCHEDULES });
+
+    const row = await pool.query<{ status: string; error: string }>(
+      "SELECT status, error FROM calls WHERE id = $1",
+      [callId],
+    );
+    expect(row.rows[0]).toMatchObject({ status: "failed" });
+    expect(row.rows[0]!.error).toContain("rate limiting");
+  });
+
+  it("audits every review decision and rescores the call from the decisions when the review completes", async () => {
+    const callId = await insertCall("scored");
+    const scoreId = (
+      await pool.query<{ id: string }>(
+        `INSERT INTO scores (call_id, rubric_id, overall_score, judge_status, talk_ratio, needs_review, review_status)
+         SELECT $1, id, 0, 'ok', 0.5, true, 'pending' FROM rubrics WHERE is_active RETURNING id`,
+        [callId],
+      )
+    ).rows[0]!.id;
+    const insertFinding = async (key: string, type: string, status: string) =>
+      (
+        await pool.query<{ id: string }>(
+          "INSERT INTO findings (score_id, call_id, item_key, item_type, status, source) VALUES ($1, $2, $3, $4, $5, 'rule') RETURNING id",
+          [scoreId, callId, key, type, status],
+        )
+      ).rows[0]!.id;
+    const breach = await insertFinding("guaranteed_returns", "prohibited", "breach");
+    const greeting = await insertFinding("greeting", "mandatory", "met");
+    const qa = await auth(fx.users.qa);
+
+    await request(ctx.app)
+      .put(`/api/findings/${breach}/review`)
+      .set(qa)
+      .send({ decision: "agree" })
+      .expect(204);
+    await request(ctx.app)
+      .put(`/api/findings/${breach}/review`)
+      .set(qa)
+      .send({ decision: "disagree" })
+      .expect(204);
+    await request(ctx.app)
+      .put(`/api/findings/${greeting}/review`)
+      .set(qa)
+      .send({ decision: "agree" })
+      .expect(204);
+    await request(ctx.app).post(`/api/calls/${callId}/review/complete`).set(qa).expect(204);
+
+    const audits = await pool.query(
+      "SELECT 1 FROM audit_events WHERE action = 'finding_decided' AND call_id = $1",
+      [callId],
+    );
+    expect(audits.rowCount).toBe(3);
+    const score = await pool.query<{ overall_score: number }>(
+      "SELECT overall_score FROM scores WHERE call_id = $1",
+      [callId],
+    );
+    // The rejected breach no longer zeroes the score; the agreed greeting is 100%.
+    expect(score.rows[0]!.overall_score).toBe(100);
+  });
+
+  it("rate-limits repeated retries per user", async () => {
+    const { perUserLimit } = await import("../../src/rate-limit.ts");
+    let t = 0;
+    const limit = perUserLimit("retry", 2, 1000, () => t);
+    const call = () =>
+      new Promise<unknown>((resolve) => {
+        try {
+          limit({ user: { id: "u" } } as never, {} as never, () => {
+            resolve("ok");
+          });
+        } catch (error) {
+          resolve(error);
+        }
+      });
+
+    expect(await call()).toBe("ok");
+    expect(await call()).toBe("ok");
+    expect(await call()).toMatchObject({ statusCode: 429 });
+    t = 2000;
+    expect(await call()).toBe("ok");
   });
 });

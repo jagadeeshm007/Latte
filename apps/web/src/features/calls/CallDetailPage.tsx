@@ -53,6 +53,8 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
   const [nowMs, setNowMs] = useState(0);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [audioLoaded, setAudioLoaded] = useState(false);
+  // When the signed URL stops working; a fresh one is fetched before then (review finding 6).
+  const expiresAt = useRef(0);
   const queryClient = useQueryClient();
   const labels = new Map(detail.rubricItems.map((i) => [i.key, i]));
   const reviewing = me.role === "qa_reviewer" && call.reviewStatus === "pending";
@@ -62,8 +64,9 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
     if (!el) return;
     setAudioError(null);
     try {
-      if (!audioLoaded) {
-        const { url } = await api.audioUrl(call.id);
+      if (!audioLoaded || Date.now() > expiresAt.current - 30_000) {
+        const { url, expiresInSeconds } = await api.audioUrl(call.id);
+        expiresAt.current = Date.now() + expiresInSeconds * 1000;
         el.src = url;
         await new Promise<void>((resolve, reject) => {
           el.addEventListener(
@@ -208,6 +211,13 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
               aria-label="Call recording"
               onTimeUpdate={(e) => {
                 setNowMs(e.currentTarget.currentTime * 1000);
+              }}
+              onError={() => {
+                // An expired or revoked URL: the next play fetches a fresh one.
+                if (audioLoaded) {
+                  setAudioLoaded(false);
+                  setAudioError("The recording link expired; press play again");
+                }
               }}
             >
               <track

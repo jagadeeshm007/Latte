@@ -60,17 +60,19 @@ export function createStorage(
       return data.map((o) => ({ name: o.name, createdAt: o.created_at }));
     },
     async ensureBucket() {
-      const existing = await client.storage.getBucket(config.RECORDINGS_BUCKET);
-      if (existing.data) {
-        if (existing.data.public)
-          throw new StorageError(`bucket ${config.RECORDINGS_BUCKET} is public; make it private`);
-        return;
-      }
-      const { error } = await client.storage.createBucket(config.RECORDINGS_BUCKET, {
+      const settings = {
         public: false,
         fileSizeLimit: 50 * 1024 * 1024,
         allowedMimeTypes: ["audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg"],
-      });
+      };
+      const existing = await client.storage.getBucket(config.RECORDINGS_BUCKET);
+      if (existing.data) {
+        // Keep the bucket private with the upload limits, even if someone changed it in the dashboard.
+        const { error } = await client.storage.updateBucket(config.RECORDINGS_BUCKET, settings);
+        if (error) throw fail("update bucket", error);
+        return;
+      }
+      const { error } = await client.storage.createBucket(config.RECORDINGS_BUCKET, settings);
       if (error) throw fail("create bucket", error);
     },
   };

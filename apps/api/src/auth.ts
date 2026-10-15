@@ -12,7 +12,12 @@ export type VerifyToken = (token: string) => Promise<{ sub: string }>;
 export function createVerifier(keys: JWTVerifyGetKey, supabaseUrl: string): VerifyToken {
   const issuer = `${supabaseUrl.replace(/\/+$/, "")}/auth/v1`;
   return async (token) => {
-    const { payload } = await jwtVerify(token, keys, { issuer, audience: "authenticated" });
+    const { payload } = await jwtVerify(token, keys, {
+      issuer,
+      audience: "authenticated",
+      algorithms: ["ES256", "RS256"],
+      requiredClaims: ["exp", "sub"],
+    });
     if (!payload.sub) {
       throw new UnauthorizedError("token has no subject");
     }

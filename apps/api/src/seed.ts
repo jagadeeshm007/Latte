@@ -29,6 +29,9 @@ const USERS: { email: string; name: string; role: Role; agentCode?: string }[] =
 ];
 
 const config = loadConfig();
+if (config.NODE_ENV === "production") {
+  throw new Error("the seed creates demo users with known roles; it never runs in production");
+}
 const pool = createPool(config);
 const out = (line: string) => process.stdout.write(`${line}\n`);
 
@@ -77,22 +80,24 @@ try {
     `reference: ${String(TEAMS.length)} teams, ${String(PRODUCTS.length)} products, ${String(agentIds.size)} agents`,
   );
 
-  const given = process.env.SEED_PASSWORD ?? "";
-  if (given && given.length < 16) {
-    out("SEED_PASSWORD is shorter than 16 characters; generating a stronger one instead");
-  }
-  const password = given.length >= 16 ? given : `Dev-${randomBytes(18).toString("base64url")}`;
+  // Each user gets their own generated password, set when the user is created
+  // or when the seed runs with --reset-passwords; nothing comes from a shared
+  // or example value (security review).
+  const reset = process.argv.includes("--reset-passwords");
   const admin = createClient(config.SUPABASE_URL, config.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const existing = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (existing.error) throw existing.error;
+  const issued: string[] = [];
   for (const u of USERS) {
+    const password = `Dev-${randomBytes(18).toString("base64url")}`;
     let id = existing.data.users.find((x) => x.email === u.email)?.id;
-    if (id) {
+    if (id && reset) {
       const updated = await admin.auth.admin.updateUserById(id, { password });
       if (updated.error) throw updated.error;
-    } else {
+      issued.push(`${u.role.padEnd(12)} ${u.email}  ${password}`);
+    } else if (!id) {
       const created = await admin.auth.admin.createUser({
         email: u.email,
         password,
@@ -100,6 +105,7 @@ try {
       });
       if (created.error) throw created.error;
       id = created.data.user.id;
+      issued.push(`${u.role.padEnd(12)} ${u.email}  ${password}`);
     }
     await pool.query(
       `INSERT INTO profiles (id, email, display_name, role, agent_id) VALUES ($1, $2, $3, $4, $5)
@@ -107,16 +113,22 @@ try {
       [id, u.email, u.name, u.role, u.agentCode ? (agentIds.get(u.agentCode) ?? null) : null],
     );
   }
-  // Credentials go to a git-ignored file, never to the terminal.
-  const dir = path.resolve(import.meta.dirname, "../../../.scratch");
-  await mkdir(dir, { recursive: true });
-  const file = path.join(dir, "seed-users.txt");
-  await writeFile(
-    file,
-    `${USERS.map((u) => `${u.role.padEnd(12)} ${u.email}`).join("\n")}\npassword: ${password}\n`,
+  if (issued.length > 0) {
+    // Credentials go to a git-ignored file readable only by you, never to the terminal.
+    const dir = path.resolve(import.meta.dirname, "../../../.scratch");
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, "seed-users.txt");
+    await writeFile(
+      file,
+      `# role        email  password (generated ${new Date().toISOString()})\n${issued.join("\n")}\n`,
+    );
+    await chmod(file, 0o600);
+  }
+  out(
+    issued.length > 0
+      ? `users: ${String(issued.length)} passwords issued; sign-in details in .scratch/seed-users.txt`
+      : `users: ${String(USERS.length)} already exist; passwords unchanged (run with --reset-passwords to issue new ones)`,
   );
-  await chmod(file, 0o600);
-  out(`users: ${String(USERS.length)} (one per role); sign-in details in .scratch/seed-users.txt`);
 } finally {
   await pool.end();
 }

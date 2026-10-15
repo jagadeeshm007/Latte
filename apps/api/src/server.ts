@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { buildApp } from "./app.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
-import { databaseUrl, jwksUrl, loadConfig, usesTls } from "./config.ts";
+import { databaseUrl, jwksUrl, loadConfig, sslOptions } from "./config.ts";
 import { createPool } from "./db/pool.ts";
 import { bossEnqueue, startBoss } from "./jobs/queue.ts";
 import { createLogger } from "./logger.ts";
@@ -11,7 +13,10 @@ const config = loadConfig();
 const log = createLogger(config);
 const pool = createPool(config);
 const storage = createStorage(config);
-const boss = await startBoss(databaseUrl(config), usesTls(config));
+const boss = await startBoss(
+  databaseUrl(config),
+  sslOptions(config, (p) => readFileSync(p, "utf8")),
+);
 await storage.ensureBucket();
 
 const app = buildApp({

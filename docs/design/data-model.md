@@ -1,6 +1,6 @@
 # Data model: Sales Call Compliance
 
-**Store:** PostgreSQL · **Tables:** 12 · **Columns:** 112 · **Indexes:** 33 · **Personal-data columns:** 7
+**Store:** PostgreSQL · **Tables:** 12 · **Columns:** 112 · **Indexes:** 34 · **Personal-data columns:** 7
 
 Author: draft, unreviewed   Date: 2026-10-14   Version: v1 (new)
 Serves: US-00-001, US-00-002, US-00-003, US-01-001 to US-01-008, US-02-001, US-02-002, US-02-003; ADR-0003, ADR-0004
@@ -182,6 +182,7 @@ One uploaded recording and its pipeline state. Serves US-01-001, US-01-002, US-0
 - `idx_calls_product_id_call_date` on (product_id, call_date): dashboard by product and date range (US-01-008); FK index.
 - `idx_calls_status_created_at` on (status, created_at DESC): call list filtered by status.
 - `idx_calls_batch_id` on (batch_id): show an upload batch.
+- `uq_calls_storage_path` on (storage_path) WHERE storage_path IS NOT NULL: one call per uploaded object, so a repeated confirm cannot spend the budget twice (migration 0002).
 - `idx_calls_uploaded_by` on (uploaded_by): FK index.
 - `idx_calls_retention_until` on (retention_until) WHERE audio_purged_at IS NULL: purge job finds calls due; the query must repeat WHERE audio_purged_at IS NULL.
 
@@ -412,6 +413,7 @@ Erasure: a customer erasure request cannot be matched to calls today; no custome
 ## 9. Migration plan
 
 1. `0001_initial.sql`: schema.sql as written (new database; no hot table yet). Expand phase only.
+3. `0002_upload_once_and_decision_audit.sql`: unique partial index on `calls.storage_path` and two new audit actions (`finding_decided`, `call_retried`), from the security review. calls is small at this stage; build the index `CONCURRENTLY` outside a transaction once it passes 10^6 rows.
 2. pg-boss creates its own schema on first start; not a migration of ours.
 
 ## 10. Rules and deviations

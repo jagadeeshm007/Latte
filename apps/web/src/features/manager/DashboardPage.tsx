@@ -33,7 +33,10 @@ export function DashboardPage() {
   const agreement = useQuery(agreementQuery);
   const usage = useQuery(usageQuery);
   const rubric = useQuery(rubricQuery);
-  const labels = new Map((rubric.data?.items ?? []).map((i) => [i.key, i.label]));
+  // The group table shows mandatory items only (AC-US-01-008-1); agreement covers every item.
+  const labels = new Map(
+    (rubric.data?.items ?? []).filter((i) => i.type === "mandatory").map((i) => [i.key, i.label]),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -103,7 +106,7 @@ export function DashboardPage() {
 }
 
 function GroupTable({ data, labels }: { data: Dashboard; labels: Map<string, string> }) {
-  const mandatoryKeys = data.groups[0]?.items.map((i) => i.key) ?? [];
+  const mandatoryKeys = [...labels.keys()];
   return (
     <Table>
       <TableHeader>
@@ -130,11 +133,14 @@ function GroupTable({ data, labels }: { data: Dashboard; labels: Map<string, str
             <TableCell className="text-end tabular-nums">
               {g.avgOverall === null ? "" : `${g.avgOverall.toFixed(0)}%`}
             </TableCell>
-            {g.items.map((i) => (
-              <TableCell key={i.key} className="text-end tabular-nums">
-                {i.passRate === null ? "" : formatPercent(i.passRate)}
-              </TableCell>
-            ))}
+            {mandatoryKeys.map((k) => {
+              const rate = g.items.find((i) => i.key === k)?.passRate ?? null;
+              return (
+                <TableCell key={k} className="text-end tabular-nums">
+                  {rate === null ? "" : formatPercent(rate)}
+                </TableCell>
+              );
+            })}
           </TableRow>
         ))}
       </TableBody>

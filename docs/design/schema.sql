@@ -158,6 +158,7 @@ CREATE INDEX idx_calls_team_id_call_date ON calls (team_id, call_date);
 CREATE INDEX idx_calls_product_id_call_date ON calls (product_id, call_date);
 CREATE INDEX idx_calls_status_created_at ON calls (status, created_at DESC);
 CREATE INDEX idx_calls_batch_id ON calls (batch_id);
+CREATE UNIQUE INDEX uq_calls_storage_path ON calls (storage_path) WHERE storage_path IS NOT NULL;
 CREATE INDEX idx_calls_uploaded_by ON calls (uploaded_by);
 CREATE INDEX idx_calls_retention_until ON calls (retention_until) WHERE audio_purged_at IS NULL;
 ALTER TABLE calls ENABLE ROW LEVEL SECURITY;
@@ -355,7 +356,7 @@ CREATE TABLE audit_events (
   action text NOT NULL,
   call_id uuid REFERENCES calls (id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT chk_audit_events_action CHECK (action IN ('audio_url_issued', 'call_uploaded', 'rubric_saved', 'review_completed', 'audio_purged'))
+  CONSTRAINT chk_audit_events_action CHECK (action IN ('audio_url_issued', 'call_uploaded', 'rubric_saved', 'review_completed', 'audio_purged', 'finding_decided', 'call_retried'))
 );
 COMMENT ON TABLE audit_events IS 'Who accessed which recording and when.';
 COMMENT ON COLUMN audit_events.id IS 'Row id';

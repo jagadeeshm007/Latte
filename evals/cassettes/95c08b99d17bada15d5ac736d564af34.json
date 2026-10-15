@@ -7,38 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-e9335780-0047-40d9-aa40-238b22de94d2",
+      "id": "chatcmpl-d24f8b93-e104-4021-976a-467dcbc1b33a",
       "object": "chat.completion",
-      "created": 1791994025,
+      "created": 1792040624,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussing policy.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [26, 27],\n      \"note\": \"Explained no guaranteed returns, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [36, 37],\n      \"note\": \"Asked and received explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [38],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [34],\n      \"note\": \"Created artificial deadline for booking.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false product description given.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9, 13, 15],\n      \"note\": \"Asked about dependents, existing cover, income, loan.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid creating artificial deadlines; provide accurate timing information.\",\n    \"Seek explicit consent earlier, before presenting product details.\",\n    \"Continue thorough needs discovery but keep it concise and relevant.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5, 6],\n      \"note\": \"Verified DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [26, 27],\n      \"note\": \"Explained no guaranteed returns, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [36, 37],\n      \"note\": \"Obtained explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [38],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [34],\n      \"note\": \"Created false deadline to force decision.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No inaccurate product statements.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 8, 13],\n      \"note\": \"Asked about dependents, goals, income and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid creating false urgency; give the customer ample time to decide.\",\n    \"Ensure consent is obtained before applying any pressure or deadlines.\",\n    \"Continue probing needs early and recap key product risks before closing.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.26539735,
+        "queue_time": 0.345602665,
         "prompt_tokens": 2274,
-        "prompt_time": 0.170234302,
-        "completion_tokens": 720,
-        "completion_time": 1.506044653,
-        "total_tokens": 2994,
-        "total_time": 1.676278955,
+        "prompt_time": 0.124071058,
+        "completion_tokens": 756,
+        "completion_time": 1.569842268,
+        "total_tokens": 3030,
+        "total_time": 1.693913326,
         "completion_tokens_details": {
-          "reasoning_tokens": 280
+          "reasoning_tokens": 313
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_4a7bb72c24",
+      "system_fingerprint": "fp_4200b3f836",
       "x_groq": {
-        "id": "req_01m4xjnkacezfa4dt6psnr8prf",
-        "seed": 1089241807
+        "id": "req_01m4yz3pmdeawv1hpjk6dwv196",
+        "seed": 1342694483
       },
       "service_tier": "on_demand"
     }

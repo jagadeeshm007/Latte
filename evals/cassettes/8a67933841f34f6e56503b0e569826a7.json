@@ -7,38 +7,41 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-e8bd5571-7810-4822-9c0c-8652131749ca",
+      "id": "chatcmpl-8d5190f1-7506-4ad1-b0e8-e4eec595aadb",
       "object": "chat.completion",
-      "created": 1791993849,
+      "created": 1792040427,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not explain market risk, non‑guaranteed returns, charges or lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Asked and received explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [19],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Claimed a guaranteed 12% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Stated the ULIP has no risk, which is inaccurate.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9, 10],\n      \"note\": \"Asked about dependents and existing cover before recommendation.\"\n    }\n  ],\n  \"coaching\": [\n    \"Explain market risk, non‑guaranteed nature, charges and lock‑in when selling ULIPs.\",\n    \"Avoid stating any guaranteed returns; use neutral language about potential performance.\",\n    \"Always provide a clear risk disclaimer and correct any statements that imply no risk.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4],\n      \"note\": \"Verified DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"Did not disclose market risk or charges for ULIP.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [17],\n      \"note\": \"Obtained explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [19],\n      \"note\": \"Explained free‑look period and refund terms.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Claimed a guaranteed 12% return.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No false deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No incorrect product classification or false coverage claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about dependents and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid promising guaranteed returns; clearly state market risk and that returns are not assured.\",\n    \"Provide full product disclosure, including charges, lock‑in period, and risk factors before quoting premium.\",\n    \"After discovery, summarize the customer's needs and match them to suitable product features.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.470495627,
+        "queue_time": 0.305876559,
         "prompt_tokens": 1731,
-        "prompt_time": 0.095730819,
-        "completion_tokens": 784,
-        "completion_time": 1.641406419,
-        "total_tokens": 2515,
-        "total_time": 1.7371372379999999,
+        "prompt_time": 0.088312958,
+        "completion_tokens": 726,
+        "completion_time": 2.031146502,
+        "total_tokens": 2457,
+        "total_time": 2.11945946,
+        "prompt_tokens_details": {
+          "cached_tokens": 1024
+        },
         "completion_tokens_details": {
-          "reasoning_tokens": 311
+          "reasoning_tokens": 277
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_e5b4e54fbb",
+      "system_fingerprint": "fp_854fa9be4c",
       "x_groq": {
-        "id": "req_01m4xjg6nwef2rryrv2m8t38ew",
-        "seed": 1435432139
+        "id": "req_01m4yyxnnde29st2f8zxth9zwk",
+        "seed": 1899798006
       },
       "service_tier": "on_demand"
     }

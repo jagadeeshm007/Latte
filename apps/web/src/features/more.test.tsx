@@ -225,3 +225,28 @@ describe("more page states", () => {
     expect(screen.getByText("Something went wrong.")).toBeInTheDocument();
   });
 });
+
+describe("calls paging (review finding 8)", () => {
+  it("loads the next page with the API's cursor", async () => {
+    const cursors: (string | null)[] = [];
+    server.use(
+      http.get("*/api/calls", ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        cursors.push(cursor);
+        return HttpResponse.json(
+          cursor
+            ? { items: [summary({ id: "older", originalFilename: "older.wav" })], nextCursor: null }
+            : { items: [summary()], nextCursor: "page-2" },
+        );
+      }),
+    );
+    const { CallsPage } = await import("./calls/CallsPage");
+    await renderInRouter(<CallsPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Load more calls" }));
+
+    expect(await screen.findByRole("link", { name: "older.wav" })).toBeInTheDocument();
+    expect(cursors).toEqual([null, "page-2"]);
+    expect(screen.queryByRole("button", { name: "Load more calls" })).not.toBeInTheDocument();
+  });
+});

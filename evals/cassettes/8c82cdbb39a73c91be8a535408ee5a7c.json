@@ -7,41 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-fb8ce6a8-58f9-4614-a83a-c1290e16aa5b",
+      "id": "chatcmpl-85ed6769-bb84-4836-b9e8-8f388a53aa24",
       "object": "chat.completion",
-      "created": 1791993868,
+      "created": 1792040435,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before proceeding.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [14, 15],\n      \"note\": \"Explained market‑linked nature, no guarantee, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20, 21],\n      \"note\": \"Asked for permission to generate proposal and received yes.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No free‑look or cooling‑off information provided.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Agent explicitly said returns are not guaranteed.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [18],\n      \"note\": \"Created false deadline and scarcity to push decision.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No inaccurate product or coverage claims made.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 8],\n      \"note\": \"Asked about dependents and purpose before recommendation.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid inventing urgency; give customers time to decide without false deadlines.\",\n    \"Always mention the free‑look/cooling‑off period when selling a policy.\",\n    \"When seeking consent, confirm the customer understands all terms before proceeding.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted, gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5, 6],\n      \"note\": \"Verified DOB before discussing policy.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [14, 15],\n      \"note\": \"Explained market‑linked nature, no guaranteed returns, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20, 21],\n      \"note\": \"Asked for proposal generation consent; customer agreed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No free‑look or cooling‑off period mentioned.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Agent explicitly said returns are not guaranteed.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"breach\",\n      \"segments\": [18],\n      \"note\": \"Created false deadline and scarcity to push immediate purchase.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No incorrect product or coverage statements made.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 8, 9],\n      \"note\": \"Asked about dependents, existing cover and purpose before recommendation.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid creating artificial deadlines; give customers time to decide without pressure.\",\n    \"Always mention the free‑look/cooling‑off period when selling a policy.\",\n    \"Continue asking discovery questions, but ensure compliance items are also covered.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.411902872,
+        "queue_time": 0.386678056,
         "prompt_tokens": 1765,
-        "prompt_time": 0.201486186,
-        "completion_tokens": 720,
-        "completion_time": 1.654192659,
-        "total_tokens": 2485,
-        "total_time": 1.855678845,
-        "prompt_tokens_details": {
-          "cached_tokens": 1024
-        },
+        "prompt_time": 0.183844599,
+        "completion_tokens": 740,
+        "completion_time": 1.550657303,
+        "total_tokens": 2505,
+        "total_time": 1.7345019019999999,
         "completion_tokens_details": {
-          "reasoning_tokens": 262
+          "reasoning_tokens": 270
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_e5b4e54fbb",
+      "system_fingerprint": "fp_96d96a151c",
       "x_groq": {
-        "id": "req_01m4xjgrz4evnrcbz80z3e4fn0",
-        "seed": 280436783
+        "id": "req_01m4yyxxp3en79etzc6cyctrec",
+        "seed": 1198356423
       },
       "service_tier": "on_demand"
     }

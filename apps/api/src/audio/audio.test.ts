@@ -156,3 +156,22 @@ describe("transcribeRecording", () => {
     expect(transcribe).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("decoder limits (security review)", () => {
+  it("refuses a WAV whose header says it is longer than 2 hours, before decoding it", async () => {
+    const wav = encodeWav([new Float32Array(1600), new Float32Array(1600)], RATE);
+    const view = new DataView(wav.buffer);
+    view.setUint32(40, 3 * 60 * 60 * RATE * 4, true);
+
+    await expect(decodeAudio(wav, "audio/wav")).rejects.toThrow(
+      /longer than 2 hours|not a readable/,
+    );
+  });
+
+  it("refuses a WAV with a zero sample rate", async () => {
+    const wav = encodeWav([new Float32Array(160), new Float32Array(160)], RATE);
+    new DataView(wav.buffer).setUint32(24, 0, true);
+
+    await expect(decodeAudio(wav, "audio/wav")).rejects.toThrow(AudioError);
+  });
+});

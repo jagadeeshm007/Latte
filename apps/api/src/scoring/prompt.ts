@@ -20,7 +20,8 @@ export function formatTranscript(segments: ScoringSegment[]): string {
   return segments
     .map(
       (s) =>
-        `[S${String(s.seq)}][${s.channel.toUpperCase()}][${formatTime(s.startMs)}] ${s.text.replace(/\s+/g, " ")}`,
+        // Angle brackets are dropped so speech cannot close the <transcript> block.
+        `[S${String(s.seq)}][${s.channel.toUpperCase()}][${formatTime(s.startMs)}] ${s.text.replace(/[<>]/g, " ").replace(/\s+/g, " ").trim()}`,
     )
     .join("\n");
 }

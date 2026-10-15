@@ -7,6 +7,9 @@ import type { Queryable } from "../db/pool.ts";
 // Findings a QA reviewer disagreed with never count against an agent (Q-011).
 
 const NOT_REJECTED = `NOT EXISTS (SELECT 1 FROM finding_reviews r WHERE r.finding_id = x.id AND r.decision = 'disagree')`;
+// One pass rule for the scorecard and the dashboard (review finding 9): an item
+// passes on a call when no kept finding says missed, partial or breach.
+const NOT_PASSED = "('missed', 'partial', 'breach')";
 
 export const COACHING_WINDOW_DAYS = 90;
 
@@ -41,7 +44,7 @@ export async function scorecard(
   }>(
     `WITH f AS (
        SELECT x.call_id, x.item_key,
-              bool_or(x.status IN ('missed', 'breach')) AS bad,
+              bool_or(x.status IN ${NOT_PASSED}) AS bad,
               bool_and(x.status = 'not_applicable') AS na
          FROM findings x JOIN calls c ON c.id = x.call_id
         WHERE c.agent_id = $1 AND c.created_at > now() - make_interval(days => $2) AND ${NOT_REJECTED}
@@ -78,11 +81,14 @@ export async function scorecard(
   const coaching = await Promise.all(
     top.map(async ({ item, misses }) => {
       const ex = await db.query<{ call_id: string; rationale: string | null }>(
-        `SELECT DISTINCT ON (x.call_id) x.call_id, x.rationale, c.created_at
-           FROM findings x JOIN calls c ON c.id = x.call_id
-          WHERE c.agent_id = $1 AND x.item_key = $2 AND x.status IN ('missed', 'breach') AND ${NOT_REJECTED}
-          ORDER BY x.call_id, c.created_at DESC LIMIT 3`,
-        [agentId, item.key],
+        `SELECT call_id, rationale FROM (
+           SELECT DISTINCT ON (x.call_id) x.call_id, x.rationale, c.created_at
+             FROM findings x JOIN calls c ON c.id = x.call_id
+            WHERE c.agent_id = $1 AND x.item_key = $2 AND x.status IN ${NOT_PASSED} AND ${NOT_REJECTED}
+              AND c.created_at > now() - make_interval(days => $3)
+            ORDER BY x.call_id, x.rationale IS NULL
+         ) latest ORDER BY created_at DESC LIMIT 3`,
+        [agentId, item.key, COACHING_WINDOW_DAYS],
       );
       return {
         key: item.key,
@@ -181,12 +187,17 @@ export async function dashboard(
     applicable: number;
     passed: number;
   }>(
-    `SELECT c.${col} AS group_id, x.item_key,
-            count(*) FILTER (WHERE x.status <> 'not_applicable') AS applicable,
-            count(*) FILTER (WHERE x.status IN ('met', 'clear')) AS passed
-       FROM findings x JOIN calls c ON c.id = x.call_id
-      WHERE x.source = 'llm' AND c.call_date BETWEEN $1::date AND $2::date AND ${NOT_REJECTED}
-      GROUP BY 1, 2`,
+    `WITH f AS (
+       SELECT c.${col} AS group_id, x.call_id, x.item_key,
+              bool_or(x.status IN ${NOT_PASSED}) AS bad,
+              bool_and(x.status = 'not_applicable') AS na
+         FROM findings x JOIN calls c ON c.id = x.call_id
+        WHERE c.call_date BETWEEN $1::date AND $2::date AND ${NOT_REJECTED}
+        GROUP BY 1, 2, 3)
+     SELECT group_id, item_key,
+            count(*) FILTER (WHERE NOT na) AS applicable,
+            count(*) FILTER (WHERE NOT na AND NOT bad) AS passed
+       FROM f GROUP BY 1, 2`,
     params,
   );
   const keyed = new Map(items.rows.map((r) => [`${r.group_id}:${r.item_key}`, r]));

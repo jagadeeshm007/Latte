@@ -7,38 +7,38 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-4ed38161-037e-4aeb-8c5a-656ba25a9f39",
+      "id": "chatcmpl-f82d62d4-0554-4b9f-b8d9-e07415fe196c",
       "object": "chat.completion",
-      "created": 1791993935,
+      "created": 1792040516,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent greeted and gave name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Explained market‑linked nature, no guaranteed returns, charges and lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20, 21],\n      \"note\": \"Asked to proceed and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [22],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Incorrectly claimed government protection like post office schemes.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about savings goal, dependants, and existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid stating government backing unless it is factual; verify product claims before speaking.\",\n    \"Continue using clear disclosure of risks and charges as you did.\",\n    \"Maintain the strong discovery questions to tailor recommendations.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"met\",\n      \"segments\": [4, 5],\n      \"note\": \"Verified DOB before discussion.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [17, 18],\n      \"note\": \"Explained market risk, charges, lock‑in.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [20, 21],\n      \"note\": \"Asked and received explicit agreement.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [22],\n      \"note\": \"Provided free‑look period details.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guaranteed return claim made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"breach\",\n      \"segments\": [15],\n      \"note\": \"Incorrectly said plan is government‑protected.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [7, 9],\n      \"note\": \"Asked about goals, dependents, existing cover.\"\n    }\n  ],\n  \"coaching\": [\n    \"Avoid stating government backing unless it is factual; verify product claims before speaking.\",\n    \"Continue asking discovery questions early to tailor recommendations.\",\n    \"Always confirm regulatory disclosures clearly, as you did with risk and charges.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.215718892,
+        "queue_time": 0.386868933,
         "prompt_tokens": 1743,
-        "prompt_time": 0.088010541,
-        "completion_tokens": 654,
-        "completion_time": 1.366377372,
-        "total_tokens": 2397,
-        "total_time": 1.454387913,
+        "prompt_time": 0.107905414,
+        "completion_tokens": 635,
+        "completion_time": 1.319721097,
+        "total_tokens": 2378,
+        "total_time": 1.427626511,
         "completion_tokens_details": {
-          "reasoning_tokens": 205
+          "reasoning_tokens": 196
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_4727af4560",
+      "system_fingerprint": "fp_93703442d9",
       "x_groq": {
-        "id": "req_01m4xjjwd4e7hsb6s7dehbpn68",
-        "seed": 869149730
+        "id": "req_01m4yz0dafezcs46f7m0es56ew",
+        "seed": 884419642
       },
       "service_tier": "on_demand"
     }

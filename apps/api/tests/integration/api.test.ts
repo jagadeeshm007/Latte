@@ -79,10 +79,10 @@ function judgeBody(statuses: Record<string, [string, number[]]>) {
         finish_reason: "stop",
         message: {
           content: JSON.stringify({
-            items: DEFAULT_RUBRIC.map((i) => {
+            items: DEFAULT_RUBRIC.map((i, n) => {
               const [status, segments] = statuses[i.key] ?? [
                 i.type === "prohibited" ? "clear" : "met",
-                i.type === "prohibited" ? [] : [0],
+                i.type === "prohibited" ? [] : [n % 4],
               ];
               return { key: i.key, status, segments, note: "because" };
             }),
@@ -99,7 +99,10 @@ const sttBody = (text: string) => ({
   text,
   language: "english",
   duration: 2,
-  segments: [{ start: 0.1, end: 1.9, text, avg_logprob: -0.2, no_speech_prob: 0.01 }],
+  segments: [
+    { start: 0.1, end: 0.9, text, avg_logprob: -0.2, no_speech_prob: 0.01 },
+    { start: 1.0, end: 1.9, text: "Is that clear?", avg_logprob: -0.2, no_speech_prob: 0.01 },
+  ],
 });
 
 /** Runs both jobs for a call with a fake Groq: agent says the given line, customer answers. */
@@ -270,7 +273,7 @@ describe("pipeline jobs (US-01-002, US-01-003, US-01-005)", () => {
       "SELECT channel FROM transcript_segments WHERE call_id = $1 ORDER BY seq",
       [callId],
     );
-    expect(segments.rows.map((r) => r.channel)).toEqual(["agent", "customer"]);
+    expect(segments.rows.map((r) => r.channel)).toEqual(["agent", "agent", "customer", "customer"]);
     const chat = await pool.query(
       "SELECT 1 FROM model_calls WHERE call_id = $1 AND kind = 'chat' AND status = 'ok'",
       [callId],
@@ -351,7 +354,8 @@ describe("pipeline jobs (US-01-002, US-01-003, US-01-005)", () => {
     const row = await pool.query<{ status: string }>("SELECT status FROM calls WHERE id = $1", [
       callId,
     ]);
-    expect(row.rows[0]!.status).toBe("transcribing");
+    // The call is handed back so the rescheduled job can claim it.
+    expect(row.rows[0]!.status).toBe("uploaded");
   });
 
   it("skips a job whose call has already moved on", async () => {
@@ -465,7 +469,11 @@ describe("scorecard, coaching and dashboard (US-00-001, US-00-002, US-01-008)", 
       items: { key: string; passRate: number | null }[];
     };
     expect(card.callsScored).toBe(2);
-    expect(card.coaching.map((c) => c.key).sort()).toEqual(["consent", "cooling_off"]);
+    expect(card.coaching.map((c) => c.key).sort()).toEqual([
+      "consent",
+      "cooling_off",
+      "disclosure",
+    ]);
     expect(card.items.find((i) => i.key === "greeting")!.passRate).toBe(1);
     await request(ctx.app)
       .get("/api/scorecard/me")

@@ -8,17 +8,20 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 export type Enqueue = (
   queue: QueueName,
-  data: { callId?: string },
+  data: { callId?: string; reschedules?: number },
   options?: { startAfterSeconds?: number },
 ) => Promise<void>;
 
 export const RETRY_LIMIT = 4;
 
-export async function startBoss(connectionString: string, ssl: boolean): Promise<PgBoss> {
+export async function startBoss(
+  connectionString: string,
+  ssl: { ca: string; rejectUnauthorized: true } | { rejectUnauthorized: false } | undefined,
+): Promise<PgBoss> {
   const boss = new PgBoss({
     connectionString,
     max: 2,
-    ...(ssl ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...(ssl ? { ssl } : {}),
   });
   await boss.start();
   for (const name of Object.values(QUEUES)) {

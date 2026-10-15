@@ -206,23 +206,63 @@ export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
 }
 
 /**
- * claimCall moves a call from one of `from` to `to` in one statement and
- * returns it, or null when another worker or a later state got there first
- * (HLD review: no check-then-act between two queries).
+ * claimCall moves a call from `from` to `to` in one statement and returns it,
+ * or null when another worker or a later state got there first. A call left in
+ * `to` for longer than staleSeconds belongs to a crashed or expired job and may
+ * be claimed again (review finding 11: no check-then-act, no double run).
  */
 export async function claimCall(
   db: Queryable,
   id: string,
-  from: CallStatus[],
+  from: CallStatus,
   to: CallStatus,
+  staleSeconds: number,
 ): Promise<CallRow | null> {
   const { rows } = await db.query<CallRow>(
     `UPDATE calls SET status = $3, error = NULL, updated_at = now()
-      WHERE id = $1 AND status = ANY($2::call_status[])
+      WHERE id = $1
+        AND (status = $2 OR (status = $3 AND updated_at < now() - make_interval(secs => $4)))
       RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at`,
-    [id, from, to],
+    [id, from, to, staleSeconds],
   );
   return rows[0] ?? null;
+}
+
+/** failStuckCalls marks calls that sat in the pipeline far past any job expiry as failed, so Retry can pick them up. */
+export async function failStuckCalls(db: Queryable, olderThanSeconds: number): Promise<number> {
+  const { rowCount } = await db.query(
+    `UPDATE calls SET status = 'failed', error = 'Processing stopped before it finished; retry the call', updated_at = now()
+      WHERE status IN ('uploaded', 'transcribing', 'transcribed', 'scoring')
+        AND updated_at < now() - make_interval(secs => $1)`,
+    [olderThanSeconds],
+  );
+  return rowCount ?? 0;
+}
+
+/**
+ * requeueForRetry atomically moves a failed call, an unscored call whose review
+ * is not done, or a call stuck in flight, back to the step it needs, and says
+ * which step. Two reviewers pressing Retry together queue it once.
+ */
+export async function requeueForRetry(
+  db: Queryable,
+  id: string,
+  staleSeconds: number,
+): Promise<"transcribe" | "score" | null> {
+  const { rows } = await db.query<{ status: CallStatus }>(
+    `UPDATE calls c
+        SET status = CASE WHEN EXISTS (SELECT 1 FROM transcript_segments t WHERE t.call_id = c.id)
+                          THEN 'transcribed'::call_status ELSE 'uploaded'::call_status END,
+            error = NULL, updated_at = now()
+      WHERE c.id = $1
+        AND (c.status = 'failed'
+             OR (c.status = 'scored' AND EXISTS (SELECT 1 FROM scores s WHERE s.call_id = c.id AND s.judge_status = 'failed' AND s.review_status <> 'done'))
+             OR (c.status IN ('uploaded', 'transcribing', 'transcribed', 'scoring') AND c.updated_at < now() - make_interval(secs => $2)))
+      RETURNING c.status`,
+    [id, staleSeconds],
+  );
+  const status = rows[0]?.status;
+  return status === undefined ? null : status === "transcribed" ? "score" : "transcribe";
 }
 
 export async function setStatus(db: Queryable, id: string, status: CallStatus): Promise<void> {

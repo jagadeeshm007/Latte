@@ -7,41 +7,41 @@
       "content-type": "application/json"
     },
     "json": {
-      "id": "chatcmpl-cc613fad-721b-4b9e-9e18-11224874ae43",
+      "id": "chatcmpl-93fa5dab-9a46-401c-b063-ac54bab6ffa2",
       "object": "chat.completion",
-      "created": 1791993894,
+      "created": 1792040471,
       "model": "openai/gpt-oss-120b",
       "choices": [
         {
           "index": 0,
           "message": {
             "role": "assistant",
-            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced self and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No verification of DOB, policy number or registered mobile.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [10, 11],\n      \"note\": \"Provided premium amount and waiting period details.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [13, 14],\n      \"note\": \"Asked and received explicit agreement to proceed.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [15],\n      \"note\": \"Explained 30‑day free‑look and cancellation terms.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product description was accurate; no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [4],\n      \"note\": \"Asked about saving goal and dependants.\"\n    }\n  ],\n  \"coaching\": [\n    \"Always perform an identity check (DOB or policy number) before discussing policy details.\",\n    \"When presenting health plans, also mention any major exclusions beyond waiting periods.\",\n    \"Confirm the customer's understanding of the free‑look period before ending the call.\"\n  ]\n}"
+            "content": "{\n  \"items\": [\n    {\n      \"key\": \"greeting\",\n      \"status\": \"met\",\n      \"segments\": [0],\n      \"note\": \"Agent introduced name and company at start.\"\n    },\n    {\n      \"key\": \"identity_check\",\n      \"status\": \"missed\",\n      \"segments\": [],\n      \"note\": \"No verification of DOB, policy number or registered mobile.\"\n    },\n    {\n      \"key\": \"disclosure\",\n      \"status\": \"met\",\n      \"segments\": [10, 11],\n      \"note\": \"Provided premium amount and waiting period details.\"\n    },\n    {\n      \"key\": \"consent\",\n      \"status\": \"met\",\n      \"segments\": [13],\n      \"note\": \"Asked and received explicit agreement to generate proposal.\"\n    },\n    {\n      \"key\": \"cooling_off\",\n      \"status\": \"met\",\n      \"segments\": [15],\n      \"note\": \"Explained 30‑day free‑look and cancellation refund.\"\n    },\n    {\n      \"key\": \"guaranteed_returns\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No guarantee of returns was made.\"\n    },\n    {\n      \"key\": \"false_urgency\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"No artificial deadline or scarcity pressure used.\"\n    },\n    {\n      \"key\": \"misrepresentation\",\n      \"status\": \"clear\",\n      \"segments\": [],\n      \"note\": \"Product description was accurate; no false claims.\"\n    },\n    {\n      \"key\": \"need_discovery\",\n      \"status\": \"met\",\n      \"segments\": [4],\n      \"note\": \"Asked about saving goal and dependants early in call.\"\n    }\n  ],\n  \"coaching\": [\n    \"Always perform an identity check before discussing policy details.\",\n    \"Confirm the customer's policy number or DOB to comply with verification standards.\",\n    \"After disclosure, recap key exclusions and charges to ensure full understanding.\"\n  ]\n}"
           },
           "logprobs": null,
           "finish_reason": "stop"
         }
       ],
       "usage": {
-        "queue_time": 0.216384278,
+        "queue_time": 0.310076872,
         "prompt_tokens": 1567,
-        "prompt_time": 0.083525045,
-        "completion_tokens": 685,
-        "completion_time": 1.489224194,
-        "total_tokens": 2252,
-        "total_time": 1.572749239,
+        "prompt_time": 0.058177805,
+        "completion_tokens": 717,
+        "completion_time": 2.617499918,
+        "total_tokens": 2284,
+        "total_time": 2.6756777229999997,
         "prompt_tokens_details": {
-          "cached_tokens": 512
+          "cached_tokens": 1024
         },
         "completion_tokens_details": {
-          "reasoning_tokens": 238
+          "reasoning_tokens": 278
         }
       },
       "usage_breakdown": null,
-      "system_fingerprint": "fp_5a93aea882",
+      "system_fingerprint": "fp_854fa9be4c",
       "x_groq": {
-        "id": "req_01m4xjhkjzeb5s3jdczqcw8tw3",
-        "seed": 2032917483
+        "id": "req_01m4yyz0dse7daf0sq573p2h68",
+        "seed": 976619763
       },
       "service_tier": "on_demand"
     }

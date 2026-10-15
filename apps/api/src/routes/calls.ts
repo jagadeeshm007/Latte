@@ -14,7 +14,9 @@ import { currentUser, requireRole, scopeOf } from "../auth.ts";
 import type { AppDeps } from "./deps.ts";
 import { inTransaction } from "../db/pool.ts";
 import { AppError, ConflictError, NotFoundError } from "../errors.ts";
+import { STALE_SECONDS } from "../jobs/handlers.ts";
 import { QUEUES } from "../jobs/queue.ts";
+import { perUserLimit } from "../rate-limit.ts";
 import * as calls from "../repo/calls.ts";
 import {
   activeRubric,
@@ -32,12 +34,15 @@ export function callsRouter(deps: AppDeps): Router {
   const { pool, storage, enqueue, config } = deps;
   const router = Router();
   const uploaders = requireRole("qa_reviewer", "manager");
+  const signLimit = perUserLimit("upload", 60, 60 * 60 * 1000);
+  const confirmLimit = perUserLimit("upload", 30, 60 * 60 * 1000);
+  const retryLimit = perUserLimit("retry", 60, 60 * 60 * 1000);
 
   router.get("/reference", uploaders, async (_req, res) => {
     res.json(await getReference(pool));
   });
 
-  router.post("/uploads/sign", uploaders, async (req, res) => {
+  router.post("/uploads/sign", uploaders, signLimit, async (req, res) => {
     const body = uploadSignRequestSchema.parse(req.body);
     const user = currentUser(req);
     const uploads = await Promise.all(
@@ -51,11 +56,12 @@ export function callsRouter(deps: AppDeps): Router {
     res.json({ uploads });
   });
 
-  router.post("/uploads/confirm", uploaders, async (req, res) => {
+  router.post("/uploads/confirm", uploaders, confirmLimit, async (req, res) => {
     const body = uploadConfirmRequestSchema.parse(req.body);
     const user = currentUser(req);
     for (const f of body.files) {
-      if (!f.path.startsWith(`${user.id}/`)) {
+      // Exactly the shape /uploads/sign issues for this user, nothing more (T12).
+      if (!new RegExp(`^${user.id}/[0-9a-f-]{36}\\.(wav|mp3)$`).test(f.path)) {
         throw new AppError("upload path was not issued to you", 403, "forbidden");
       }
       if (!(await referenceExists(pool, f.agentId, f.teamId, f.productId))) {
@@ -66,6 +72,9 @@ export function callsRouter(deps: AppDeps): Router {
       }
     }
     const batchId = randomUUID();
+    if (new Set(body.files.map((f) => f.path)).size !== body.files.length) {
+      throw new ConflictError("the same file is listed twice");
+    }
     const callIds = await inTransaction(pool, async (client) => {
       const ids: string[] = [];
       for (const f of body.files) {
@@ -86,6 +95,17 @@ export function callsRouter(deps: AppDeps): Router {
         ids.push(id);
       }
       return ids;
+    }).catch((error: unknown) => {
+      // uq_calls_storage_path: each uploaded object becomes one call, once.
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      ) {
+        throw new ConflictError("this file has already been confirmed");
+      }
+      throw error;
     });
     for (const callId of callIds) {
       await enqueue(QUEUES.transcribe, { callId });
@@ -163,24 +183,14 @@ export function callsRouter(deps: AppDeps): Router {
     res.json({ url, expiresInSeconds: config.SIGNED_URL_SECONDS });
   });
 
-  router.post("/calls/:id/retry", uploaders, async (req, res) => {
+  router.post("/calls/:id/retry", uploaders, retryLimit, async (req, res) => {
     const { id } = idParam.parse(req.params);
-    const row = await calls.getCallRow(pool, { agentId: null }, id);
-    if (!row) throw new NotFoundError("call not found");
-    const score = await getScore(pool, id);
-    const segments = await calls.listSegments(pool, id);
-    const unscored =
-      row.status === "scored" && score?.judge_error && score.review_status !== "done";
-    if (row.status !== "failed" && !unscored) {
-      throw new ConflictError("only a failed or unscored call can be retried");
-    }
-    if (segments.length > 0) {
-      await calls.setStatus(pool, id, "transcribed");
-      await enqueue(QUEUES.score, { callId: id });
-    } else {
-      await calls.setStatus(pool, id, "uploaded");
-      await enqueue(QUEUES.transcribe, { callId: id });
-    }
+    if (!(await calls.getCallRow(pool, { agentId: null }, id)))
+      throw new NotFoundError("call not found");
+    const step = await calls.requeueForRetry(pool, id, STALE_SECONDS);
+    if (!step) throw new ConflictError("only a failed, unscored or stuck call can be retried");
+    await enqueue(step === "score" ? QUEUES.score : QUEUES.transcribe, { callId: id });
+    await audit(pool, currentUser(req).id, "call_retried", id);
     res.status(202).json({ status: "queued" });
   });
 

@@ -319,7 +319,11 @@ describe("dashboard (US-01-007, US-01-008)", () => {
 
     expect(await screen.findByText("Mumbai Inbound")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
-    expect(await screen.findByText("Explicit consent")).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("region", { name: "Judge agreement with QA" })).findByText(
+        "Explicit consent",
+      ),
+    ).toBeInTheDocument();
     expect(await screen.findByText("Over 80% used")).toBeInTheDocument();
   });
 

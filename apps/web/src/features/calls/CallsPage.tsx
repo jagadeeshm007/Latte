@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { UploadIcon } from "lucide-react";
 import { useState } from "react";
@@ -7,7 +7,7 @@ import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states
 import { Button } from "@/components/ui/button";
 import { Frame } from "@/components/ui/frame";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { type CallFilters, callsQuery, meQuery, queueQuery } from "@/lib/endpoints";
+import { type CallFilters, callsPagesQuery, meQuery, queueQuery } from "@/lib/endpoints";
 import { IN_PROGRESS } from "@/lib/format";
 
 import { CallsTable } from "./CallsTable";
@@ -24,11 +24,14 @@ export function CallsPage() {
   const me = useQuery(meQuery);
   const [view, setView] = useState("all");
   const filters = VIEWS[view]?.filters ?? {};
-  const calls = useQuery({
-    ...callsQuery(filters),
+  const calls = useInfiniteQuery({
+    ...callsPagesQuery(filters),
     refetchInterval: (q) =>
-      q.state.data?.items.some((c) => IN_PROGRESS.has(c.status)) ? 4000 : false,
+      q.state.data?.pages.some((p) => p.items.some((c) => IN_PROGRESS.has(c.status)))
+        ? 4000
+        : false,
   });
+  const items = calls.data?.pages.flatMap((p) => p.items) ?? [];
   const canUpload = me.data?.role !== "agent";
   return (
     <>
@@ -70,7 +73,7 @@ export function CallsPage() {
         <Loading />
       ) : calls.isError ? (
         <ErrorState error={calls.error} />
-      ) : calls.data.items.length === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
           title={view === "all" ? "No calls yet" : "No calls match this view"}
           description={
@@ -81,7 +84,21 @@ export function CallsPage() {
         />
       ) : (
         <Frame>
-          <CallsTable calls={calls.data.items} showAgent={me.data?.role !== "agent"} />
+          <CallsTable calls={items} showAgent={me.data?.role !== "agent"} />
+          {calls.hasNextPage ? (
+            <div className="flex justify-center p-2">
+              <Button
+                size="sm"
+                variant="outline"
+                loading={calls.isFetchingNextPage}
+                onClick={() => {
+                  void calls.fetchNextPage();
+                }}
+              >
+                Load more calls
+              </Button>
+            </div>
+          ) : null}
         </Frame>
       )}
     </>

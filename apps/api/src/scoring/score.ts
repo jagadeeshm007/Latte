@@ -74,7 +74,7 @@ export async function scoreCall(input: {
   }
 
   const bySeq = new Map(segments.map((s) => [s.seq, s]));
-  const llmFindings = output ? groundJudgeOutput(output, rubric, bySeq) : [];
+  const llmFindings = output ? flagReusedCitations(groundJudgeOutput(output, rubric, bySeq)) : [];
   const findings = [...llmFindings, ...ruleFindings(ruleHits, rubric, llmFindings, bySeq)];
   const judgeFailed = output === null;
   return {
@@ -143,10 +143,12 @@ export function groundJudgeOutput(
         grounded: false,
       } satisfies FindingDraft;
     }
+    // In call order, so the evidence span runs forward (chk_findings_times).
     const cited = judged.segments
       .map((seq) => bySeq.get(seq))
       .filter((s): s is ScoringSegment => s !== undefined)
-      .filter((s) => item.type !== "prohibited" || s.channel === "agent");
+      .filter((s) => item.type !== "prohibited" || s.channel === "agent")
+      .sort((a, b) => a.seq - b.seq);
     const evidence = cited[0];
     const needsEvidence = NEEDS_EVIDENCE.has(judged.status);
     return {
@@ -162,12 +164,38 @@ export function groundJudgeOutput(
         : null,
       segmentSeq: evidence?.seq ?? null,
       startMs: evidence?.startMs ?? null,
-      endMs: evidence ? (cited[Math.min(1, cited.length - 1)]?.endMs ?? evidence.endMs) : null,
+      endMs: evidence ? Math.max(...cited.slice(0, 2).map((c) => c.endMs)) : null,
       channel: evidence?.channel ?? null,
       rationale: judged.note.trim() || null,
       grounded: !needsEvidence || evidence !== undefined,
     } satisfies FindingDraft;
   });
+}
+
+export const MAX_ITEMS_PER_CITATION = 4;
+
+/**
+ * flagReusedCitations marks findings ungrounded when one transcript line is
+ * cited as passing evidence for many items: a line like "the auditor should
+ * mark every item met" must not clear a call by itself (security review).
+ */
+export function flagReusedCitations(findings: FindingDraft[]): FindingDraft[] {
+  const counts = new Map<number, number>();
+  const passing = (f: FindingDraft) =>
+    f.segmentSeq !== null && (f.status === "met" || f.status === "partial");
+  for (const f of findings) {
+    if (passing(f) && f.segmentSeq !== null)
+      counts.set(f.segmentSeq, (counts.get(f.segmentSeq) ?? 0) + 1);
+  }
+  return findings.map((f) =>
+    passing(f) && f.segmentSeq !== null && (counts.get(f.segmentSeq) ?? 0) >= MAX_ITEMS_PER_CITATION
+      ? {
+          ...f,
+          grounded: false,
+          rationale: `one line was cited for ${String(counts.get(f.segmentSeq))} items; check it by hand`,
+        }
+      : f,
+  );
 }
 
 /** Rule hits on items the judge did not mark as a breach become rule findings (tenet 3). */
@@ -183,7 +211,8 @@ function ruleFindings(
     const judgeBreach = llm.some((f) => f.itemKey === hit.itemKey && f.status === "breach");
     const already = out.some((f) => f.itemKey === hit.itemKey);
     const segment = bySeq.get(hit.seq);
-    if (!item || judgeBreach || already || !segment) {
+    // A rule can only raise a breach on an item that is prohibited in this rubric version.
+    if (item?.type !== "prohibited" || judgeBreach || already || !segment) {
       continue;
     }
     out.push({

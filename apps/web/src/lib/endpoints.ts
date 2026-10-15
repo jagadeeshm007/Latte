@@ -18,7 +18,7 @@ import {
   type UploadConfirmRequest,
   type UploadSignRequest,
 } from "@scc/shared";
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { apiFetch, apiSend } from "@/lib/api";
@@ -71,6 +71,19 @@ export const callsQuery = (f: CallFilters) =>
     queryKey: keys.calls(f),
     queryFn: ({ signal }) => apiFetch(`/api/calls${query(f)}`, callListSchema, { signal }),
   });
+/** All calls matching the filters, page by page with the API's cursor (review finding 8). */
+export const callsPagesQuery = (f: CallFilters) =>
+  infiniteQueryOptions({
+    queryKey: [...keys.calls(f), "pages"] as const,
+    initialPageParam: null as string | null,
+    queryFn: ({ signal, pageParam }) => {
+      const base = query(f);
+      const cursor = pageParam ? `${base ? "&" : "?"}cursor=${encodeURIComponent(pageParam)}` : "";
+      return apiFetch(`/api/calls${base}${cursor}`, callListSchema, { signal });
+    },
+    getNextPageParam: (last) => last.nextCursor,
+  });
+
 export const callQuery = (id: string) =>
   queryOptions({
     queryKey: keys.call(id),

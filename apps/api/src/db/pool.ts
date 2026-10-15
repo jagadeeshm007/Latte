@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import pg from "pg";
 
-import { type Config, databaseUrl, usesTls } from "../config.ts";
+import { type Config, databaseUrl, sslOptions } from "../config.ts";
 
 // pg returns int8 and numeric as strings; parse them once here so sums,
 // counts and costs are numbers everywhere (none of ours pass 2^53).
@@ -15,14 +17,17 @@ export type Queryable = Pick<pg.Pool, "query">;
 
 /** createPool builds the one pg pool per process. Nothing connects until the first query. */
 export function createPool(
-  config: Pick<Config, "DATABASE_URL" | "DB_POOL_MAX" | "DB_SSL" | "SUPABASE_POOLER_HOST">,
+  config: Pick<
+    Config,
+    "DATABASE_URL" | "DB_POOL_MAX" | "DB_SSL" | "DB_SSL_CA" | "SUPABASE_POOLER_HOST"
+  >,
 ): pg.Pool {
   return new pg.Pool({
     connectionString: databaseUrl(config),
     max: config.DB_POOL_MAX,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
-    ...(usesTls(config) ? { ssl: { rejectUnauthorized: false } } : {}),
+    ssl: sslOptions(config, (p) => readFileSync(p, "utf8")),
   });
 }
 

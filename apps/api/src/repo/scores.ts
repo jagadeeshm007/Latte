@@ -1,6 +1,7 @@
-import type { Finding } from "@scc/shared";
+import type { Finding, RubricItem } from "@scc/shared";
 
 import type { Queryable } from "../db/pool.ts";
+import { overallScore } from "../scoring/score.ts";
 import type { FindingDraft } from "../scoring/types.ts";
 
 // Scores, findings and the QA review trail.
@@ -237,4 +238,38 @@ export async function completeReview(
     [callId, reviewerId],
   );
   return rowCount ? "done" : "not_pending";
+}
+
+/** The rubric items the call was scored with, so review actions use that version, not today's. */
+export async function scoreRubricItems(
+  db: Queryable,
+  callId: string,
+): Promise<RubricItem[] | null> {
+  const { rows } = await db.query<{ items: RubricItem[] }>(
+    "SELECT r.items FROM scores s JOIN rubrics r ON r.id = s.rubric_id WHERE s.call_id = $1",
+    [callId],
+  );
+  return rows[0]?.items ?? null;
+}
+
+/**
+ * rescoreAfterReview recomputes the overall score from the findings QA did not
+ * reject, plus the misses QA added, so averages follow the human decision
+ * (review finding 3, Q-011). A call whose judge failed stays unscored.
+ */
+export async function rescoreAfterReview(db: Queryable, callId: string): Promise<void> {
+  const { rows } = await db.query<{
+    item_type: FindingDraft["itemType"];
+    status: FindingDraft["status"];
+  }>(
+    `SELECT f.item_type, f.status
+       FROM findings f LEFT JOIN finding_reviews r ON r.finding_id = f.id
+      WHERE f.call_id = $1 AND (r.decision IS NULL OR r.decision <> 'disagree')`,
+    [callId],
+  );
+  const kept = rows.map((r) => ({ itemType: r.item_type, status: r.status }));
+  await db.query(
+    "UPDATE scores SET overall_score = $2, updated_at = now() WHERE call_id = $1 AND judge_status = 'ok'",
+    [callId, overallScore(kept as FindingDraft[])],
+  );
 }

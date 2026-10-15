@@ -19,6 +19,7 @@ function useRefresh(callId: string) {
       queryClient.invalidateQueries({ queryKey: keys.call(callId) }),
       queryClient.invalidateQueries({ queryKey: keys.queue }),
       queryClient.invalidateQueries({ queryKey: keys.agreement }),
+      queryClient.invalidateQueries({ queryKey: ["calls", "list"] }),
     ]);
   };
 }

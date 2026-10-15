@@ -1,4 +1,6 @@
-import { databaseUrl, loadConfig, usesTls } from "./config.ts";
+import { readFileSync } from "node:fs";
+
+import { databaseUrl, loadConfig, sslOptions } from "./config.ts";
 import { createPool } from "./db/pool.ts";
 import { handlePurge, handleScore, handleTranscribe, type JobDeps } from "./jobs/handlers.ts";
 import { bossEnqueue, QUEUES, startBoss } from "./jobs/queue.ts";
@@ -11,7 +13,10 @@ import { buildGateway } from "./wiring.ts";
 const config = loadConfig();
 const log = createLogger(config);
 const pool = createPool(config);
-const boss = await startBoss(databaseUrl(config), usesTls(config));
+const boss = await startBoss(
+  databaseUrl(config),
+  sslOptions(config, (p) => readFileSync(p, "utf8")),
+);
 const deps: JobDeps = {
   pool,
   storage: createStorage(config),
@@ -25,11 +30,25 @@ const work = {
   batchSize: 1,
   includeMetadata: true,
 } as const;
-await boss.work<{ callId: string }>(QUEUES.transcribe, work, async ([job]) => {
-  if (job) await handleTranscribe(deps, { callId: job.data.callId, retryCount: job.retryCount });
-});
-await boss.work<{ callId: string }>(QUEUES.score, work, async ([job]) => {
-  if (job) await handleScore(deps, { callId: job.data.callId, retryCount: job.retryCount });
+await boss.work<{ callId: string; reschedules?: number }>(
+  QUEUES.transcribe,
+  work,
+  async ([job]) => {
+    if (job)
+      await handleTranscribe(deps, {
+        callId: job.data.callId,
+        retryCount: job.retryCount,
+        reschedules: job.data.reschedules ?? 0,
+      });
+  },
+);
+await boss.work<{ callId: string; reschedules?: number }>(QUEUES.score, work, async ([job]) => {
+  if (job)
+    await handleScore(deps, {
+      callId: job.data.callId,
+      retryCount: job.retryCount,
+      reschedules: job.data.reschedules ?? 0,
+    });
 });
 await boss.work(QUEUES.purge, async () => {
   await handlePurge(deps);
