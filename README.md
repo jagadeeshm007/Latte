@@ -26,20 +26,26 @@ Prerequisites: Node 24 or later, pnpm, Docker (for the test database), a Supabas
 
 ```bash
 make setup                 # install dependencies and git hooks
-cp .env.example .env       # then fill in the Supabase and Groq values
+cp .env.example .env       # then fill in the Supabase and Groq values; set DB_SSL_CA to the Supabase CA file to verify TLS
 make env-check             # shows which variables are set, never their values
 make migrate               # apply the schema to the Supabase database
 make seed                  # bucket, teams, products, agents, rubric, one user per role
 make dev                   # API on :8080, worker, web on :5173
 ```
 
-Seed users and their shared development password are written to `.scratch/seed-users.txt` (git-ignored). To voice the 20 seed calls with Groq Orpheus (TTS; the org must accept the model's terms once in the Groq console):
+Each seed user gets a generated password, written to `.scratch/seed-users.txt` (git-ignored, readable only by you); `pnpm --filter @scc/api seed:reset-passwords` issues new ones. To voice the 20 seed calls with Groq Orpheus (TTS; the org must accept the model's terms once in the Groq console):
 
 ```bash
 make render-seed           # resumable; stops at the daily limit and continues on the next run
 ```
 
 Rendered audio lands in `evals/audio/calls/` (git-ignored) and can be uploaded from the Upload page.
+To push the rendered calls through the running pipeline without the browser, and to see where every call stands:
+
+```bash
+make load-seed             # uploads them as the seeded QA reviewer and queues transcription
+make status                # recent calls with status, score and findings, plus this month's spend
+```
 
 ## The gate
 

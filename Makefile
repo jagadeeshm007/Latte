@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -73,6 +73,12 @@ migrate: ## Apply migrations to DATABASE_URL from .env
 
 seed: ## Seed reference data, rubric, bucket and one user per role (development)
 	$(PNPM) --filter @scc/api seed
+
+load-seed: ## Queue the rendered seed calls into the running pipeline (development)
+	$(PNPM) --filter @scc/api load-seed
+
+status: ## Recent calls with status and score, and this month's model spend
+	$(PNPM) --filter @scc/api status
 
 env-check: ## Show which configuration variables are set (never their values)
 	$(PNPM) --filter @scc/api env:check
