@@ -16,6 +16,7 @@ settled again, differently, in each file that runs into it.
 | ADR-0007 | Use Groq Orpheus TTS to voice the synthetic seed calls | speech | Accepted | cheap: seed audio is a one-off artefact |
 | ADR-0008 | Use coss ui on React 19 with Vite and TanStack for the web app | frontend | Accepted | awkward: components re-skinned |
 | ADR-0009 | Keep speech-to-text behind a segment-timestamp contract | speech | Accepted | awkward: a provider without segment timestamps breaks the time map, grounding and click-to-seek |
+| ADR-0010 | Use parameterised SQL with pg instead of Drizzle | orm | Accepted | cheap: repositories in apps/api/src/repo are the only SQL; swapping the query layer touches those files |
 
 ## Conflicts that were settled
 

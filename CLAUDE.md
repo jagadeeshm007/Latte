@@ -6,12 +6,12 @@ Claude Code specifics for this repository; the standard is AGENTS.md above.
 Loaded into every session: keep this file under 40 lines.
 
 ```
-Repository:   SalesCallPlatform (Server/API)
-Stack:        Node 24 + TypeScript 5.9 + Fastify 5 + Zod 4 + Drizzle ORM + pino + Prometheus + OpenTelemetry + pnpm
-Databases:    PostgreSQL
-Entrypoint:   src/server.ts
-Run, test:    make dev, make test; gate: make check
-Git host:     gitlab | github | both (BEARING_GIT_HOST)
+Repository:   SalesCallPlatform (pnpm monorepo: apps/api, apps/web, packages/*, evals)
+Stack:        Node 24 + TS 5.9 + Express 5 + Zod 4 + pg + pg-boss + pino; React 19 + Vite + coss ui
+Databases:    PostgreSQL (hosted Supabase; local postgres:17 for tests via make db)
+Entrypoint:   apps/api/src/server.ts, apps/api/src/worker.ts, apps/web/src/main.tsx
+Run, test:    make dev, make test; gate: make check (includes the eval gate)
+Git host:     github
 Tracker:      SCC-### (BEARING_TRACKER; none is valid)
 Trunk:        main (name develop here if this repository keeps one)
 ```
@@ -31,3 +31,7 @@ auth. On a third failed approach, stop and say so. Bound shell output with
 ## Things the agent gets wrong in this repository
 
 Add a line each time a mistake repeats; delete lines that stop applying.
+
+- Model calls only through packages/gateway; tests and CI use MODEL_MODE=replay.
+- wavefile is CommonJS: load it with createRequire, not a named ESM import.
+- coss ui is the component set: group related controls (Group, ToggleGroup, Frame), keep spacing tight.
