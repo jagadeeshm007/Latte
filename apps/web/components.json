@@ -17,5 +17,8 @@
     "lib": "@/lib",
     "utils": "@/lib/utils",
     "hooks": "@/hooks"
+  },
+  "registries": {
+    "@coss": "https://coss.com/ui/r/{name}.json"
   }
 }

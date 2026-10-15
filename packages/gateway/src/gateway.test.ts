@@ -31,7 +31,10 @@ async function config(overrides: Partial<GatewayConfig> = {}): Promise<GatewayCo
   };
 }
 
-function chatResponse(content = '{"ok":true}', usage: Record<string, unknown> = { prompt_tokens: 3000, completion_tokens: 500 }) {
+function chatResponse(
+  content = '{"ok":true}',
+  usage: Record<string, unknown> = { prompt_tokens: 3000, completion_tokens: 500 },
+) {
   return new Response(
     JSON.stringify({ choices: [{ message: { content }, finish_reason: "stop" }], usage }),
     { status: 200, headers: { "content-type": "application/json" } },
@@ -45,23 +48,37 @@ describe("callModel chat", () => {
     const fetch = vi.fn().mockResolvedValue(chatResponse());
     const gw = createGateway(await config(), new MemoryUsageStore(), { fetch });
     await gw.callModel({ ...chat, maxTokens: 4000 }, { purpose: "test" });
-    const body = JSON.parse((fetch.mock.calls[0]![1] as RequestInit).body as string) as Record<string, unknown>;
+    const body = JSON.parse((fetch.mock.calls[0]![1] as RequestInit).body as string) as Record<
+      string,
+      unknown
+    >;
     expect(body.max_completion_tokens).toBe(MAX_TOKENS_CAP);
   });
 
   it("logs one row with tokens and the cost from the price table", async () => {
     const store = new MemoryUsageStore();
-    const gw = createGateway(await config(), store, { fetch: vi.fn().mockResolvedValue(chatResponse()) });
+    const gw = createGateway(await config(), store, {
+      fetch: vi.fn().mockResolvedValue(chatResponse()),
+    });
     const result = await gw.callModel(chat, { purpose: "score", callId: "c1" });
     expect(store.rows).toHaveLength(1);
-    expect(store.rows[0]).toMatchObject({ status: "ok", inputTokens: 3000, outputTokens: 500, callId: "c1" });
+    expect(store.rows[0]).toMatchObject({
+      status: "ok",
+      inputTokens: 3000,
+      outputTokens: 500,
+      callId: "c1",
+    });
     // 3000 x 0.15/M + 500 x 0.60/M
     expect(result.costUsd).toBeCloseTo(0.00075, 8);
     expect(result.modelCallId).toBe(store.rows[0]!.id);
   });
 
   it("prices cached input tokens at half", async () => {
-    const usage = { prompt_tokens: 3000, completion_tokens: 0, prompt_tokens_details: { cached_tokens: 2000 } };
+    const usage = {
+      prompt_tokens: 3000,
+      completion_tokens: 0,
+      prompt_tokens_details: { cached_tokens: 2000 },
+    };
     const gw = createGateway(await config(), new MemoryUsageStore(), {
       fetch: vi.fn().mockResolvedValue(chatResponse("x", usage)),
     });
@@ -73,7 +90,9 @@ describe("callModel chat", () => {
     const fetch = vi.fn();
     const store = new MemoryUsageStore(5);
     const gw = createGateway(await config(), store, { fetch });
-    await expect(gw.callModel(chat, { purpose: "score" })).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(gw.callModel(chat, { purpose: "score" })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
     expect(fetch).not.toHaveBeenCalled();
     expect(store.rows[0]).toMatchObject({ status: "refused", costUsd: 0 });
   });
@@ -81,9 +100,13 @@ describe("callModel chat", () => {
   it("turns a 429 into RateLimitedError with the provider's retry-after and blocks the model", async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValue(new Response("slow down", { status: 429, headers: { "retry-after": "7" } }));
+      .mockResolvedValue(
+        new Response("slow down", { status: 429, headers: { "retry-after": "7" } }),
+      );
     const gw = createGateway(await config(), new MemoryUsageStore(), { fetch });
-    const error = (await gw.callModel(chat, { purpose: "t" }).catch((e: unknown) => e)) as RateLimitedError;
+    const error = (await gw
+      .callModel(chat, { purpose: "t" })
+      .catch((e: unknown) => e)) as RateLimitedError;
     expect(error).toBeInstanceOf(RateLimitedError);
     expect(error.waitMs).toBe(7000);
     await expect(gw.callModel(chat, { purpose: "t" })).rejects.toBeInstanceOf(RateLimitedError);
@@ -91,7 +114,9 @@ describe("callModel chat", () => {
   });
 
   it("retries a 5xx twice, then records an error row", async () => {
-    const fetch = vi.fn().mockImplementation(() => Promise.resolve(new Response("boom", { status: 503 })));
+    const fetch = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(new Response("boom", { status: 503 })));
     const store = new MemoryUsageStore();
     const gw = createGateway(await config(), store, { fetch, sleep: () => Promise.resolve() });
     await expect(gw.callModel(chat, { purpose: "t" })).rejects.toBeInstanceOf(ProviderError);
@@ -101,9 +126,13 @@ describe("callModel chat", () => {
 
   it("waits instead of sending when the per-minute request limit is used up", async () => {
     const fetch = vi.fn().mockImplementation(() => Promise.resolve(chatResponse()));
-    const gw = createGateway(await config({ limits: { "openai/gpt-oss-120b": { rpm: 1 } } }), new MemoryUsageStore(), {
-      fetch,
-    });
+    const gw = createGateway(
+      await config({ limits: { "openai/gpt-oss-120b": { rpm: 1 } } }),
+      new MemoryUsageStore(),
+      {
+        fetch,
+      },
+    );
     await gw.callModel(chat, { purpose: "t" });
     await expect(gw.callModel(chat, { purpose: "t" })).rejects.toBeInstanceOf(RateLimitedError);
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -128,12 +157,16 @@ describe("callModel chat", () => {
 describe("record and replay", () => {
   it("records a cassette, then replays it with no network", async () => {
     const cfg = await config({ mode: "record" });
-    const live = createGateway(cfg, new MemoryUsageStore(), { fetch: vi.fn().mockResolvedValue(chatResponse("hi")) });
+    const live = createGateway(cfg, new MemoryUsageStore(), {
+      fetch: vi.fn().mockResolvedValue(chatResponse("hi")),
+    });
     await live.callModel(chat, { purpose: "t" });
     expect(await readdir(cfg.cassetteDir)).toHaveLength(1);
 
     const offline = vi.fn().mockRejectedValue(new Error("network is off"));
-    const replay = createGateway({ ...cfg, mode: "replay", apiKeys: {} }, new MemoryUsageStore(), { fetch: offline });
+    const replay = createGateway({ ...cfg, mode: "replay", apiKeys: {} }, new MemoryUsageStore(), {
+      fetch: offline,
+    });
     const result = await replay.callModel(chat, { purpose: "t" });
     expect(result.content).toBe("hi");
     expect(offline).not.toHaveBeenCalled();
@@ -147,7 +180,12 @@ describe("record and replay", () => {
 
 describe("stt and tts", () => {
   it("bills transcription per audio hour with the 10 second minimum", async () => {
-    const body = { text: "hi", language: "english", duration: 4, segments: [{ start: 0, end: 4, text: " hi " }] };
+    const body = {
+      text: "hi",
+      language: "english",
+      duration: 4,
+      segments: [{ start: 0, end: 4, text: " hi " }],
+    };
     const gw = createGateway(await config(), new MemoryUsageStore(), {
       fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })),
     });
@@ -163,7 +201,10 @@ describe("stt and tts", () => {
     const gw = createGateway(await config(), new MemoryUsageStore(), {
       fetch: vi.fn().mockResolvedValue(new Response(new Uint8Array([9, 9]), { status: 200 })),
     });
-    const result = await gw.callModel({ kind: "tts", text: "hello", voice: "troy" }, { purpose: "seed_tts" });
+    const result = await gw.callModel(
+      { kind: "tts", text: "hello", voice: "troy" },
+      { purpose: "seed_tts" },
+    );
     expect([...result.audio]).toEqual([9, 9]);
     expect(result.costUsd).toBeCloseTo((5 * 22) / 1e6, 12);
   });
@@ -172,18 +213,26 @@ describe("stt and tts", () => {
 describe("configuration", () => {
   it("refuses a provider that cannot serve a kind", async () => {
     await expect(async () =>
-      createGateway(await config({ routes: { ...routes, stt: { provider: "gemini", model: "x" } } }), new MemoryUsageStore()),
+      createGateway(
+        await config({ routes: { ...routes, stt: { provider: "gemini", model: "x" } } }),
+        new MemoryUsageStore(),
+      ),
     ).rejects.toBeInstanceOf(ConfigurationError);
   });
 
   it("refuses an unpriced model", async () => {
     await expect(async () =>
-      createGateway(await config({ routes: { ...routes, chat: { provider: "groq", model: "mystery" } } }), new MemoryUsageStore()),
+      createGateway(
+        await config({ routes: { ...routes, chat: { provider: "groq", model: "mystery" } } }),
+        new MemoryUsageStore(),
+      ),
     ).rejects.toBeInstanceOf(ConfigurationError);
   });
 
   it("refuses a live call with no API key", async () => {
-    const gw = createGateway(await config({ apiKeys: {} }), new MemoryUsageStore(), { fetch: vi.fn() });
+    const gw = createGateway(await config({ apiKeys: {} }), new MemoryUsageStore(), {
+      fetch: vi.fn(),
+    });
     await expect(gw.callModel(chat, { purpose: "t" })).rejects.toBeInstanceOf(ConfigurationError);
   });
 });

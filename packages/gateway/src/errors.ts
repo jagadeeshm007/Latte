@@ -12,7 +12,9 @@ export class BudgetExceededError extends GatewayError {
     readonly spentUsd: number,
     readonly budgetUsd: number,
   ) {
-    super(`model budget exhausted: spent ${spentUsd.toFixed(4)} of ${budgetUsd.toFixed(2)} USD this month`);
+    super(
+      `model budget exhausted: spent ${spentUsd.toFixed(4)} of ${budgetUsd.toFixed(2)} USD this month`,
+    );
   }
 }
 

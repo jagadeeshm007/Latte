@@ -20,6 +20,8 @@ export default tseslint.config(
       "test-results/**",
       "node_modules/**",
       "src/components/ui/**",
+      // Registry output from coss ui, regenerated with the shadcn CLI, never hand-edited.
+      "src/hooks/use-media-query.ts",
     ],
   },
   js.configs.recommended,

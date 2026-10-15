@@ -24,6 +24,8 @@ export default mergeConfig(
           "src/main.tsx",
           "src/test/**",
           "src/components/ui/**",
+          // Registry output from coss ui, regenerated with the shadcn CLI.
+          "src/hooks/use-media-query.ts",
         ],
         thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
       },

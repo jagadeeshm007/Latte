@@ -96,9 +96,5 @@
     "misrepresentation": "breach",
     "need_discovery": "missed"
   },
-  "planted": [
-    "guaranteed_returns",
-    "misrepresentation",
-    "false_urgency"
-  ]
+  "planted": ["guaranteed_returns", "misrepresentation", "false_urgency"]
 }

@@ -59,7 +59,22 @@ describe("apiFetch", () => {
     expect(error.code).toBe("http");
     expect(error.status).toBe(404);
     expect(error.details).toBe("nope");
-    expect(error.message).toBe("GET /things/x: 404 Not Found");
+    expect(error.message).toBe("GET /things/x: 404");
+  });
+
+  it("uses the API's error message when the body is the error envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({ error: { code: "forbidden", message: "your role cannot do this" } }, 403),
+        ),
+      ),
+    );
+
+    const error = await failure(apiFetch("/things/x", schema));
+
+    expect(error.message).toBe("your role cannot do this");
   });
 
   it("accepts 204 No Content when the schema allows no body", async () => {

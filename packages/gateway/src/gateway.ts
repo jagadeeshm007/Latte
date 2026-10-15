@@ -177,7 +177,11 @@ export interface Gateway {
 
 const RETRY_DELAYS_MS = [1000, 4000];
 
-export function createGateway(config: GatewayConfig, store: UsageStore, deps: GatewayDeps = {}): Gateway {
+export function createGateway(
+  config: GatewayConfig,
+  store: UsageStore,
+  deps: GatewayDeps = {},
+): Gateway {
   const doFetch = deps.fetch ?? fetch;
   const now = deps.now ?? (() => new Date());
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -194,7 +198,10 @@ export function createGateway(config: GatewayConfig, store: UsageStore, deps: Ga
     prices[kind] = priceFor(route.provider, route.model);
   }
 
-  async function callModel<R extends ModelRequest>(request: R, context: CallContext): Promise<ResultFor<R>> {
+  async function callModel<R extends ModelRequest>(
+    request: R,
+    context: CallContext,
+  ): Promise<ResultFor<R>> {
     const route = config.routes[request.kind];
     const base: Omit<ModelCallRow, "status" | "costUsd" | "latencyMs" | "error"> = {
       provider: route.provider,
@@ -211,7 +218,13 @@ export function createGateway(config: GatewayConfig, store: UsageStore, deps: Ga
 
     const spent = await store.monthSpendUsd(now());
     if (spent >= config.budgetUsd) {
-      await store.record({ ...base, status: "refused", costUsd: 0, latencyMs: 0, error: "budget exhausted" });
+      await store.record({
+        ...base,
+        status: "refused",
+        costUsd: 0,
+        latencyMs: 0,
+        error: "budget exhausted",
+      });
       throw new BudgetExceededError(spent, config.budgetUsd);
     }
 
@@ -249,7 +262,12 @@ export function createGateway(config: GatewayConfig, store: UsageStore, deps: Ga
       latencyMs,
       error: null,
     });
-    return { ...parsed.result, costUsd: parsed.costUsd, modelCallId, model: route.model } as ResultFor<R>;
+    return {
+      ...parsed.result,
+      costUsd: parsed.costUsd,
+      modelCallId,
+      model: route.model,
+    } as ResultFor<R>;
   }
 
   async function obtain(built: BuiltRequest, key: string, route: Route): Promise<RecordedResponse> {
@@ -272,7 +290,11 @@ export function createGateway(config: GatewayConfig, store: UsageStore, deps: Ga
     return response;
   }
 
-  async function sendWithRetry(built: BuiltRequest, apiKey: string, route: Route): Promise<RecordedResponse> {
+  async function sendWithRetry(
+    built: BuiltRequest,
+    apiKey: string,
+    route: Route,
+  ): Promise<RecordedResponse> {
     for (let attempt = 0; ; attempt++) {
       const res = await doFetch(`${PROVIDER_BASE_URLS[route.provider]}${built.path}`, {
         method: "POST",
@@ -294,11 +316,18 @@ export function createGateway(config: GatewayConfig, store: UsageStore, deps: Ga
       }
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        throw new ProviderError(res.status, `${route.provider} ${String(res.status)}: ${text.slice(0, 300)}`);
+        throw new ProviderError(
+          res.status,
+          `${route.provider} ${String(res.status)}: ${text.slice(0, 300)}`,
+        );
       }
       const headers = { "content-type": res.headers.get("content-type") ?? "" };
       if (built.binary) {
-        return { status: res.status, headers, base64: Buffer.from(await res.arrayBuffer()).toString("base64") };
+        return {
+          status: res.status,
+          headers,
+          base64: Buffer.from(await res.arrayBuffer()).toString("base64"),
+        };
       }
       return { status: res.status, headers, json: await res.json() };
     }
@@ -340,7 +369,11 @@ function buildRequest(request: ModelRequest, route: Route): BuiltRequest {
       if (request.jsonSchema) {
         payload.response_format = {
           type: "json_schema",
-          json_schema: { name: request.jsonSchema.name, strict: true, schema: request.jsonSchema.schema },
+          json_schema: {
+            name: request.jsonSchema.name,
+            strict: true,
+            schema: request.jsonSchema.schema,
+          },
         };
       }
       const json = JSON.stringify(payload);
@@ -383,7 +416,12 @@ function buildRequest(request: ModelRequest, route: Route): BuiltRequest {
       };
     }
     case "tts": {
-      const payload = { model: route.model, voice: request.voice, input: request.text, response_format: "wav" };
+      const payload = {
+        model: route.model,
+        voice: request.voice,
+        input: request.text,
+        response_format: "wav",
+      };
       const json = JSON.stringify(payload);
       return {
         path: "/audio/speech",
@@ -401,7 +439,10 @@ function estimate(request: ModelRequest): { tokens?: number; audioSeconds?: numb
   switch (request.kind) {
     case "chat": {
       const chars = request.messages.reduce((s, m) => s + m.content.length, 0);
-      return { tokens: Math.ceil(chars / 4) + Math.min(request.maxTokens ?? MAX_TOKENS_CAP, MAX_TOKENS_CAP) };
+      return {
+        tokens:
+          Math.ceil(chars / 4) + Math.min(request.maxTokens ?? MAX_TOKENS_CAP, MAX_TOKENS_CAP),
+      };
     }
     case "stt":
       return { audioSeconds: Math.max(request.durationSeconds, 10) };
@@ -430,10 +471,21 @@ interface VerboseTranscription {
   text?: string;
   language?: string;
   duration?: number;
-  segments?: { start: number; end: number; text: string; avg_logprob?: number; no_speech_prob?: number }[];
+  segments?: {
+    start: number;
+    end: number;
+    text: string;
+    avg_logprob?: number;
+    no_speech_prob?: number;
+  }[];
 }
 
-function parseResult(request: ModelRequest, response: RecordedResponse, route: Route, price: Price | null): Parsed {
+function parseResult(
+  request: ModelRequest,
+  response: RecordedResponse,
+  route: Route,
+  price: Price | null,
+): Parsed {
   switch (request.kind) {
     case "chat": {
       const body = response.json as ChatCompletion;
@@ -455,7 +507,11 @@ function parseResult(request: ModelRequest, response: RecordedResponse, route: R
           usage,
         },
         costUsd,
-        usageRow: { inputTokens: usage.inputTokens, cachedTokens: usage.cachedTokens, outputTokens: usage.outputTokens },
+        usageRow: {
+          inputTokens: usage.inputTokens,
+          cachedTokens: usage.cachedTokens,
+          outputTokens: usage.outputTokens,
+        },
       };
     }
     case "stt": {

@@ -10,6 +10,9 @@ const dir = path.resolve(import.meta.dirname, "..", "calls");
 mkdirSync(dir, { recursive: true });
 for (const call of CALLS) {
   const { planted } = scriptTranscript(call);
-  writeFileSync(path.join(dir, `${call.id}.json`), `${JSON.stringify({ ...call, planted: planted.map((p) => p.key) }, null, 2)}\n`);
+  writeFileSync(
+    path.join(dir, `${call.id}.json`),
+    `${JSON.stringify({ ...call, planted: planted.map((p) => p.key) }, null, 2)}\n`,
+  );
 }
 process.stdout.write(`build-calls: ${String(CALLS.length)} calls written to evals/calls\n`);

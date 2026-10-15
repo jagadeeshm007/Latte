@@ -16,7 +16,6 @@ import type { Pool } from "../../src/db/pool.ts";
 import { handleScore, handleTranscribe } from "../../src/jobs/handlers.ts";
 import { RETRY_LIMIT } from "../../src/jobs/queue.ts";
 
-
 // Edge paths: failures, retries, validation, paging and CORS.
 
 let pool: Pool;

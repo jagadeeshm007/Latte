@@ -15,7 +15,12 @@ export function createLogger(config: Pick<Config, "LOG_LEVEL" | "LOG_PRETTY">): 
       censor: "[redacted]",
     },
     ...(config.LOG_PRETTY
-      ? { transport: { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } } }
+      ? {
+          transport: {
+            target: "pino-pretty",
+            options: { colorize: true, translateTime: "HH:MM:ss" },
+          },
+        }
       : {}),
   });
 }

@@ -183,7 +183,8 @@ const VOICE_PAIRS = [
   { agent: "austin", customer: "diana" },
   { agent: "daniel", customer: "autumn" },
 ] as const;
-const voices = (n: number): { agent: string; customer: string } => VOICE_PAIRS[n % 3] ?? VOICE_PAIRS[0];
+const voices = (n: number): { agent: string; customer: string } =>
+  VOICE_PAIRS[n % 3] ?? VOICE_PAIRS[0];
 
 export const CALLS: CallScript[] = [
   {

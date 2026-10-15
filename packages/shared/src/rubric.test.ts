@@ -13,7 +13,11 @@ describe("default rubric", () => {
       "consent",
       "cooling_off",
     ]);
-    expect(byType("prohibited")).toEqual(["guaranteed_returns", "false_urgency", "misrepresentation"]);
+    expect(byType("prohibited")).toEqual([
+      "guaranteed_returns",
+      "false_urgency",
+      "misrepresentation",
+    ]);
     expect(byType("quality")).toEqual(["need_discovery"]);
     expect(rubricItemsSchema.safeParse(DEFAULT_RUBRIC).success).toBe(true);
   });
@@ -37,7 +41,9 @@ describe("judgeJsonSchema", () => {
   it("is closed, requires every field and enumerates the rubric keys", () => {
     const schema = judgeJsonSchema(DEFAULT_RUBRIC) as {
       additionalProperties: boolean;
-      properties: { items: { minItems: number; items: { properties: { key: { enum: string[] } } } } };
+      properties: {
+        items: { minItems: number; items: { properties: { key: { enum: string[] } } } };
+      };
     };
     expect(schema.additionalProperties).toBe(false);
     expect(schema.properties.items.minItems).toBe(DEFAULT_RUBRIC.length);

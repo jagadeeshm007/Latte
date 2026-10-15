@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { env } from "@/lib/env";
+import { accessToken } from "@/lib/supabase";
 
 export type ApiErrorCode = "network" | "http" | "invalid_json" | "invalid_response";
 
@@ -34,6 +35,10 @@ export async function apiFetch<T>(
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  const token = await accessToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   let response: Response;
   try {
@@ -47,7 +52,7 @@ export async function apiFetch<T>(
     throw new ApiError(
       "http",
       response.status,
-      `${method} ${path}: ${String(response.status)} ${response.statusText}`.trim(),
+      serverMessage(body) ?? `${method} ${path}: ${String(response.status)}`,
       body,
     );
   }
@@ -89,4 +94,27 @@ export async function apiFetch<T>(
     );
   }
   return parsed.data;
+}
+
+/** serverMessage pulls the readable message out of the API's error envelope, if there is one. */
+function serverMessage(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body) as { error?: { message?: unknown } };
+    return typeof parsed.error?.message === "string" ? parsed.error.message : null;
+  } catch {
+    return null;
+  }
+}
+
+/** apiSend sends a JSON body and validates the reply, for POST and PUT calls. */
+export function apiSend<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  method: "POST" | "PUT",
+  body?: unknown,
+): Promise<T> {
+  return apiFetch(path, schema, {
+    method,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 }

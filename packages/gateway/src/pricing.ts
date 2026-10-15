@@ -21,7 +21,11 @@ export interface CharPrice {
 }
 export type Price = TokenPrice | AudioPrice | CharPrice;
 
-const tokens = (inputPerM: number, outputPerM: number, cachedInputPerM = inputPerM / 2): TokenPrice => ({
+const tokens = (
+  inputPerM: number,
+  outputPerM: number,
+  cachedInputPerM = inputPerM / 2,
+): TokenPrice => ({
   kind: "tokens",
   inputPerM,
   cachedInputPerM,
@@ -52,14 +56,23 @@ export function priceFor(provider: string, model: string): Price | null {
   }
   const price = PRICES[provider]?.[model];
   if (!price) {
-    throw new ConfigurationError(`no price for ${provider}/${model}; add it to packages/gateway/src/pricing.ts`);
+    throw new ConfigurationError(
+      `no price for ${provider}/${model}; add it to packages/gateway/src/pricing.ts`,
+    );
   }
   return price;
 }
 
-export function tokenCost(price: TokenPrice, input: number, cached: number, output: number): number {
+export function tokenCost(
+  price: TokenPrice,
+  input: number,
+  cached: number,
+  output: number,
+): number {
   const uncached = Math.max(0, input - cached);
-  return (uncached * price.inputPerM + cached * price.cachedInputPerM + output * price.outputPerM) / 1e6;
+  return (
+    (uncached * price.inputPerM + cached * price.cachedInputPerM + output * price.outputPerM) / 1e6
+  );
 }
 
 export function audioCost(price: AudioPrice, seconds: number): number {

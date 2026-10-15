@@ -118,7 +118,5 @@
     "misrepresentation": "clear",
     "need_discovery": "met"
   },
-  "planted": [
-    "false_urgency"
-  ]
+  "planted": ["false_urgency"]
 }

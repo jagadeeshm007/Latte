@@ -8,7 +8,8 @@ import tseslint from "typescript-eslint";
 // Flat config for the Node packages (apps/api, packages/*, evals). apps/web
 // has its own. Strict type-checked TypeScript and import order; Prettier owns
 // formatting. Tenet 1: only packages/gateway may name a model provider.
-const PROVIDER_HOSTS = "api\\.groq\\.com|openrouter\\.ai|generativelanguage\\.googleapis\\.com|api\\.openai\\.com";
+const PROVIDER_HOSTS =
+  "api\\.groq\\.com|openrouter\\.ai|generativelanguage\\.googleapis\\.com|api\\.openai\\.com";
 
 export default tseslint.config(
   { ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**", "apps/web/**", "docs/**"] },
@@ -36,10 +37,16 @@ export default tseslint.config(
         },
       ],
       "@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
-      "@typescript-eslint/no-unnecessary-condition": ["error", { allowConstantLoopConditions: true }],
+      "@typescript-eslint/no-unnecessary-condition": [
+        "error",
+        { allowConstantLoopConditions: true },
+      ],
       "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
       "no-console": ["error", { allow: ["error"] }],
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
   {
@@ -48,7 +55,12 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: ["groq-sdk", "openai", "@google/genai"].map((name) => ({ name, message: "model calls go through @scc/gateway (tenet 1)" })) },
+        {
+          paths: ["groq-sdk", "openai", "@google/genai"].map((name) => ({
+            name,
+            message: "model calls go through @scc/gateway (tenet 1)",
+          })),
+        },
       ],
       "no-restricted-syntax": [
         "error",

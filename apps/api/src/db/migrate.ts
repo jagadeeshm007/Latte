@@ -9,13 +9,18 @@ import { createPool, inTransaction, type Pool } from "./pool.ts";
 
 const DIR = path.join(import.meta.dirname, "migrations");
 
-export async function migrate(pool: Pool, log: (line: string) => void = () => undefined): Promise<string[]> {
+export async function migrate(
+  pool: Pool,
+  log: (line: string) => void = () => undefined,
+): Promise<string[]> {
   await pool.query(
     "CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())",
   );
   await pool.query("ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY");
   const done = new Set(
-    (await pool.query<{ name: string }>("SELECT name FROM schema_migrations")).rows.map((r) => r.name),
+    (await pool.query<{ name: string }>("SELECT name FROM schema_migrations")).rows.map(
+      (r) => r.name,
+    ),
   );
   const files = (await readdir(DIR)).filter((f) => f.endsWith(".sql")).sort();
   const applied: string[] = [];

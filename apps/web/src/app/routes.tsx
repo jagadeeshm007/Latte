@@ -6,18 +6,19 @@ import {
   type RouterHistory,
 } from "@tanstack/react-router";
 
-import { HomePage } from "@/app/HomePage";
+import { HomeRedirect } from "@/app/HomeRedirect";
 import { NotFound } from "@/app/NotFound";
 import { RootLayout } from "@/app/RootLayout";
 import { RouteError } from "@/app/RouteError";
-import { GalleryIndex, GalleryScreen } from "@/design/Gallery";
-import { parseGallerySearch } from "@/design/registry";
+import { CallDetailPage } from "@/features/calls/CallDetailPage";
+import { CallsPage, QueuePage } from "@/features/calls/CallsPage";
+import { UploadPage } from "@/features/calls/UploadPage";
+import { ScorecardPage } from "@/features/coaching/ScorecardPage";
+import { DashboardPage } from "@/features/manager/DashboardPage";
+import { RubricPage } from "@/features/manager/RubricPage";
 
-// Code-based routes. A route that needs data adds
-// `loader: ({ context }) => context.queryClient.ensureQueryData(options)`
-// and its component calls `useSuspenseQuery(options)`; a route that reads the
-// URL adds `validateSearch: searchSchema.parse`. A loader or component that
-// throws lands in RouteError (the root errorComponent) with the layout intact.
+// Code-based routes. Access is enforced by the API on every request; the
+// menu in RootLayout only hides what a role cannot use.
 interface RouterContext {
   queryClient: QueryClient;
 }
@@ -28,38 +29,49 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFound,
 });
 
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  component: HomePage,
+const child = { getParentRoute: () => rootRoute };
+
+const homeRoute = createRoute({ ...child, path: "/", component: HomeRedirect });
+const queueRoute = createRoute({ ...child, path: "/queue", component: QueuePage });
+const callsRoute = createRoute({ ...child, path: "/calls", component: CallsPage });
+const uploadRoute = createRoute({ ...child, path: "/upload", component: UploadPage });
+const scorecardRoute = createRoute({
+  ...child,
+  path: "/scorecard",
+  component: () => <ScorecardPage agentId="me" />,
 });
+const dashboardRoute = createRoute({ ...child, path: "/dashboard", component: DashboardPage });
+const rubricRoute = createRoute({ ...child, path: "/rubric", component: RubricPage });
 
-// The design gallery: every *.screen.tsx in every state, inside this layout.
-// On in `vite dev`, and in a build only with VITE_DESIGN_GALLERY=1 (the
-// design review and the smoke run use it); a production build drops it.
-export const designGalleryEnabled =
-  import.meta.env.DEV || import.meta.env.VITE_DESIGN_GALLERY === "1";
-
-const galleryIndexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/__design",
-  component: () => <GalleryIndex />,
-});
-
-const galleryScreenRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/__design/$id",
-  validateSearch: parseGallerySearch,
-  component: function GalleryScreenRoute() {
-    const { id } = galleryScreenRoute.useParams();
-    const search = galleryScreenRoute.useSearch();
-    return <GalleryScreen id={id} search={search} />;
+const callRoute = createRoute({
+  ...child,
+  path: "/calls/$callId",
+  component: function CallRoute() {
+    const { callId } = callRoute.useParams();
+    return <CallDetailPage callId={callId} />;
   },
 });
 
-export const routeTree = rootRoute.addChildren(
-  designGalleryEnabled ? [indexRoute, galleryIndexRoute, galleryScreenRoute] : [indexRoute],
-);
+const agentRoute = createRoute({
+  ...child,
+  path: "/agents/$agentId",
+  component: function AgentRoute() {
+    const { agentId } = agentRoute.useParams();
+    return <ScorecardPage key={agentId} agentId={agentId} />;
+  },
+});
+
+export const routeTree = rootRoute.addChildren([
+  homeRoute,
+  queueRoute,
+  callsRoute,
+  callRoute,
+  uploadRoute,
+  scorecardRoute,
+  agentRoute,
+  dashboardRoute,
+  rubricRoute,
+]);
 
 interface AppRouterOptions {
   queryClient: QueryClient;

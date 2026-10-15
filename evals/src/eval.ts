@@ -78,7 +78,12 @@ export function scriptTranscript(call: CallScript): {
 export interface CallOutcome {
   callId: string;
   judgeFailed: boolean;
-  items: { key: string; expected: FindingStatus; actual: FindingStatus | null; note: string | null }[];
+  items: {
+    key: string;
+    expected: FindingStatus;
+    actual: FindingStatus | null;
+    note: string | null;
+  }[];
   gateFailures: string[];
   ruleCaught: string[];
 }
@@ -180,7 +185,10 @@ export function formatReport(summary: ItemSummary[], outcomes: CallOutcome[]): s
   const disagreements = outcomes.flatMap((o) =>
     o.items
       .filter((i) => i.actual !== i.expected)
-      .map((i) => `  ${o.callId} ${i.key}: label ${i.expected}, judge ${i.actual ?? "none"}${i.note ? ` (${i.note})` : ""}`),
+      .map(
+        (i) =>
+          `  ${o.callId} ${i.key}: label ${i.expected}, judge ${i.actual ?? "none"}${i.note ? ` (${i.note})` : ""}`,
+      ),
   );
   if (disagreements.length) lines.push("", "disagreements with the labels:", ...disagreements);
   return lines.join("\n");

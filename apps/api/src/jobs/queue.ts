@@ -7,10 +7,10 @@ export const QUEUES = { transcribe: "transcribe", score: "score", purge: "purge"
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 export type Enqueue = (
-    queue: QueueName,
-    data: { callId?: string },
-    options?: { startAfterSeconds?: number },
-  ) => Promise<void>;
+  queue: QueueName,
+  data: { callId?: string },
+  options?: { startAfterSeconds?: number },
+) => Promise<void>;
 
 export const RETRY_LIMIT = 4;
 

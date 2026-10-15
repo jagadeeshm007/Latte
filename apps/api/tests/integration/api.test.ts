@@ -6,7 +6,6 @@ import {
   fakeGateway,
   type Fixture,
   log,
-
   recordingQueue,
   resetData,
   seedFixture,
@@ -16,7 +15,6 @@ import {
 import { encodeWav } from "../../src/audio/wav.ts";
 import type { Pool } from "../../src/db/pool.ts";
 import { handlePurge, handleScore, handleTranscribe } from "../../src/jobs/handlers.ts";
-
 
 let pool: Pool;
 let fx: Fixture;

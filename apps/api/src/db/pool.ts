@@ -27,7 +27,10 @@ export function createPool(
 }
 
 /** inTransaction runs fn in one transaction and rolls back on any error. */
-export async function inTransaction<T>(pool: pg.Pool, fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+export async function inTransaction<T>(
+  pool: pg.Pool,
+  fn: (client: pg.PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

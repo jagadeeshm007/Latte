@@ -89,11 +89,9 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _nex
     return;
   }
   req.log.error({ err: error }, "unhandled error");
-  res
-    .status(500)
-    .json({
-      error: { code: "internal", message: "internal error", requestId },
-    } satisfies ErrorEnvelope);
+  res.status(500).json({
+    error: { code: "internal", message: "internal error", requestId },
+  } satisfies ErrorEnvelope);
 };
 
 function isBodyParserError(error: unknown): error is { status: number; message: string } {

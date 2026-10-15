@@ -42,7 +42,12 @@ export type Me = z.infer<typeof meSchema>;
 
 export const referenceSchema = z.object({
   agents: z.array(
-    z.object({ id: z.string(), name: z.string(), teamId: z.string(), externalCode: z.string().nullable() }),
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      teamId: z.string(),
+      externalCode: z.string().nullable(),
+    }),
   ),
   teams: z.array(z.object({ id: z.string(), name: z.string() })),
   products: z.array(z.object({ id: z.string(), name: z.string() })),

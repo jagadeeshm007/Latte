@@ -23,7 +23,6 @@ import {
 } from "../repo/reference.ts";
 import { addReviewerFinding, completeReview, findingCall, upsertReview } from "../repo/scores.ts";
 
-
 const idParam = z.object({ id: z.uuid() });
 
 async function rubricOrFail(deps: AppDeps) {

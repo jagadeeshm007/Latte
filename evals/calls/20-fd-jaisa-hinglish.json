@@ -114,7 +114,5 @@
     "misrepresentation": "breach",
     "need_discovery": "met"
   },
-  "planted": [
-    "misrepresentation"
-  ]
+  "planted": ["misrepresentation"]
 }

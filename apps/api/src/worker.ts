@@ -20,7 +20,11 @@ const deps: JobDeps = {
   log,
 };
 
-const work = { localConcurrency: config.WORKER_CONCURRENCY, batchSize: 1, includeMetadata: true } as const;
+const work = {
+  localConcurrency: config.WORKER_CONCURRENCY,
+  batchSize: 1,
+  includeMetadata: true,
+} as const;
 await boss.work<{ callId: string }>(QUEUES.transcribe, work, async ([job]) => {
   if (job) await handleTranscribe(deps, { callId: job.data.callId, retryCount: job.retryCount });
 });

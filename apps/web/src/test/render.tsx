@@ -23,3 +23,28 @@ export function jsonResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+/**
+ * renderInRouter renders ui as the only route of a memory router, so Links
+ * and route hooks work, inside a fresh query client.
+ */
+export async function renderInRouter(
+  ui: ReactNode,
+  path = "/",
+): Promise<RenderResult & { client: QueryClient }> {
+  const { createMemoryHistory, createRootRoute, createRouter, RouterProvider } =
+    await import("@tanstack/react-router");
+  const client = createTestQueryClient();
+  const rootRoute = createRootRoute({ component: () => ui });
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
+  await router.load();
+  const result = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { ...result, client };
+}

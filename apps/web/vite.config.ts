@@ -7,6 +7,8 @@ import { defineConfig } from "vite";
 // Vite build and dev server. Test settings live in vitest.config.ts.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // One .env at the repository root serves the API and the web app; only VITE_ values reach the bundle.
+  envDir: path.resolve(import.meta.dirname, "../.."),
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "src") },
   },

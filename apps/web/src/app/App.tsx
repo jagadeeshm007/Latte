@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { createAppRouter } from "@/app/routes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ToastProvider } from "@/components/ui/toast";
 import { queryClient as defaultQueryClient } from "@/lib/query-client";
 
 interface AppProps {
@@ -25,7 +26,9 @@ export function App({ queryClient = defaultQueryClient, history }: AppProps) {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

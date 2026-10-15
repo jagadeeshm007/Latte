@@ -126,7 +126,5 @@
     "misrepresentation": "clear",
     "need_discovery": "met"
   },
-  "planted": [
-    "guaranteed_returns"
-  ]
+  "planted": ["guaranteed_returns"]
 }

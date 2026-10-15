@@ -25,7 +25,6 @@ import {
 } from "../repo/reference.ts";
 import { getScore, listFindings } from "../repo/scores.ts";
 
-
 const idParam = z.object({ id: z.uuid() });
 
 /** Upload, list, detail, audio and retry (US-01-001, US-01-002, US-02-003). */

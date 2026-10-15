@@ -3,7 +3,6 @@ import type { Agreement, Dashboard, RubricItem, Scorecard } from "@scc/shared";
 import { listCalls } from "./calls.ts";
 import type { Queryable } from "../db/pool.ts";
 
-
 // Read models for the scorecard, judge agreement and the manager dashboard.
 // Findings a QA reviewer disagreed with never count against an agent (Q-011).
 
