@@ -1,7 +1,6 @@
-# SalesCallPlatform CI on GitHub Actions: the twin of .gitlab-ci.yml. Same stages
-# (validate, lint, test, security, build, then deploy on request) and every
-# gate is `make <target>`, so the Makefile stays the single source of what a
-# gate does. GitHub sets CI=true, so a gate whose tool is missing fails here
+# SalesCall CI on GitHub Actions. Every gate is `make <target>`, so the
+# Makefile stays the single source of what a gate does. No job calls a model:
+# the eval replays recorded responses (REQ-027). GitHub sets CI=true, so a gate whose tool is missing fails here
 # instead of printing SKIPPED.
 #
 # The two-approval rule (one peer, one lead, from CODEOWNERS) is a branch
@@ -16,13 +15,6 @@ on:
   push:
     branches: [develop, main]
     tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      deploy:
-        description: "Deploy the image of this ref (a person approves in the environment)"
-        type: choice
-        options: [qa, production]
-        default: qa
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -75,60 +67,35 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ env.NODE_VERSION }}" }
-      - run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-      - name: install
-        run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else echo "lockfile:none committed, installing unfrozen (run pnpm install and commit pnpm-lock.yaml)"; pnpm install; fi
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: make ${{ matrix.gate }}
 
-  unit:
+  # Unit and integration tests; `make test` starts postgres:17 with docker compose.
+  test:
     needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ env.NODE_VERSION }}" }
-      - run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
-      - uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-${{ runner.os }}-
-      - name: install
-        run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else echo "lockfile:none committed, installing unfrozen (run pnpm install and commit pnpm-lock.yaml)"; pnpm install; fi
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: make test
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with: { name: coverage, path: coverage, retention-days: 7 }
 
-  # Needs Postgres, so it is a job here and not part of make check.
-  integration:
+  # The judge eval from recorded responses: fails on any missed planted prohibited statement.
+  eval:
     needs: lint
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env: { POSTGRES_DB: app_test, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
-        ports: ["5432:5432"]
-        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
+      MODEL_MODE: replay
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ env.NODE_VERSION }}" }
-      - name: install
-        run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else echo "lockfile:none committed, installing unfrozen (run pnpm install and commit pnpm-lock.yaml)"; pnpm install; fi
-      - run: pnpm exec drizzle-kit migrate
-      - run: make migrate-verify
-      - run: make test-integration
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: make eval
 
   dependency-scan:
     needs: validate
@@ -137,59 +104,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ env.NODE_VERSION }}" }
-      - name: install
-        run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else echo "lockfile:none committed, installing unfrozen (run pnpm install and commit pnpm-lock.yaml)"; pnpm install; fi
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
       - run: make vuln
-
-  build:
-    needs: [unit, integration, dependency-scan]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: login to ghcr
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: image tags
-        id: tags
-        run: |
-          base="ghcr.io/${GITHUB_REPOSITORY,,}"
-          tags="$base:${GITHUB_SHA::7}"
-          case "$GITHUB_REF" in refs/tags/*) tags="$tags,$base:${GITHUB_REF#refs/tags/}";; esac
-          echo "tags=$tags" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: ${{ github.event_name == 'push' }}
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - run: 'echo "build: 1 image built (${{ steps.tags.outputs.tags }})"'
-
-  # Deploys run only from workflow_dispatch and stop at the environment's
-  # protection rule: a person approves in the GitHub UI, the job never
-  # decides on its own. Wire the script to your GitOps repo or deploy tool.
-  deploy:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    environment:
-      name: ${{ inputs.deploy }}
-      url: ${{ inputs.deploy == 'production' && 'https://sales-call-platform.example.com' || 'https://qa.sales-call-platform.example.com' }}
-    steps:
-      - run: |
-          echo "deploy ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_SHA::7} to ${{ inputs.deploy }}: wire this job to your GitOps repo or deploy script"
-          exit 1
-      - name: smoke
-        if: inputs.deploy == 'production'
-        run: |
-          curl -fsS "https://sales-call-platform.example.com/healthz" | grep -q '"ok"'
-          curl -fsS "https://sales-call-platform.example.com/readyz" | grep -q '"ok"'
-          echo "smoke: 2 endpoints checked"
