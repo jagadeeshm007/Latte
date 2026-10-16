@@ -1300,6 +1300,20 @@ describe("API keys (ADR-0018)", () => {
     );
   });
 
+  // SCC-1: refused requests were not counted, so a key could send unlimited 403s, each one logged.
+  it("counts refused requests against the limit too", async () => {
+    const key = await createKey({ scopes: ["calls:read"], limits: { read: 2 } });
+    const headers = bearer(key.secret);
+
+    const statuses = [
+      (await request(ctx.app).get("/api/usage").set(headers)).status,
+      (await request(ctx.app).get("/api/rubrics/active").set(headers)).status,
+      (await request(ctx.app).get("/api/usage").set(headers)).status,
+    ];
+
+    expect(statuses).toEqual([403, 403, 429]);
+  });
+
   it("logs each request by route template and sums it up as metrics", async () => {
     const key = await createKey({ scopes: ["calls:read"] });
     const callId = await uploadCall();

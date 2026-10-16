@@ -69,10 +69,10 @@ export function matchRule(method: string, path: string): Rule | undefined {
 }
 
 /**
- * apiKeyGate runs after authenticate. For a request made with a key it checks
- * the route and scope, counts the request against its bucket (refusing it
- * with 429 and Retry-After past the limit), sets the RateLimit headers, and
- * logs the request when the response is sent. Requests from people pass.
+ * apiKeyGate runs after authenticate. For a request made with a key it counts
+ * the request against its bucket (refusing it with 429 and Retry-After past
+ * the limit) and sets the RateLimit headers, then checks the route and scope,
+ * and logs the request when the response is sent. Requests from people pass.
  */
 export function apiKeyGate(pool: Pool): RequestHandler {
   return async (req, res, next) => {
@@ -104,12 +104,8 @@ export function apiKeyGate(pool: Pool): RequestHandler {
         });
     });
 
-    if (!match) {
-      throw new AppError("this endpoint is not available to API keys", 403, "not_for_api_keys");
-    }
-    if (match.scope && !key.scopes.includes(match.scope)) {
-      throw new AppError(`this API key needs the ${match.scope} scope`, 403, "insufficient_scope");
-    }
+    // Counted before any check, so refused requests spend the limit too: a key
+    // cannot send unlimited requests (each one logged) by aiming at routes it may not use.
     const limit = key.limits[bucket];
     const { count, resetAt } = await countRequest(pool, key.id, bucket);
     const resetIn = Math.max(1, Math.ceil(resetAt - Date.now() / 1000));
@@ -128,6 +124,12 @@ export function apiKeyGate(pool: Pool): RequestHandler {
         "rate_limited",
         { bucket, limit, retryAfterSeconds: resetIn },
       );
+    }
+    if (!match) {
+      throw new AppError("this endpoint is not available to API keys", 403, "not_for_api_keys");
+    }
+    if (match.scope && !key.scopes.includes(match.scope)) {
+      throw new AppError(`this API key needs the ${match.scope} scope`, 403, "insufficient_scope");
     }
     next();
   };
