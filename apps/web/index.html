@@ -5,7 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Call Compliance</title>
+    <title>Latte</title>
+    <script>
+      // Same rule as src/lib/theme.ts, run before first paint so dark never flashes light.
+      (function () {
+        var t = "system";
+        try {
+          t = localStorage.getItem("scc-theme") || "system";
+        } catch (e) {}
+        var dark =
+          t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -22,6 +22,11 @@ export default tseslint.config(
       "src/components/ui/**",
       // Registry output from coss ui, regenerated with the shadcn CLI, never hand-edited.
       "src/hooks/use-media-query.ts",
+      // Registry output from audio/ui, regenerated with the shadcn CLI, never hand-edited.
+      "src/components/audio-ui/**",
+      // Registry output from AI Elements, regenerated with the shadcn CLI, never hand-edited.
+      "src/components/ai-elements/**",
+      "src/lib/waveform-dsp.ts",
     ],
   },
   js.configs.recommended,

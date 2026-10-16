@@ -8,7 +8,8 @@ import type { Config } from "./config.ts";
 
 export interface Storage {
   signUpload(path: string): Promise<{ signedUrl: string; token: string }>;
-  signDownload(path: string, expiresInSeconds: number): Promise<string>;
+  /** downloadAs makes the link save the file under that name instead of playing it. */
+  signDownload(path: string, expiresInSeconds: number, downloadAs?: string): Promise<string>;
   exists(path: string): Promise<boolean>;
   download(path: string): Promise<Uint8Array>;
   remove(paths: string[]): Promise<void>;
@@ -34,8 +35,12 @@ export function createStorage(
       if (error) throw fail("sign upload", error);
       return { signedUrl: data.signedUrl, token: data.token };
     },
-    async signDownload(path, expiresInSeconds) {
-      const { data, error } = await bucket().createSignedUrl(path, expiresInSeconds);
+    async signDownload(path, expiresInSeconds, downloadAs) {
+      const { data, error } = await bucket().createSignedUrl(
+        path,
+        expiresInSeconds,
+        downloadAs ? { download: downloadAs } : undefined,
+      );
       if (error) throw fail("sign download", error);
       return data.signedUrl;
     },

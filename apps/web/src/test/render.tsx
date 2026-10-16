@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+import { PlayerHost } from "@/features/player/PlayerHost";
+
 /** createTestQueryClient never retries, so an error state is reached at once. */
 export function createTestQueryClient(): QueryClient {
   return new QueryClient({
@@ -35,7 +37,15 @@ export async function renderInRouter(
   const { createMemoryHistory, createRootRoute, createRouter, RouterProvider } =
     await import("@tanstack/react-router");
   const client = createTestQueryClient();
-  const rootRoute = createRootRoute({ component: () => ui });
+  // The app-wide player lives in the shell; pages that play audio need it mounted.
+  const rootRoute = createRootRoute({
+    component: () => (
+      <>
+        <PlayerHost />
+        {ui}
+      </>
+    ),
+  });
   const router = createRouter({
     routeTree: rootRoute,
     history: createMemoryHistory({ initialEntries: [path] }),

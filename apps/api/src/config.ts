@@ -35,14 +35,23 @@ const envSchema = z.object({
   RECORDINGS_BUCKET: z.string().default("recordings"),
   AUDIO_RETENTION_DAYS: z.coerce.number().int().min(1).default(90),
   SIGNED_URL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
+  /**
+   * Signs short-lived batch export links (ADR-0017). Set it when more than one
+   * API process serves traffic; unset, each process makes its own at start.
+   */
+  EXPORT_LINK_SECRET: optional(z.string().min(32)),
 
   GROQ_API_KEY: optional(z.string().min(10)),
   OPENROUTER_API_KEY: optional(z.string().min(10)),
   GEMINI_API_KEY: optional(z.string().min(10)),
+  /** Sarvam AI, for Indian-language calls (ADR-0014); without it those calls fail with a clear error. */
+  SARVAM_API_KEY: optional(z.string().min(10)),
   LLM_PROVIDER: z.enum(["groq", "openrouter", "gemini"]).default("groq"),
   LLM_MODEL: z.string().default("openai/gpt-oss-120b"),
   STT_MODEL: z.string().default("whisper-large-v3"),
   TTS_MODEL: z.string().default("canopylabs/orpheus-v1-english"),
+  STT_REGIONAL_MODEL: z.string().default("saaras:v4"),
+  TRANSLATE_MODEL: z.string().default("sarvam-translate:v1"),
   LLM_BUDGET_USD: z.coerce.number().positive().default(5),
   MODEL_MODE: z.enum(["live", "replay", "record"]).default("live"),
   CASSETTE_DIR: z.string().default("../../evals/cassettes"),
@@ -50,6 +59,8 @@ const envSchema = z.object({
   LIMIT_LLM_TPM: z.coerce.number().int().positive().default(8000),
   LIMIT_STT_RPM: z.coerce.number().int().positive().default(20),
   LIMIT_STT_AUDIO_SECONDS_PER_HOUR: z.coerce.number().int().positive().default(7200),
+  /** Sarvam publishes no tier limits; start low and raise once the account's limit is known. */
+  LIMIT_SARVAM_RPM: z.coerce.number().int().positive().default(20),
 
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
 });

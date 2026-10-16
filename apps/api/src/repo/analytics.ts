@@ -1,4 +1,4 @@
-import type { Agreement, Dashboard, RubricItem, Scorecard } from "@scc/shared";
+import type { Agreement, Dashboard, DashboardGroup, RubricItem, Scorecard } from "@scc/shared";
 
 import { listCalls } from "./calls.ts";
 import type { Queryable } from "../db/pool.ts";
@@ -6,10 +6,10 @@ import type { Queryable } from "../db/pool.ts";
 // Read models for the scorecard, judge agreement and the manager dashboard.
 // Findings a QA reviewer disagreed with never count against an agent (Q-011).
 
-const NOT_REJECTED = `NOT EXISTS (SELECT 1 FROM finding_reviews r WHERE r.finding_id = x.id AND r.decision = 'disagree')`;
+export const NOT_REJECTED = `NOT EXISTS (SELECT 1 FROM finding_reviews r WHERE r.finding_id = x.id AND r.decision = 'disagree')`;
 // One pass rule for the scorecard and the dashboard (review finding 9): an item
 // passes on a call when no kept finding says missed, partial or breach.
-const NOT_PASSED = "('missed', 'partial', 'breach')";
+export const NOT_PASSED = "('missed', 'partial', 'breach')";
 
 export const COACHING_WINDOW_DAYS = 90;
 
@@ -31,7 +31,7 @@ export async function scorecard(
     avg_talk: number | null;
   }>(
     `SELECT count(*) AS calls, avg(s.overall_score) AS avg_overall, avg(s.talk_ratio) AS avg_talk
-       FROM scores s JOIN calls c ON c.id = s.call_id
+       FROM scores s JOIN calls c ON c.id = s.call_id AND c.deleted_at IS NULL
       WHERE c.agent_id = $1 AND s.judge_status = 'ok'`,
     [agentId],
   );
@@ -46,7 +46,7 @@ export async function scorecard(
        SELECT x.call_id, x.item_key,
               bool_or(x.status IN ${NOT_PASSED}) AS bad,
               bool_and(x.status = 'not_applicable') AS na
-         FROM findings x JOIN calls c ON c.id = x.call_id
+         FROM findings x JOIN calls c ON c.id = x.call_id AND c.deleted_at IS NULL
         WHERE c.agent_id = $1 AND c.created_at > now() - make_interval(days => $2) AND ${NOT_REJECTED}
         GROUP BY x.call_id, x.item_key)
      SELECT item_key,
@@ -83,7 +83,7 @@ export async function scorecard(
       const ex = await db.query<{ call_id: string; rationale: string | null }>(
         `SELECT call_id, rationale FROM (
            SELECT DISTINCT ON (x.call_id) x.call_id, x.rationale, c.created_at
-             FROM findings x JOIN calls c ON c.id = x.call_id
+             FROM findings x JOIN calls c ON c.id = x.call_id AND c.deleted_at IS NULL
             WHERE c.agent_id = $1 AND x.item_key = $2 AND x.status IN ${NOT_PASSED} AND ${NOT_REJECTED}
               AND c.created_at > now() - make_interval(days => $3)
             ORDER BY x.call_id, x.rationale IS NULL
@@ -132,7 +132,9 @@ export async function agreement(db: Queryable, rubric: RubricItem[]): Promise<Ag
             count(*) FILTER (WHERE x.source = 'llm' AND r.decision = 'agree' AND NOT EXISTS (SELECT 1 FROM findings m WHERE m.call_id = x.call_id AND m.item_key = x.item_key AND m.source = 'reviewer')) AS agreed,
             count(*) FILTER (WHERE x.source = 'llm' AND r.decision = 'disagree' AND NOT EXISTS (SELECT 1 FROM findings m WHERE m.call_id = x.call_id AND m.item_key = x.item_key AND m.source = 'reviewer')) AS disagreed,
             count(*) FILTER (WHERE x.source = 'reviewer') AS misses
-       FROM findings x LEFT JOIN finding_reviews r ON r.finding_id = x.id
+       FROM findings x
+       JOIN calls c ON c.id = x.call_id AND c.deleted_at IS NULL
+       LEFT JOIN finding_reviews r ON r.finding_id = x.id
       GROUP BY x.item_key`,
   );
   const byKey = new Map(rows.map((r) => [r.item_key, r]));
@@ -156,13 +158,26 @@ export async function agreement(db: Queryable, rubric: RubricItem[]): Promise<Ag
   };
 }
 
+/**
+ * The groups a dashboard can show: a calls column and where its names come
+ * from. Languages have no table, so the languages in use are the groups.
+ */
+export const GROUPS: Record<DashboardGroup, { col: string; table: string }> = {
+  team: { col: "team_id", table: "teams" },
+  product: { col: "product_id", table: "products" },
+  agent: { col: "agent_id", table: "agents" },
+  language: {
+    col: "language",
+    table: "(SELECT DISTINCT language AS id, language AS name FROM calls WHERE deleted_at IS NULL)",
+  },
+};
+
 export async function dashboard(
   db: Queryable,
   rubric: RubricItem[],
-  q: { groupBy: "team" | "product"; from?: string | undefined; to?: string | undefined },
+  q: { groupBy: DashboardGroup; from?: string | undefined; to?: string | undefined },
 ): Promise<Dashboard> {
-  const col = q.groupBy === "team" ? "team_id" : "product_id";
-  const table = q.groupBy === "team" ? "teams" : "products";
+  const { col, table } = GROUPS[q.groupBy];
   const params: unknown[] = [q.from ?? "1900-01-01", q.to ?? "2999-12-31"];
   const groups = await db.query<{
     id: string;
@@ -176,7 +191,7 @@ export async function dashboard(
             count(s.id) FILTER (WHERE s.needs_review) AS flagged,
             avg(s.overall_score) AS avg_overall
        FROM ${table} g
-       LEFT JOIN calls c ON c.${col} = g.id AND c.call_date BETWEEN $1::date AND $2::date
+       LEFT JOIN calls c ON c.${col} = g.id AND c.deleted_at IS NULL AND c.call_date BETWEEN $1::date AND $2::date
        LEFT JOIN scores s ON s.call_id = c.id
       GROUP BY g.id, g.name ORDER BY g.name`,
     params,
@@ -191,7 +206,7 @@ export async function dashboard(
        SELECT c.${col} AS group_id, x.call_id, x.item_key,
               bool_or(x.status IN ${NOT_PASSED}) AS bad,
               bool_and(x.status = 'not_applicable') AS na
-         FROM findings x JOIN calls c ON c.id = x.call_id
+         FROM findings x JOIN calls c ON c.id = x.call_id AND c.deleted_at IS NULL
         WHERE c.call_date BETWEEN $1::date AND $2::date AND ${NOT_REJECTED}
         GROUP BY 1, 2, 3)
      SELECT group_id, item_key,

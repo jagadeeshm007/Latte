@@ -1,4 +1,4 @@
-# Threat model (STRIDE): Sales Call Compliance
+# Threat model (STRIDE): Latte
 
 Serves: US-00-003, US-02-003, US-01-003; HLD section 9. Date: 2026-10-14.
 
@@ -30,11 +30,16 @@ REST routes under /api; signed upload and playback URLs; uploaded audio files (d
 | T6 | Tampering | Upload of a non-audio or oversized file, or a decoder bomb | Medium | type and size checks before signing, 50 MB cap, decoder errors caught, duration cap of 2 hours | US-01-001 |
 | T7 | Tampering | Prompt injection in speech changes findings | High | delimited untrusted block, strict schema, no tools, rule net floor, eval with injection line | US-01-003 |
 | T8 | Repudiation | Reviewer denies a decision | Low | reviewer id and time on every decision; audit on completion | US-01-006 |
-| T9 | Denial of service | Budget drained by repeated retries or uploads | Medium | monthly budget refusal; upload limit of 10 files per request; retry only by QA | US-02-001 |
+| T9 | Denial of service | Budget drained by repeated retries or uploads | Medium | monthly budget refusal; upload limit of 50 files per request and 500 per batch; per-user hourly limits on sign, confirm and retry; retry only by QA | US-02-001 |
 | T10 | Information disclosure | Secrets leak to the browser or logs | High | only VITE_SUPABASE_URL and publishable key in the web build (tenet 7); pino redaction of authorization headers; no text in logs | all |
 | T11 | Information disclosure | Customer audio retained by Groq | Medium | open: review Groq terms and DPDP (HLD section 17) | US-02-003 |
 | T12 | Tampering | Confirm call for an object path the caller did not upload | Medium | confirm accepts only a path issued to that user in the sign step (path embeds the uploader id and a random id) | US-01-001 |
 | T13 | Denial of service | Unbounded list queries | Low | pagination with a maximum page size on every list route | all |
+| T14 | Spoofing | Stolen or leaked API key | High | secret shown once and stored as a SHA-256 hash; scopes per key; expiry; revoke takes effect on the next request; every keyed request logged with its request id (ADR-0018) | API keys |
+| T15 | Elevation | API key reaches review, rubric, spend or key management | High | default-deny route list in api-access.ts; unlisted routes answer 403 not_for_api_keys; tests per scope (ADR-0018) | API keys |
+| T16 | Denial of service | One key floods the API or the model budget | Medium | per-key, per-bucket limits counted in Postgres across processes; 429 with Retry-After; bulk exports limited per hour; the monthly budget still applies | API keys |
+| T17 | Information disclosure | Batch export link forwarded or logged | Medium | HMAC-signed, 5-minute expiry, names the person and the batch, re-checks the role on use; token in the query string, which the request log strips; each use audited (ADR-0017) | Batches |
+| T18 | Tampering | Formula injection through file names in CSV exports | Low | cells starting with = + - @ are prefixed with an apostrophe | Batches |
 
 ## Mapped to stories
 

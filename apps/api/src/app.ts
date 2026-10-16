@@ -1,11 +1,16 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import express, { json, Router, type Express } from "express";
 import { pinoHttp } from "pino-http";
 
+import { apiKeyGate } from "./api-access.ts";
 import { authenticate, currentUser } from "./auth.ts";
 import { errorHandler, notFoundHandler } from "./errors.ts";
+import { openApiDocument } from "./openapi.ts";
+import { findKeyByToken } from "./repo/api-keys.ts";
 import { getProfile } from "./repo/reference.ts";
+import { apiKeysRouter } from "./routes/api-keys.ts";
+import { batchesRouter, exportLinksRouter } from "./routes/batches.ts";
 import { callsRouter } from "./routes/calls.ts";
 import type { AppDeps } from "./routes/deps.ts";
 import { reviewRouter } from "./routes/review.ts";
@@ -68,13 +73,34 @@ export function buildApp(deps: AppDeps): Express {
     }
   });
 
+  // The API's description is public, like any API reference.
+  const openApi = openApiDocument();
+  app.get("/api/openapi.json", (_req, res) => {
+    res.json(openApi);
+  });
+
+  // Signed export links carry their own proof, so they are served before the bearer check.
+  const exportSecret = deps.config.EXPORT_LINK_SECRET
+    ? Buffer.from(deps.config.EXPORT_LINK_SECRET)
+    : randomBytes(32);
+  app.use("/api", exportLinksRouter(deps, exportSecret));
+
   const api = Router();
-  api.use(authenticate(deps.verify, (id) => getProfile(deps.pool, id)));
+  api.use(
+    authenticate(
+      deps.verify,
+      (id) => getProfile(deps.pool, id),
+      (token) => findKeyByToken(deps.pool, token),
+    ),
+  );
+  api.use(apiKeyGate(deps.pool));
   api.get("/me", (req, res) => {
     res.json(currentUser(req));
   });
   api.use(callsRouter(deps));
   api.use(reviewRouter(deps));
+  api.use(batchesRouter(deps, exportSecret));
+  api.use(apiKeysRouter(deps));
   app.use("/api", api);
 
   app.use(notFoundHandler);

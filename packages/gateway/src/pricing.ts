@@ -32,6 +32,9 @@ const tokens = (
   outputPerM,
 });
 
+/** Rupees per US dollar for converting Sarvam's prices into the budget's currency. Review when the rate moves. */
+export const INR_PER_USD = 88;
+
 export const PRICES: Record<string, Record<string, Price>> = {
   groq: {
     "openai/gpt-oss-120b": tokens(0.15, 0.6),
@@ -44,6 +47,16 @@ export const PRICES: Record<string, Record<string, Price>> = {
   gemini: {
     "gemini-2.5-flash": tokens(0.3, 2.5, 0.075),
     "gemini-2.5-pro": tokens(1.25, 10, 0.31),
+  },
+  // Sarvam prices are in rupees (docs.sarvam.ai pricing, 2026-10): speech to text
+  // ₹30 an hour billed per second, Sarvam Translate and Mayura ₹20 per 10,000 characters.
+  sarvam: {
+    "saaras:v4": { kind: "audio", perHour: 30 / INR_PER_USD, minSeconds: 0 },
+    "saaras:v3": { kind: "audio", perHour: 30 / INR_PER_USD, minSeconds: 0 },
+    "sarvam-translate:v1": { kind: "chars", perMChars: (20 * 100) / INR_PER_USD },
+    "mayura:v1": { kind: "chars", perMChars: (20 * 100) / INR_PER_USD },
+    // Bulbul v3 text-to-speech: ₹30 per 10,000 characters.
+    "bulbul:v3": { kind: "chars", perMChars: (30 * 100) / INR_PER_USD },
   },
   // OpenRouter returns the cost of each call; this entry only marks it priced.
   openrouter: {},

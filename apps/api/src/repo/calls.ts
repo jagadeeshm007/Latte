@@ -1,5 +1,6 @@
-import type { CallStatus, CallSummary } from "@scc/shared";
+import type { CallGroup, CallStatus, CallSummary, Flag, Language } from "@scc/shared";
 
+import { likePattern } from "./sql.ts";
 import type { Queryable } from "../db/pool.ts";
 
 // Calls and their transcripts. Every read an agent can reach carries the
@@ -18,15 +19,23 @@ export interface CallRow {
   mime_type: string;
   duration_ms: number | null;
   audio_purged_at: Date | null;
+  language: Language;
 }
+
+/** The flag a call shows: needs a look, scored clean, or still in the pipeline. */
+const FLAG_SQL = `CASE WHEN c.status <> 'scored' THEN 'pending'
+       WHEN COALESCE(f.breaches, 0) > 0 OR COALESCE(f.missed, 0) > 0 OR COALESCE(s.needs_review, false)
+       THEN 'flagged' ELSE 'passed' END`;
 
 const SUMMARY_SELECT = `
   SELECT c.id, c.agent_id, a.name AS agent_name, t.name AS team_name, p.name AS product_name,
-         c.call_date, c.original_filename, c.status, c.error, c.duration_ms, c.created_at,
+         c.call_date, c.original_filename, c.language, c.status, c.error, c.duration_ms, c.created_at,
          c.created_at::text AS created_at_text,
          s.overall_score, s.judge_status, s.needs_review, s.review_status,
-         COALESCE(f.breaches, 0) AS breaches, COALESCE(f.missed, 0) AS missed
+         COALESCE(f.breaches, 0) AS breaches, COALESCE(f.missed, 0) AS missed,
+         ${FLAG_SQL} AS flag, c.archived_at, c.batch_id, b.name AS batch_name
     FROM calls c
+    JOIN batches b ON b.id = c.batch_id
     JOIN agents a ON a.id = c.agent_id
     JOIN teams t ON t.id = c.team_id
     JOIN products p ON p.id = c.product_id
@@ -47,6 +56,7 @@ interface SummaryRow {
   product_name: string;
   call_date: string;
   original_filename: string;
+  language: Language;
   status: CallStatus;
   error: string | null;
   duration_ms: number | null;
@@ -58,6 +68,10 @@ interface SummaryRow {
   review_status: "not_required" | "pending" | "done" | null;
   breaches: number;
   missed: number;
+  flag: Flag;
+  archived_at: Date | null;
+  batch_id: string;
+  batch_name: string;
 }
 
 export function toSummary(r: SummaryRow): CallSummary {
@@ -69,6 +83,7 @@ export function toSummary(r: SummaryRow): CallSummary {
     productName: r.product_name,
     callDate: r.call_date,
     originalFilename: r.original_filename,
+    language: r.language,
     status: r.status,
     error: r.error,
     durationMs: r.duration_ms,
@@ -79,16 +94,38 @@ export function toSummary(r: SummaryRow): CallSummary {
     reviewStatus: r.review_status,
     breaches: r.breaches,
     missed: r.missed,
+    flag: r.flag,
+    archivedAt: r.archived_at?.toISOString() ?? null,
+    batchId: r.batch_id,
+    batchName: r.batch_name,
   };
 }
 
 export interface ListFilter {
   status?: CallStatus | undefined;
+  batchId?: string | undefined;
   needsReview?: boolean | undefined;
   agentId?: string | undefined;
+  teamId?: string | undefined;
+  productId?: string | undefined;
+  language?: Language | undefined;
+  flag?: Flag | undefined;
+  q?: string | undefined;
+  archived?: boolean | undefined;
+  groupBy?: CallGroup | undefined;
   limit: number;
+  page?: number | undefined;
   cursor?: string | undefined;
 }
+
+const GROUP_ORDER: Record<CallGroup, string> = {
+  agent: "a.name",
+  team: "t.name",
+  product: "p.name",
+  language: "c.language",
+  status: "c.status",
+  flag: FLAG_SQL,
+};
 
 export function encodeCursor(createdAtText: string, id: string): string {
   return Buffer.from(`${createdAtText}|${id}`).toString("base64url");
@@ -103,37 +140,71 @@ export async function listCalls(
   db: Queryable,
   scope: Scope,
   filter: ListFilter,
-): Promise<{ items: CallSummary[]; nextCursor: string | null }> {
-  const where: string[] = [];
+): Promise<{ items: CallSummary[]; nextCursor: string | null; total: number }> {
+  // Deleted calls are never listed; archived ones only when asked for (ADR-0015).
+  const where: string[] = ["c.deleted_at IS NULL"];
   const params: unknown[] = [];
   const add = (sql: string, value: unknown) => {
     params.push(value);
-    where.push(sql.replace("?", `$${String(params.length)}`));
+    where.push(sql.replaceAll("?", `$${String(params.length)}`));
   };
   if (scope.agentId) add("c.agent_id = ?", scope.agentId);
   if (filter.agentId) add("c.agent_id = ?", filter.agentId);
+  if (filter.teamId) add("c.team_id = ?", filter.teamId);
+  if (filter.productId) add("c.product_id = ?", filter.productId);
+  if (filter.language) add("c.language = ?", filter.language);
+  if (filter.batchId) add("c.batch_id = ?", filter.batchId);
   if (filter.status) add("c.status = ?", filter.status);
+  if (filter.flag) add(`(${FLAG_SQL}) = ?`, filter.flag);
   if (filter.needsReview !== undefined)
     add("COALESCE(s.needs_review, false) = ?", filter.needsReview);
-  const cursor = filter.cursor ? decodeCursor(filter.cursor) : null;
+  if (filter.q) {
+    add(
+      "(c.original_filename ILIKE ? OR a.name ILIKE ? OR t.name ILIKE ? OR p.name ILIKE ?)",
+      likePattern(filter.q),
+    );
+  }
+  where.push(filter.archived ? "c.archived_at IS NOT NULL" : "c.archived_at IS NULL");
+  const filtered = `WHERE ${where.join(" AND ")}`;
+  const countParams = [...params];
+  const cursor = filter.cursor && !filter.page ? decodeCursor(filter.cursor) : null;
   if (cursor) {
     params.push(cursor[0], cursor[1]);
     where.push(
       `(c.created_at, c.id) < ($${String(params.length - 1)}::timestamptz, $${String(params.length)}::uuid)`,
     );
   }
+  const order = [
+    ...(filter.groupBy ? [`${GROUP_ORDER[filter.groupBy]} ASC`] : []),
+    "c.created_at DESC",
+    "c.id DESC",
+  ].join(", ");
   params.push(filter.limit + 1);
-  const { rows } = await db.query<SummaryRow>(
-    `${SUMMARY_SELECT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-     ORDER BY c.created_at DESC, c.id DESC LIMIT $${String(params.length)}`,
-    params,
-  );
+  const limit = `LIMIT $${String(params.length)}`;
+  let offset = "";
+  if (filter.page) {
+    params.push((filter.page - 1) * filter.limit);
+    offset = ` OFFSET $${String(params.length)}`;
+  }
+  const [{ rows }, count] = await Promise.all([
+    db.query<SummaryRow>(
+      `${SUMMARY_SELECT} WHERE ${where.join(" AND ")} ORDER BY ${order} ${limit}${offset}`,
+      params,
+    ),
+    db.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM (${SUMMARY_SELECT} ${filtered}) x`,
+      countParams,
+    ),
+  ]);
   const page = rows.slice(0, filter.limit);
   const last = page[page.length - 1];
   return {
     items: page.map(toSummary),
     nextCursor:
-      rows.length > filter.limit && last ? encodeCursor(last.created_at_text, last.id) : null,
+      !filter.page && rows.length > filter.limit && last
+        ? encodeCursor(last.created_at_text, last.id)
+        : null,
+    total: count.rows[0]?.total ?? 0,
   };
 }
 
@@ -148,7 +219,10 @@ export async function getCallSummary(
     params.push(scope.agentId);
     extra = " AND c.agent_id = $2";
   }
-  const { rows } = await db.query<SummaryRow>(`${SUMMARY_SELECT} WHERE c.id = $1${extra}`, params);
+  const { rows } = await db.query<SummaryRow>(
+    `${SUMMARY_SELECT} WHERE c.id = $1 AND c.deleted_at IS NULL${extra}`,
+    params,
+  );
   return rows[0] ? toSummary(rows[0]) : null;
 }
 
@@ -160,7 +234,7 @@ export async function getCallRow(db: Queryable, scope: Scope, id: string): Promi
     extra = " AND agent_id = $2";
   }
   const { rows } = await db.query<CallRow>(
-    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at FROM calls WHERE id = $1${extra}`,
+    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
     params,
   );
   return rows[0] ?? null;
@@ -178,13 +252,14 @@ export interface NewCall {
   sizeBytes: number;
   storagePath: string;
   retentionDays: number;
+  language: Language;
 }
 
 export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename,
-                        mime_type, size_bytes, storage_path, retention_until)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, current_date + $11::int)
+                        mime_type, size_bytes, storage_path, retention_until, language)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, current_date + $11::int, $12)
      RETURNING id`,
     [
       c.agentId,
@@ -198,6 +273,7 @@ export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
       c.sizeBytes,
       c.storagePath,
       c.retentionDays,
+      c.language,
     ],
   );
   const row = rows[0];
@@ -222,7 +298,7 @@ export async function claimCall(
     `UPDATE calls SET status = $3, error = NULL, updated_at = now()
       WHERE id = $1
         AND (status = $2 OR (status = $3 AND updated_at < now() - make_interval(secs => $4)))
-      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at`,
+      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language`,
     [id, from, to, staleSeconds],
   );
   return rows[0] ?? null;
@@ -294,6 +370,9 @@ export interface SegmentRow {
   text: string;
   language: string | null;
   avg_logprob: number | null;
+  /** jsonb, written only by replaceSegments in this shape. */
+  words: { text: string; startMs: number; endMs: number }[];
+  text_en: string | null;
 }
 
 export async function replaceSegments(
@@ -307,13 +386,14 @@ export async function replaceSegments(
     text: string;
     language: string | null;
     avgLogprob: number | null;
+    words: { text: string; startMs: number; endMs: number }[];
   }[],
 ): Promise<void> {
   await db.query("DELETE FROM transcript_segments WHERE call_id = $1", [callId]);
   if (segments.length === 0) return;
   await db.query(
-    `INSERT INTO transcript_segments (call_id, seq, channel, start_ms, end_ms, text, language, avg_logprob)
-     SELECT $1, * FROM unnest($2::int[], $3::speaker_channel[], $4::int[], $5::int[], $6::text[], $7::text[], $8::real[])`,
+    `INSERT INTO transcript_segments (call_id, seq, channel, start_ms, end_ms, text, language, avg_logprob, words)
+     SELECT $1, * FROM unnest($2::int[], $3::speaker_channel[], $4::int[], $5::int[], $6::text[], $7::text[], $8::real[], $9::jsonb[])`,
     [
       callId,
       segments.map((s) => s.seq),
@@ -323,13 +403,71 @@ export async function replaceSegments(
       segments.map((s) => s.text),
       segments.map((s) => s.language),
       segments.map((s) => s.avgLogprob),
+      segments.map((s) => JSON.stringify(s.words)),
     ],
   );
 }
 
+/** setTranslations stores the English translation of each line of a regional call. */
+export async function setTranslations(
+  db: Queryable,
+  callId: string,
+  translations: { seq: number; textEn: string }[],
+): Promise<void> {
+  if (translations.length === 0) return;
+  await db.query(
+    `UPDATE transcript_segments t SET text_en = x.text_en
+       FROM unnest($2::int[], $3::text[]) AS x(seq, text_en)
+      WHERE t.call_id = $1 AND t.seq = x.seq`,
+    [callId, translations.map((t) => t.seq), translations.map((t) => t.textEn)],
+  );
+}
+
+/**
+ * setArchived archives or unarchives a call the caller may see; false when
+ * there is no such call (unknown, deleted or out of scope).
+ */
+export async function setArchived(
+  db: Queryable,
+  scope: Scope,
+  id: string,
+  archived: boolean,
+): Promise<boolean> {
+  const params: unknown[] = [id];
+  let extra = "";
+  if (scope.agentId) {
+    params.push(scope.agentId);
+    extra = " AND agent_id = $2";
+  }
+  const { rowCount } = await db.query(
+    `UPDATE calls SET archived_at = ${archived ? "now()" : "NULL"}, updated_at = now()
+      WHERE id = $1 AND deleted_at IS NULL${extra}`,
+    params,
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** softDelete hides a call everywhere; the row stays for audit. False when there is no such call. */
+export async function softDelete(db: Queryable, id: string): Promise<boolean> {
+  const { rowCount } = await db.query(
+    "UPDATE calls SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL",
+    [id],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** productNameOf names the call's product, which speech-to-text is told to expect as written. */
+export async function productNameOf(db: Queryable, callId: string): Promise<string | null> {
+  const { rows } = await db.query<{ name: string }>(
+    "SELECT p.name FROM calls c JOIN products p ON p.id = c.product_id WHERE c.id = $1",
+    [callId],
+  );
+  return rows[0]?.name ?? null;
+}
+
 export async function listSegments(db: Queryable, callId: string): Promise<SegmentRow[]> {
   const { rows } = await db.query<SegmentRow>(
-    "SELECT seq, channel, start_ms, end_ms, text, language, avg_logprob FROM transcript_segments WHERE call_id = $1 ORDER BY seq",
+    "SELECT seq, channel, start_ms, end_ms, text, language, avg_logprob, words, text_en FROM transcript_segments WHERE call_id = $1 ORDER BY seq",
     [callId],
   );
   return rows;

@@ -14,11 +14,14 @@ export function perUserLimit(
   now: () => number = Date.now,
 ): RequestHandler {
   const hits = new Map<string, number[]>();
-  return (req, _res, next) => {
+  return (req, res, next) => {
     const key = req.user?.id ?? "anonymous";
     const t = now();
     const recent = (hits.get(key) ?? []).filter((at) => t - at < windowMs);
     if (recent.length >= max) {
+      // The oldest request in the window is the next to fall out of it.
+      const wait = Math.max(1, Math.ceil(((recent[0] ?? t) + windowMs - t) / 1000));
+      res.setHeader("Retry-After", String(wait));
       throw new AppError(
         `too many ${name} requests; try again in a few minutes`,
         429,

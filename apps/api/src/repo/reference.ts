@@ -1,5 +1,5 @@
 import { type ModelCallRow, type UsageStore } from "@scc/gateway";
-import type { Me, Reference, Rubric, RubricItem, Usage } from "@scc/shared";
+import type { Me, Reference, Rubric, RubricItem, Usage, UsageHistory } from "@scc/shared";
 
 import type { Queryable } from "../db/pool.ts";
 
@@ -112,12 +112,13 @@ export async function audit(
   actorId: string | null,
   action: string,
   callId: string | null,
+  batchId: string | null = null,
+  apiKeyId: string | null = null,
 ): Promise<void> {
-  await db.query("INSERT INTO audit_events (actor_id, action, call_id) VALUES ($1, $2, $3)", [
-    actorId,
-    action,
-    callId,
-  ]);
+  await db.query(
+    "INSERT INTO audit_events (actor_id, action, call_id, batch_id, api_key_id) VALUES ($1, $2, $3, $4, $5)",
+    [actorId, action, callId, batchId, apiKeyId],
+  );
 }
 
 /** PgUsageStore is the gateway's ledger: one model_calls row per call; the budget is this month's sum. */
@@ -158,6 +159,47 @@ export class PgUsageStore implements UsageStore {
     if (!id) throw new Error("insert into model_calls returned no row");
     return id;
   }
+}
+
+/** usageHistory is model spend per day and purpose for the last `days` days, oldest first. */
+export async function usageHistory(
+  db: Queryable,
+  days: number,
+  now = new Date(),
+): Promise<UsageHistory> {
+  const { rows } = await db.query<{
+    day: string;
+    purpose: string;
+    calls: number;
+    cost: number;
+    audio: number;
+    chars: number;
+    refused: number;
+  }>(
+    `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, purpose,
+            count(*)::int AS calls, COALESCE(sum(cost_usd), 0) AS cost,
+            COALESCE(sum(audio_seconds), 0) AS audio, COALESCE(sum(characters), 0)::int AS chars,
+            count(*) FILTER (WHERE status = 'refused')::int AS refused
+       FROM model_calls
+      WHERE created_at >= date_trunc('day', $1::timestamptz - make_interval(days => $2 - 1))
+      GROUP BY 1, 2 ORDER BY 1, 2`,
+    [now.toISOString(), days],
+  );
+  const to = now.toISOString().slice(0, 10);
+  const from = new Date(now.getTime() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+  return {
+    from,
+    to,
+    days: rows.map((r) => ({
+      day: r.day,
+      purpose: r.purpose,
+      calls: r.calls,
+      costUsd: r.cost,
+      audioSeconds: r.audio,
+      characters: r.chars,
+      refused: r.refused,
+    })),
+  };
 }
 
 export async function usageThisMonth(

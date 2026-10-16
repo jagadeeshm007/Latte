@@ -6,6 +6,10 @@ import {
   saveRubricRequestSchema,
   uploadConfirmRequestSchema,
   uploadSignRequestSchema,
+  batchExportQuerySchema,
+  createApiKeyRequestSchema,
+  updateApiKeyRequestSchema,
+  batchUpdateRequestSchema,
 } from "./api.ts";
 import { DEFAULT_RUBRIC } from "./rubric.ts";
 
@@ -20,8 +24,8 @@ describe("upload requests (AC-US-01-001-3)", () => {
     ).toBe(true);
   });
 
-  it("refuses 11 files, a file over 50 MB and another type, with a message naming the limit", () => {
-    const tooMany = uploadSignRequestSchema.safeParse({ files: Array(11).fill(file) });
+  it("refuses 51 files, a file over 50 MB and another type, with a message naming the limit", () => {
+    const tooMany = uploadSignRequestSchema.safeParse({ files: Array(51).fill(file) });
     const tooBig = uploadSignRequestSchema.safeParse({
       files: [{ ...file, size: MAX_UPLOAD_BYTES + 1 }],
     });
@@ -29,7 +33,7 @@ describe("upload requests (AC-US-01-001-3)", () => {
       files: [{ ...file, type: "video/mp4" }],
     });
 
-    expect(tooMany.error?.issues[0]?.message).toBe("at most 10 files per upload");
+    expect(tooMany.error?.issues[0]?.message).toBe("at most 50 files per upload");
     expect(tooBig.error?.issues[0]?.message).toBe("each file must be 50 MB or smaller");
     expect(wrongType.error?.issues[0]?.message).toBe("only WAV or MP3 recordings are accepted");
   });
@@ -74,5 +78,49 @@ describe("rubric save request", () => {
       false,
     );
     expect(saveRubricRequestSchema.safeParse({ name: "v2", items: [] }).success).toBe(false);
+  });
+});
+
+describe("batch requests (ADR-0017)", () => {
+  it("reads the ZIP parts from a comma list and refuses unknown ones", () => {
+    expect(batchExportQuerySchema.parse({ include: "audio,transcripts" }).include).toEqual([
+      "audio",
+      "transcripts",
+    ]);
+    expect(batchExportQuerySchema.parse({}).include).toEqual([]);
+    expect(batchExportQuerySchema.safeParse({ include: "secrets" }).success).toBe(false);
+  });
+
+  it("needs something to change on a batch, and a name that is not blank", () => {
+    expect(batchUpdateRequestSchema.safeParse({}).success).toBe(false);
+    expect(batchUpdateRequestSchema.safeParse({ name: "   " }).success).toBe(false);
+    expect(batchUpdateRequestSchema.parse({ archived: true })).toEqual({ archived: true });
+  });
+});
+
+describe("API key requests (ADR-0018)", () => {
+  it("needs a scope, refuses one listed twice, and keeps limits under the ceiling", () => {
+    const base = { name: "CRM", scopes: ["calls:read"] };
+
+    expect(createApiKeyRequestSchema.parse(base)).toEqual({
+      ...base,
+      expiresInDays: null,
+      limits: {},
+    });
+    expect(createApiKeyRequestSchema.safeParse({ ...base, scopes: [] }).success).toBe(false);
+    expect(
+      createApiKeyRequestSchema.safeParse({ ...base, scopes: ["calls:read", "calls:read"] })
+        .success,
+    ).toBe(false);
+    expect(createApiKeyRequestSchema.safeParse({ ...base, limits: { bulk: 101 } }).success).toBe(
+      false,
+    );
+  });
+
+  it("needs a name or limits to change a key", () => {
+    expect(updateApiKeyRequestSchema.safeParse({}).success).toBe(false);
+    expect(updateApiKeyRequestSchema.parse({ limits: { read: 1200 } })).toEqual({
+      limits: { read: 1200 },
+    });
   });
 });

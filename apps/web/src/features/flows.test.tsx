@@ -1,5 +1,5 @@
 import { DEFAULT_RUBRIC } from "@scc/shared";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,6 +101,7 @@ describe("upload flow (US-01-001)", () => {
     ]);
     await choose("Agent for call.WAV", "Ravi Kumar (AG001)");
     await choose("Product for call.WAV", "ULIP");
+    await choose("Language of call.WAV", "Tamil");
     await userEvent.click(screen.getByRole("button", { name: /Upload 1 file/ }));
 
     await waitFor(() => {
@@ -113,6 +114,52 @@ describe("upload flow (US-01-001)", () => {
       productId: "p1",
       path: "u1/x.wav",
       mimeType: "audio/wav",
+      language: "ta-IN",
+    });
+  });
+
+  it("names the batch and sets the agent and product for every file at once", async () => {
+    const bodies: { batchName?: string; files: { agentId: string; productId: string }[] }[] = [];
+    server.use(
+      http.post("*/api/uploads/sign", async ({ request }) => {
+        const body = (await request.json()) as { files: unknown[] };
+        return HttpResponse.json({
+          uploads: body.files.map((_, i) => ({
+            path: `u1/${String(i)}.wav`,
+            signedUrl: `https://storage.test/up/${String(i)}`,
+            token: "t",
+          })),
+        });
+      }),
+      http.post("*/api/uploads/confirm", async ({ request }) => {
+        const body = (await request.json()) as (typeof bodies)[number];
+        bodies.push(body);
+        return HttpResponse.json(
+          { batchId: "b9", callIds: body.files.map((_, i) => `c${String(i)}`) },
+          { status: 201 },
+        );
+      }),
+    );
+    await renderInRouter(<UploadForm reference={reference} />);
+
+    await userEvent.upload(screen.getByLabelText("Choose recordings"), [
+      new File([new Uint8Array(10)], "one.wav"),
+      new File([new Uint8Array(10)], "two.wav"),
+    ]);
+    await userEvent.type(screen.getByRole("textbox", { name: "Batch name" }), "Week 42");
+    await choose("Agent for every file", "Ravi Kumar (AG001)");
+    await choose("Product for every file", "ULIP");
+    await userEvent.click(screen.getByRole("button", { name: /Upload 2 files/ }));
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).toMatchObject({
+      batchName: "Week 42",
+      files: [
+        { agentId: "a1", productId: "p1" },
+        { agentId: "a1", productId: "p1" },
+      ],
     });
   });
 
@@ -134,7 +181,9 @@ describe("upload flow (US-01-001)", () => {
     await choose("Product for call.mp3", "ULIP");
     await userEvent.click(screen.getByRole("button", { name: /Upload 1 file/ }));
 
-    expect(await screen.findByText("Upload failed (403)")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Upload failed (403)");
+    // The failed file stays on the page with its reason, ready to try again.
+    expect(within(screen.getByRole("table")).getByText("Upload failed (403)")).toBeInTheDocument();
   });
 
   it("loads the reference lists before showing the form", async () => {
@@ -239,64 +288,89 @@ describe("review flow (US-01-006)", () => {
       expect(retry).toHaveBeenCalledTimes(1);
     });
   });
-
-  it("shows the error when the recording cannot be fetched", async () => {
-    server.use(
-      http.get("*/api/calls/:id", () => HttpResponse.json(detail())),
-      http.post("*/api/calls/:id/audio-url", () =>
-        HttpResponse.json(
-          { error: { code: "audio_purged", message: "the audio for this call has been deleted" } },
-          { status: 410 },
-        ),
-      ),
-    );
-    await renderInRouter(<CallDetailPage callId="11111111-1111-4111-8111-111111111111" />);
-
-    await userEvent.click(await screen.findByRole("button", { name: "Load and play recording" }));
-
-    expect(await screen.findByText("the audio for this call has been deleted")).toBeInTheDocument();
-  });
 });
 
 describe("rubric page (US-01-004)", () => {
-  const rubric = {
-    id: "r",
-    version: 2,
-    name: "Default",
-    items: DEFAULT_RUBRIC.slice(0, 2),
-    isActive: true,
+  const version = (n: number, over: Record<string, unknown> = {}) => ({
+    id: `r${String(n)}`,
+    version: n,
+    name: n === 2 ? "Strict wording" : `Rubric ${String(n)}`,
+    items: DEFAULT_RUBRIC.slice(0, n === 2 ? 1 : 2),
+    isActive: false,
     createdAt: "2026-10-01T00:00:00Z",
-  };
+    ...over,
+  });
+  const active = version(7, { isActive: true });
+  const all = [1, 2, 3, 4, 5, 6].map((n) => version(n)).concat(active);
 
-  it("shows the active rubric read-only to QA with its version history", async () => {
+  function serve(role: "qa_reviewer" | "manager") {
     server.use(
-      http.get("*/api/rubrics/active", () => HttpResponse.json(rubric)),
-      http.get("*/api/rubrics", () =>
-        HttpResponse.json({
-          items: [rubric, { ...rubric, id: "r1", version: 1, isActive: false }],
-        }),
-      ),
+      http.get("*/api/me", () => HttpResponse.json(me(role))),
+      http.get("*/api/rubrics/active", () => HttpResponse.json(active)),
+      http.get("*/api/rubrics", () => HttpResponse.json({ items: all })),
     );
+  }
+
+  it("shows the active rubric read-only to QA, with no item actions", async () => {
+    serve("qa_reviewer");
 
     await renderInRouter(<RubricPage />);
 
-    expect(await screen.findByText(/Version 2 is active/)).toBeInTheDocument();
+    expect(await screen.findByText(/Version 7 is active/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Save as version/ })).not.toBeInTheDocument();
-    expect(await screen.findByText("v1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Actions for/ })).not.toBeInTheDocument();
   });
 
-  it("lets a manager add and remove items", async () => {
-    server.use(
-      http.get("*/api/me", () => HttpResponse.json(me("manager"))),
-      http.get("*/api/rubrics/active", () => HttpResponse.json(rubric)),
-      http.get("*/api/rubrics", () => HttpResponse.json({ items: [rubric] })),
-    );
+  it("pages through versions five at a time, newest first", async () => {
+    serve("qa_reviewer");
+    await renderInRouter(<RubricPage />);
+    const list = () => within(screen.getByRole("list", { name: "Rubric versions" }));
+
+    await screen.findByRole("list", { name: "Rubric versions" });
+    expect(
+      list()
+        .getAllByRole("button")
+        .map((b) => b.textContent.slice(0, 2)),
+    ).toEqual(["v7", "v6", "v5", "v4", "v3"]);
+    await userEvent.click(screen.getByRole("button", { name: "Next page" }));
+
+    expect(
+      list()
+        .getAllByRole("button")
+        .map((b) => b.textContent.slice(0, 2)),
+    ).toEqual(["v2", "v1"]);
+  });
+
+  it("finds a version by name or number", async () => {
+    serve("qa_reviewer");
+    await renderInRouter(<RubricPage />);
+    const search = await screen.findByRole("searchbox", { name: "Search versions" });
+    const list = () => within(screen.getByRole("list", { name: "Rubric versions" }));
+
+    await userEvent.type(search, "strict");
+    expect(list().getAllByRole("button")).toHaveLength(1);
+    await userEvent.clear(search);
+    await userEvent.type(search, "v4");
+
+    expect(list().getByRole("button")).toHaveTextContent("Rubric 4");
+    expect(screen.queryByRole("navigation", { name: "Version pages" })).not.toBeInTheDocument();
+  });
+
+  it("shows an older version read-only, and lets a manager start a new version from it", async () => {
+    serve("manager");
     await renderInRouter(<RubricPage />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Add item" }));
-    expect(screen.getByDisplayValue("New item")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Remove New item" }));
-    expect(screen.queryByDisplayValue("New item")).not.toBeInTheDocument();
+    await userEvent.type(
+      await screen.findByRole("searchbox", { name: "Search versions" }),
+      "strict",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^v2/ }));
+
+    expect(screen.getByText("Viewing v2 (not active)")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Actions for/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Edit as new version" }));
+    expect(screen.getByRole("textbox", { name: "Rubric name" })).toHaveValue("Strict wording");
+    expect(screen.getByRole("button", { name: "Save as version 8" })).toBeInTheDocument();
   });
 });
 

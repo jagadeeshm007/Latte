@@ -1,4 +1,4 @@
-# Sales Call Compliance and Coaching Intelligence
+# Latte: sales call compliance and coaching intelligence
 
 Audits every recorded sales or service call instead of a sample. Stereo recordings (agent on the left channel, customer on the right) are transcribed per channel, scored against a configurable compliance and quality rubric by one model call, and calls with a prohibited statement or a missed mandatory item go to QA with timestamped, playable evidence. QA agrees or disagrees with each finding; the system tracks judge-to-human agreement per rubric item. Agents see a scorecard and their top three coaching points.
 

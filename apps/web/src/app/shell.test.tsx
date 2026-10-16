@@ -119,7 +119,7 @@ describe("role homes and menus", () => {
     renderApp("/");
 
     expect(await screen.findByRole("heading", { name: "Review queue" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Upload" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Upload calls" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
   });
 
@@ -129,7 +129,7 @@ describe("role homes and menus", () => {
     renderApp("/");
 
     expect(await screen.findByRole("heading", { name: "My scorecard" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Upload" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Upload calls" })).not.toBeInTheDocument();
   });
 
   it("sends a manager to the dashboard", async () => {

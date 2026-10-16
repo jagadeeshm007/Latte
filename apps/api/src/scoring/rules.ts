@@ -1,4 +1,4 @@
-import type { ScoringSegment } from "./types.ts";
+import { readText, type ScoringSegment } from "./types.ts";
 
 // The rule net: phrase patterns for prohibited statements in English,
 // romanised Hinglish and Devanagari, run on agent lines before and apart from
@@ -89,11 +89,12 @@ export function findRuleHits(
     }
     for (const [itemKey, patterns] of Object.entries(rules)) {
       for (const { re, negatable } of patterns) {
-        const m = re.exec(segment.text);
+        const text = readText(segment);
+        const m = re.exec(text);
         if (!m) {
           continue;
         }
-        if (negatable && NEGATION.test(segment.text.slice(0, m.index))) {
+        if (negatable && NEGATION.test(text.slice(0, m.index))) {
           continue;
         }
         hits.push({ itemKey, seq: segment.seq, match: m[0] });

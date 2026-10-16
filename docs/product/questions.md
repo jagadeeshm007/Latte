@@ -1,4 +1,4 @@
-# Open questions: Sales Call Compliance and Coaching Intelligence
+# Open questions: Latte (sales call compliance and coaching)
 
 PRD: docs/product/PRD.md   Updated: 2026-10-14
 Entries: 11   Open: 11   Needs your confirmation: 5

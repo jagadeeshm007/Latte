@@ -15,5 +15,8 @@
     "@types/node": "24.13.4",
     "@vitest/coverage-v8": "4.1.11",
     "vitest": "4.1.11"
+  },
+  "dependencies": {
+    "sarvamai": "1.1.12"
   }
 }

@@ -26,13 +26,13 @@ export function ScorecardView({ card, self }: { card: Scorecard; self: boolean }
   const title = self ? "My scorecard" : `${card.agent.name}'s scorecard`;
   if (card.callsScored === 0 && card.recentCalls.length === 0) {
     return (
-      <>
+      <div className="flex flex-col gap-6">
         <PageHeader title={title} description={card.agent.teamName} />
         <EmptyState
           title="No calls scored yet"
           description="The scorecard fills in once calls have been scored."
         />
-      </>
+      </div>
     );
   }
   const stats = [
@@ -45,7 +45,7 @@ export function ScorecardView({ card, self }: { card: Scorecard; self: boolean }
     { label: "Average talk ratio", value: formatPercent(card.avgTalkRatio) },
   ];
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={title}
         description={`${card.agent.teamName} · coaching points cover the last 90 days`}
@@ -63,7 +63,7 @@ export function ScorecardView({ card, self }: { card: Scorecard; self: boolean }
       </Frame>
 
       <Frame role="region" aria-labelledby="coaching-heading">
-        <FrameHeader className="px-4 py-2.5">
+        <FrameHeader className="px-4 py-3">
           <FrameTitle role="heading" aria-level={2} id="coaching-heading">
             {self ? "Your top three things to work on" : "Top three coaching points"}
           </FrameTitle>
@@ -105,7 +105,7 @@ export function ScorecardView({ card, self }: { card: Scorecard; self: boolean }
       </Frame>
 
       <Frame role="region" aria-labelledby="items-heading">
-        <FrameHeader className="px-4 py-2.5">
+        <FrameHeader className="px-4 py-3">
           <FrameTitle role="heading" aria-level={2} id="items-heading">
             Pass rate by rubric item
           </FrameTitle>
@@ -142,7 +142,7 @@ export function ScorecardView({ card, self }: { card: Scorecard; self: boolean }
       </Frame>
 
       <Frame role="region" aria-labelledby="recent-heading">
-        <FrameHeader className="px-4 py-2.5">
+        <FrameHeader className="px-4 py-3">
           <FrameTitle role="heading" aria-level={2} id="recent-heading">
             Recent calls
           </FrameTitle>

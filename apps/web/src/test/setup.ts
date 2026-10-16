@@ -2,6 +2,8 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
 
+import { resetPlayer } from "@/features/player/player-store";
+
 import { server } from "./msw";
 
 // jsdom has no layout; the router's scroll restoration calls this on navigation.
@@ -16,6 +18,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  resetPlayer();
   server.resetHandlers();
   vi.unstubAllGlobals();
 });

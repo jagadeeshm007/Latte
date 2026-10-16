@@ -8,7 +8,15 @@ export interface ScoringSegment {
   channel: Channel;
   startMs: number;
   endMs: number;
+  /** What was said, in the call's language: quotes always come from here (tenet 2). */
   text: string;
+  /** English translation of a regional line; the judge and the phrase rules read it when set. */
+  textEn?: string | null;
+}
+
+/** readText is the line as the judge and the rules read it: English when translated. */
+export function readText(s: ScoringSegment): string {
+  return s.textEn ?? s.text;
 }
 
 /** A finding before it is saved; times and quote always come from a segment (tenet 2). */

@@ -1,4 +1,4 @@
-# High Level Design: Sales Call Compliance and Coaching Intelligence
+# High Level Design: Latte (sales call compliance and coaching)
 
 - Task: SCC-1
 - Author: unattributed, 2026-10-14

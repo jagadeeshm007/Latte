@@ -1,4 +1,4 @@
-# Runbook: Sales Call Compliance operations
+# Runbook: Latte operations
 
 Owner: engineering. Covers the checks named in HLD section 10. There is no alerting stack yet; an operator runs these checks.
 

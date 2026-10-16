@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
 
 import { BudgetExceededError, type Gateway, RateLimitedError } from "@scc/gateway";
+import { ENGLISH, isRegional } from "@scc/shared";
 import type { Logger } from "pino";
 
 import { AudioError } from "../audio/decode.ts";
 import { type SttChunkResult, transcribeRecording } from "../audio/transcribe.ts";
+import { translateLines } from "../audio/translate.ts";
 import { inTransaction, type Pool } from "../db/pool.ts";
+import { purgeApiTraffic } from "../repo/api-keys.ts";
 import * as calls from "../repo/calls.ts";
 import { activeRubric, audit } from "../repo/reference.ts";
 import { replaceScore } from "../repo/scores.ts";
@@ -38,6 +41,8 @@ const BUDGET_MESSAGE = "Model budget exhausted for this month; raise LLM_BUDGET_
 export const STALE_SECONDS = 20 * 60;
 /** After this many rate-limit reschedules the call fails with a reason instead of waiting forever. */
 export const MAX_RESCHEDULES = 12;
+/** Sarvam's real-time speech-to-text takes about 30 s of audio per request (ADR-0014). */
+export const REGIONAL_CHUNK_MS = 28_000;
 
 // Chunks already transcribed in this process, so a rate limit part way through
 // a recording does not pay for the earlier chunks again on the next attempt.
@@ -49,6 +54,28 @@ function remember(key: string, value: SttChunkResult): void {
     if (oldest !== undefined) chunkCache.delete(oldest);
   }
   chunkCache.set(key, value);
+}
+
+/**
+ * sourceLanguage is the language Sarvam heard: the chosen language, or for
+ * "auto" the one it detected most often across the call's chunks.
+ */
+function sourceLanguage(
+  chosen: string,
+  transcript: { segments: { language: string | null }[] },
+): string {
+  if (chosen !== "auto") return chosen;
+  const counts = new Map<string, number>();
+  for (const seg of transcript.segments) {
+    if (seg.language && seg.language !== "unknown") {
+      counts.set(seg.language, (counts.get(seg.language) ?? 0) + 1);
+    }
+  }
+  const detected = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (!detected) {
+    throw new AudioError("Sarvam could not detect the call's language; upload it with a language");
+  }
+  return detected;
 }
 
 export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<void> {
@@ -64,24 +91,63 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
   }
   try {
     const bytes = await deps.storage.download(call.storage_path);
+    const regional = isRegional(call.language);
+    const product = regional ? await calls.productNameOf(pool, call.id) : null;
     const transcript = await transcribeRecording(
       bytes,
       call.mime_type,
       async (wav, durationSeconds, label) => {
-        const key = `${call.id}:${createHash("sha256").update(wav).digest("hex")}`;
+        const key = `${call.id}:${call.language}:${createHash("sha256").update(wav).digest("hex")}`;
         const cached = chunkCache.get(key);
         if (cached) return cached;
         const result = await deps.gateway.callModel(
-          { kind: "stt", audio: wav, filename: `${call.id}-${label}.wav`, durationSeconds },
+          {
+            kind: "stt",
+            audio: wav,
+            filename: `${call.id}-${label}.wav`,
+            durationSeconds,
+            ...(regional
+              ? {
+                  regional: true,
+                  language: call.language === "auto" ? "unknown" : call.language,
+                  ...(product ? { keyterms: [product] } : {}),
+                }
+              : {}),
+          },
           { purpose: "transcribe", callId: call.id },
         );
-        const chunk = { language: result.language, segments: result.segments };
+        const chunk = { language: result.language, segments: result.segments, words: result.words };
         remember(key, chunk);
         return chunk;
       },
+      regional ? { maxChunkMs: REGIONAL_CHUNK_MS, onePerUtterance: true } : {},
     );
+    // The judge reads English: translate regional lines before anything is written,
+    // so a call is never scored on a half-translated transcript.
+    const translations = regional
+      ? await translateLines(
+          transcript.segments.map((seg) => seg.text),
+          async (text) =>
+            (
+              await deps.gateway.callModel(
+                {
+                  kind: "translate",
+                  text,
+                  source: sourceLanguage(call.language, transcript),
+                  target: ENGLISH,
+                },
+                { purpose: "translate", callId: call.id },
+              )
+            ).text,
+        )
+      : [];
     await inTransaction(pool, async (client) => {
       await calls.replaceSegments(client, call.id, transcript.segments);
+      await calls.setTranslations(
+        client,
+        call.id,
+        translations.map((textEn, i) => ({ seq: transcript.segments[i]?.seq ?? i, textEn })),
+      );
       await calls.setDuration(client, call.id, transcript.durationMs);
       await calls.setStatus(client, call.id, "transcribed");
     });
@@ -110,6 +176,7 @@ export async function handleScore(deps: JobDeps, job: JobInfo): Promise<void> {
       startMs: s.start_ms,
       endMs: s.end_ms,
       text: s.text,
+      textEn: s.text_en,
     }));
     const result = await scoreCall({
       rubric: rubric.items,
@@ -237,6 +304,7 @@ export async function handlePurge(
     orphans += stale.length;
   }
   const stuck = await calls.failStuckCalls(pool, 2 * 3600);
-  log.info({ purged, orphans, stuck }, "purge done");
+  const apiRequests = await purgeApiTraffic(pool);
+  log.info({ purged, orphans, stuck, apiRequests }, "purge done");
   return { purged, orphans };
 }

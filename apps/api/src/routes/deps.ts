@@ -11,7 +11,8 @@ export interface AppDeps {
   config: Pick<
     Config,
     "AUDIO_RETENTION_DAYS" | "SIGNED_URL_SECONDS" | "LLM_BUDGET_USD" | "WEB_ORIGIN"
-  >;
+  > &
+    Partial<Pick<Config, "EXPORT_LINK_SECRET">>;
   pool: Pool;
   storage: Storage;
   enqueue: Enqueue;

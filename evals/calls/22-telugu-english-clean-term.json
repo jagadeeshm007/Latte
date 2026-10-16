@@ -1,0 +1,94 @@
+{
+  "id": "22-telugu-english-clean-term",
+  "title": "Telugu-English term plan call: compliant",
+  "language": "telugu-english",
+  "languageCode": "te-IN",
+  "product": "Term Shield",
+  "agentCode": "AG003",
+  "voices": {
+    "agent": "aditya",
+    "customer": "kavya"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "నమస్కారం, నేను Suraksha Life Insurance నుండి Vikram మాట్లాడుతున్నాను. Mrs. Lakshmi గారితో మాట్లాడుతున్నానా?"
+    },
+    {
+      "s": "C",
+      "t": "అవునండి, చెప్పండి."
+    },
+    {
+      "s": "A",
+      "t": "మీరు Term Shield plan గురించి website లో enquiry చేశారు, అందుకే call చేశాను."
+    },
+    {
+      "s": "C",
+      "t": "అవును, details కావాలి."
+    },
+    {
+      "s": "A",
+      "t": "ముందుగా verification కోసం మీ date of birth చెప్పగలరా?"
+    },
+    {
+      "s": "C",
+      "t": "పన్నెండు March, పందొమ్మిది వందల ఎనభై ఐదు."
+    },
+    {
+      "s": "A",
+      "t": "Thank you madam, details match అయ్యాయి. మీ income మీద family లో ఎవరు depend అవుతారు?"
+    },
+    {
+      "s": "C",
+      "t": "నా భర్త, ఇద్దరు పిల్లలు."
+    },
+    {
+      "s": "A",
+      "t": "Term Shield ఒక pure term plan, ఇది investment కాదు, maturity లో ఎలాంటి returns రావు. Sum assured ఒక crore, premium సంవత్సరానికి పన్నెండు వేలు."
+    },
+    {
+      "s": "C",
+      "t": "Claim ఎలా ఉంటుంది?"
+    },
+    {
+      "s": "A",
+      "t": "Policy term లో ఏదైనా జరిగితే nominee కి full sum assured వస్తుంది. Exclusions, waiting periods అన్నీ policy document లో clear గా ఉంటాయి."
+    },
+    {
+      "s": "C",
+      "t": "సరే, proceed చేయండి."
+    },
+    {
+      "s": "A",
+      "t": "మీ consent తో proposal generate చేస్తున్నాను, సరేనా?"
+    },
+    {
+      "s": "C",
+      "t": "సరే."
+    },
+    {
+      "s": "A",
+      "t": "Policy document వచ్చాక thirty days free look period ఉంటుంది, నచ్చకపోతే cancel చేసి refund తీసుకోవచ్చు."
+    },
+    {
+      "s": "C",
+      "t": "Thank you."
+    },
+    {
+      "s": "A",
+      "t": "Thank you madam, మంచి రోజు."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "met",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "clear",
+    "false_urgency": "clear",
+    "misrepresentation": "clear",
+    "need_discovery": "met"
+  },
+  "planted": []
+}

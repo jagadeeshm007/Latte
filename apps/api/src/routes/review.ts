@@ -1,9 +1,12 @@
 import {
   addFindingRequestSchema,
   dashboardQuerySchema,
+  highlightsQuerySchema,
+  leaderboardQuerySchema,
   reviewDecisionRequestSchema,
   saveRubricRequestSchema,
   statusFits,
+  usageHistoryQuerySchema,
 } from "@scc/shared";
 import { Router } from "express";
 import { z } from "zod";
@@ -14,11 +17,13 @@ import { inTransaction } from "../db/pool.ts";
 import { AppError, ConflictError, NotFoundError } from "../errors.ts";
 import { agreement, dashboard, scorecard } from "../repo/analytics.ts";
 import * as calls from "../repo/calls.ts";
+import { highlights, leaderboard } from "../repo/performance.ts";
 import {
   activeRubric,
   audit,
   listRubrics,
   saveRubricVersion,
+  usageHistory,
   usageThisMonth,
 } from "../repo/reference.ts";
 import {
@@ -31,6 +36,13 @@ import {
 } from "../repo/scores.ts";
 
 const idParam = z.object({ id: z.uuid() });
+
+/** orderedRange refuses a date range that ends before it starts. */
+function orderedRange(q: { from?: string | undefined; to?: string | undefined }) {
+  if (q.from && q.to && q.from > q.to) {
+    throw new AppError("from must be on or before to", 400, "invalid_range");
+  }
+}
 
 async function rubricOrFail(deps: AppDeps) {
   const rubric = await activeRubric(deps.pool);
@@ -48,7 +60,9 @@ export function reviewRouter(deps: AppDeps): Router {
 
   router.get("/review/queue", qaOrManager, async (_req, res) => {
     const { rows } = await pool.query<{ id: string }>(
-      "SELECT call_id AS id FROM scores WHERE review_status = 'pending' ORDER BY created_at LIMIT 100",
+      `SELECT s.call_id AS id FROM scores s JOIN calls c ON c.id = s.call_id
+        WHERE s.review_status = 'pending' AND c.archived_at IS NULL AND c.deleted_at IS NULL
+        ORDER BY s.created_at LIMIT 100`,
     );
     const items = await Promise.all(
       rows.map((r) => calls.getCallSummary(pool, { agentId: null }, r.id)),
@@ -154,6 +168,18 @@ export function reviewRouter(deps: AppDeps): Router {
     res.json(await dashboard(pool, (await rubricOrFail(deps)).items, q));
   });
 
+  router.get("/dashboard/leaderboard", manager, async (req, res) => {
+    const q = leaderboardQuerySchema.parse(req.query);
+    orderedRange(q);
+    res.json(await leaderboard(pool, (await rubricOrFail(deps)).items, q));
+  });
+
+  router.get("/dashboard/highlights", manager, async (req, res) => {
+    const q = highlightsQuerySchema.parse(req.query);
+    orderedRange(q);
+    res.json(await highlights(pool, (await rubricOrFail(deps)).items, q, new Date()));
+  });
+
   router.get("/rubrics/active", async (_req, res) => {
     res.json(await rubricOrFail(deps));
   });
@@ -179,6 +205,11 @@ export function reviewRouter(deps: AppDeps): Router {
 
   router.get("/usage", manager, async (_req, res) => {
     res.json(await usageThisMonth(pool, deps.config.LLM_BUDGET_USD));
+  });
+
+  router.get("/usage/history", manager, async (req, res) => {
+    const { days } = usageHistoryQuerySchema.parse(req.query);
+    res.json(await usageHistory(pool, days));
   });
 
   return router;

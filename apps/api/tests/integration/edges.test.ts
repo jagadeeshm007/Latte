@@ -42,10 +42,12 @@ beforeEach(async () => {
 
 async function insertCall(status = "uploaded", createdAt = "now()"): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename, mime_type,
+    `WITH b AS (INSERT INTO batches (name, created_by) VALUES ('Edge batch', $4) RETURNING id)
+     INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename, mime_type,
                         size_bytes, storage_path, status, error, retention_until, created_at)
-     VALUES ($1, $2, $3, '2026-10-01', gen_random_uuid(), $4, 'c.wav', 'audio/wav', 10, $5, $6::call_status,
-             CASE WHEN $6::text = 'failed' THEN 'boom' END, current_date + 90, ${createdAt})
+     SELECT $1, $2, $3, '2026-10-01', b.id, $4, 'c.wav', 'audio/wav', 10, $5, $6::call_status,
+             CASE WHEN $6::text = 'failed' THEN 'boom' END, current_date + 90, ${createdAt}
+       FROM b
      RETURNING id`,
     [
       fx.agentA,
@@ -508,10 +510,16 @@ describe("security review fixes", () => {
     const { perUserLimit } = await import("../../src/rate-limit.ts");
     let t = 0;
     const limit = perUserLimit("retry", 2, 1000, () => t);
+    const headers: Record<string, string> = {};
+    const res = {
+      setHeader: (name: string, value: string) => {
+        headers[name] = value;
+      },
+    };
     const call = () =>
       new Promise<unknown>((resolve) => {
         try {
-          limit({ user: { id: "u" } } as never, {} as never, () => {
+          limit({ user: { id: "u" } } as never, res as never, () => {
             resolve("ok");
           });
         } catch (error) {
@@ -522,6 +530,7 @@ describe("security review fixes", () => {
     expect(await call()).toBe("ok");
     expect(await call()).toBe("ok");
     expect(await call()).toMatchObject({ statusCode: 429 });
+    expect(headers["Retry-After"]).toBe("1");
     t = 2000;
     expect(await call()).toBe("ok");
   });

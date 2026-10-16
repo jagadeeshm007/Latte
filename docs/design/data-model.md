@@ -1,4 +1,4 @@
-# Data model: Sales Call Compliance
+# Data model: Latte
 
 **Store:** PostgreSQL · **Tables:** 12 · **Columns:** 112 · **Indexes:** 34 · **Personal-data columns:** 7
 
@@ -360,6 +360,8 @@ Who accessed which recording and when. Serves US-02-003. Volume: 10^5 to 10^6 a 
 | actor_id | uuid | yes | FK |  | User who acted; null for system jobs | AC-US-02-003-2: access is audited by user; the purge job has no user |
 | action | text | no |  |  | What happened, such as audio_url_issued | AC-US-02-003-2 names the access |
 | call_id | uuid | yes | FK |  | Call acted on | trace which recording was accessed |
+| batch_id | uuid | yes | FK |  | Batch acted on (0007) | rename, archive, retry and export happen to a whole batch |
+| api_key_id | uuid | yes | FK |  | API key the action was about or made with (0008) | key creation and revocation; batches created through the API |
 | created_at | timestamptz | no |  | now() | When the row was created | audit and ordering by recency |
 
 **Indexes**
@@ -370,6 +372,47 @@ Who accessed which recording and when. Serves US-02-003. Volume: 10^5 to 10^6 a 
 **Constraints**
 
 - `chk_audit_events_action` refuses an unknown action name.
+
+### `batches`: Batches (hot: no)
+
+Calls uploaded together, by a person in the app or by an API key (migration 0007, ADR-0017). Volume: 10^3 to 10^4 a year.
+
+| Column | Type | Null | Key | Default | Description | Why |
+| --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | no | PK | gen_random_uuid() | The batch id every call carries in calls.batch_id | backfilled from the batch ids calls already had |
+| name | text | no |  |  | Name people recognise, 1 to 120 characters | lists and export file names |
+| created_by | uuid | no | FK |  | Who started it | only they or a manager may rename or archive it |
+| source | text | no |  | 'web' | web or api | shows where a batch came from |
+| api_key_id | uuid | yes | FK |  | The key that created it (source api) | traces API uploads to a key |
+| archived_at | timestamptz | yes |  |  | When archived: hidden from the list | tidy lists without losing data |
+| created_at | timestamptz | no |  | now() | When the first chunk was confirmed | ordering |
+
+**Indexes**: `ix_batches_created` on (created_at desc, id desc) for the list; calls use `idx_calls_batch_id`.
+
+### `api_keys`: API keys (hot: no)
+
+Keys machine clients use, acting as the manager who created them within their scopes (migration 0008, ADR-0018). Volume: tens.
+
+| Column | Type | Null | Key | Default | Description | Why |
+| --- | --- | --- | --- | --- | --- | --- |
+| id | uuid | no | PK | gen_random_uuid() | Key id | |
+| name | text | no |  |  | Name of the integration | lists and logs |
+| prefix | text | no | UQ |  | 8 characters, shown in place of the key | finds the row without storing the secret |
+| secret_hash | bytea | no |  |  | SHA-256 of the 32-byte secret | the secret is shown once and never stored |
+| scopes | text[] | no |  |  | What the key may do | least privilege per integration |
+| limits | jsonb | no |  | '{}' | Per-bucket overrides of the default limits | fit a busy integration without raising every key |
+| created_by | uuid | no | FK |  | The manager the key acts as | the key stops when they stop being a manager |
+| last_used_at, expires_at, revoked_at | timestamptz | yes |  |  | Use, expiry and revocation | spot unused keys; end access |
+
+### `api_requests`: API requests (hot: yes)
+
+One row per request made with a key: route template, bucket, status, duration and request id; never the path, query or body. Kept 30 days. Volume: up to 10^6 a month.
+
+**Indexes**: `ix_api_requests_key_created` on (api_key_id, created_at desc) for logs and metrics; `ix_api_requests_created` on (created_at) for the purge.
+
+### `rate_limit_windows`: Rate-limit windows (hot: yes)
+
+A request count per key, bucket and fixed window, upserted on every keyed request so limits hold across API processes. Kept one day. Primary key (api_key_id, bucket, window_start).
 
 ## 5. MongoDB
 

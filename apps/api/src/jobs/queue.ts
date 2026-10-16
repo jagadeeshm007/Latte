@@ -9,8 +9,11 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 export type Enqueue = (
   queue: QueueName,
   data: { callId?: string; reschedules?: number },
-  options?: { startAfterSeconds?: number },
+  options?: { startAfterSeconds?: number; priority?: number },
 ) => Promise<void>;
+
+/** Higher runs first: a one-off upload is not stuck behind a large batch. */
+export const PRIORITY = { interactive: 10, bulk: 0 } as const;
 
 export const RETRY_LIMIT = 4;
 
@@ -41,10 +44,9 @@ export async function startBoss(
 
 export function bossEnqueue(boss: PgBoss): Enqueue {
   return async (queue, data, options) => {
-    await boss.send(
-      queue,
-      data,
-      options?.startAfterSeconds ? { startAfter: options.startAfterSeconds } : {},
-    );
+    await boss.send(queue, data, {
+      ...(options?.startAfterSeconds ? { startAfter: options.startAfterSeconds } : {}),
+      ...(options?.priority === undefined ? {} : { priority: options.priority }),
+    });
   };
 }

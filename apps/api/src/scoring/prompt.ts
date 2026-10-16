@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@scc/gateway";
 import { COACHING_MAX, NOTE_MAX, type RubricItem } from "@scc/shared";
 
-import type { ScoringSegment } from "./types.ts";
+import { readText, type ScoringSegment } from "./types.ts";
 
 // The judge prompt. Static instructions and the rubric come first and the
 // transcript last, so Groq's prompt cache can reuse the prefix across calls.
@@ -21,12 +21,15 @@ export function formatTranscript(segments: ScoringSegment[]): string {
     .map(
       (s) =>
         // Angle brackets are dropped so speech cannot close the <transcript> block.
-        `[S${String(s.seq)}][${s.channel.toUpperCase()}][${formatTime(s.startMs)}] ${s.text.replace(/[<>]/g, " ").replace(/\s+/g, " ").trim()}`,
+        `[S${String(s.seq)}][${s.channel.toUpperCase()}][${formatTime(s.startMs)}] ${readText(s).replace(/[<>]/g, " ").replace(/\s+/g, " ").trim()}`,
     )
     .join("\n");
 }
 
-export function systemPrompt(rubric: RubricItem[]): string {
+const TRANSLATED_NOTE = `
+11. This call was held in an Indian regional language and translated into English line by line. Judge what was meant; small wording differences come from translation.`;
+
+export function systemPrompt(rubric: RubricItem[], translated = false): string {
   const items = rubric.map((i) => `- ${i.key} (${i.type}): ${i.description}`).join("\n");
   return `You are a compliance auditor for an insurance distributor. You read the transcript of one recorded sales or service call and judge it against a rubric.
 
@@ -40,7 +43,7 @@ Rules:
 7. segments: the S numbers of the lines that show the evidence, at most 3, most direct first. Required for met, partial and breach. Use [] for missed and clear.
 8. note: at most ${String(Math.floor(NOTE_MAX / 6))} words saying why.
 9. coaching: up to three specific, actionable tips for the agent, most important first, each at most ${String(Math.floor(COACHING_MAX / 6))} words. Address the agent as "you".
-10. Think briefly. Output only the JSON object.
+10. Think briefly. Output only the JSON object.${translated ? TRANSLATED_NOTE : ""}
 
 Rubric:
 ${items}`;
@@ -51,7 +54,13 @@ export function buildJudgeMessages(
   segments: ScoringSegment[],
 ): ChatMessage[] {
   return [
-    { role: "system", content: systemPrompt(rubric) },
+    {
+      role: "system",
+      content: systemPrompt(
+        rubric,
+        segments.some((s) => s.textEn),
+      ),
+    },
     {
       role: "user",
       content: `<transcript>\n${formatTranscript(segments)}\n</transcript>\n\nJudge this call against every rubric item.`,

@@ -1,4 +1,4 @@
-# Backlog: Sales Call Compliance and Coaching Intelligence
+# Backlog: Latte (sales call compliance and coaching)
 
 PRD: docs/product/PRD.md   Questions: docs/product/questions.md   Built: 2026-10-14
 

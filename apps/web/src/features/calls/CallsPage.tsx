@@ -1,130 +1,155 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { UploadIcon } from "lucide-react";
 import { useState } from "react";
 
+import { PageNav } from "@/components/PageNav";
 import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states";
 import { Button } from "@/components/ui/button";
-import { Frame } from "@/components/ui/frame";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { type CallFilters, callsPagesQuery, meQuery, queueQuery } from "@/lib/endpoints";
+import { Frame, FramePanel } from "@/components/ui/frame";
+import { callsQuery, meQuery, queueQuery, referenceQuery } from "@/lib/endpoints";
 import { IN_PROGRESS } from "@/lib/format";
 
+import { applyLocally, type CallsSearch, hasFilters, PAGE_SIZE, toFilters } from "./calls-search";
 import { CallsTable } from "./CallsTable";
+import { CallsToolbar } from "./CallsToolbar";
 
-const VIEWS: Record<string, { label: string; filters: CallFilters }> = {
-  all: { label: "All", filters: {} },
-  review: { label: "Needs review", filters: { needsReview: true } },
-  scored: { label: "Scored", filters: { status: "scored" } },
-  failed: { label: "Failed", filters: { status: "failed" } },
-};
-
-/** S2: every call the caller may see, newest first; refreshes while any is still in the pipeline. */
-export function CallsPage() {
+/**
+ * S2: every call the caller may see, newest first, one page at a time, with
+ * search, filters and grouping kept in the URL (the route passes them in).
+ * Refreshes while any call on the page is still in the pipeline.
+ */
+export function CallsPage({
+  search,
+  onSearch,
+}: {
+  search: CallsSearch;
+  onSearch: (next: CallsSearch) => void;
+}) {
   const me = useQuery(meQuery);
-  const [view, setView] = useState("all");
-  const filters = VIEWS[view]?.filters ?? {};
-  const calls = useInfiniteQuery({
-    ...callsPagesQuery(filters),
+  const isAgent = me.data?.role === "agent";
+  // Agents have no reference lists: they filter by status, flag and language only.
+  const reference = useQuery({ ...referenceQuery, enabled: me.data !== undefined && !isAgent });
+  const calls = useQuery({
+    ...callsQuery(toFilters(search)),
+    placeholderData: keepPreviousData,
     refetchInterval: (q) =>
-      q.state.data?.pages.some((p) => p.items.some((c) => IN_PROGRESS.has(c.status)))
-        ? 4000
-        : false,
+      q.state.data?.items.some((c) => IN_PROGRESS.has(c.status)) ? 4000 : false,
   });
-  const items = calls.data?.pages.flatMap((p) => p.items) ?? [];
-  const canUpload = me.data?.role !== "agent";
+
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Calls"
         description={
-          me.data?.role === "agent"
-            ? "Your scored calls."
-            : "Every uploaded call and where it is in the pipeline."
+          isAgent ? "Your scored calls." : "Every uploaded call and where it is in the pipeline."
         }
         actions={
-          <>
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              aria-label="Show calls"
-              value={[view]}
-              onValueChange={(v: unknown[]) => {
-                const next = v[0];
-                if (typeof next === "string") setView(next);
-              }}
-            >
-              {Object.entries(VIEWS).map(([key, v]) => (
-                <ToggleGroupItem key={key} value={key}>
-                  {v.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-            {canUpload ? (
-              <Button size="sm" render={<Link to="/upload" />}>
-                <UploadIcon aria-hidden="true" />
-                Upload calls
-              </Button>
-            ) : null}
-          </>
+          !isAgent && me.data ? (
+            <Button size="sm" render={<Link to="/upload" />}>
+              <UploadIcon aria-hidden="true" />
+              Upload calls
+            </Button>
+          ) : null
         }
       />
-      {calls.isPending ? (
-        <Loading />
-      ) : calls.isError ? (
-        <ErrorState error={calls.error} />
-      ) : items.length === 0 ? (
-        <EmptyState
-          title={view === "all" ? "No calls yet" : "No calls match this view"}
-          description={
-            canUpload
-              ? "Upload stereo recordings to get started."
-              : "Calls appear here once they are scored."
-          }
-        />
-      ) : (
-        <Frame>
-          <CallsTable calls={items} showAgent={me.data?.role !== "agent"} />
-          {calls.hasNextPage ? (
-            <div className="flex justify-center p-2">
-              <Button
-                size="sm"
-                variant="outline"
-                loading={calls.isFetchingNextPage}
-                onClick={() => {
-                  void calls.fetchNextPage();
-                }}
-              >
-                Load more calls
-              </Button>
+      <Frame>
+        <CallsToolbar search={search} onChange={onSearch} reference={reference.data} />
+        <FramePanel className="p-0">
+          {calls.isPending ? (
+            <Loading label="Loading calls" shape="table" />
+          ) : calls.isError ? (
+            <div className="p-4">
+              <ErrorState error={calls.error} />
             </div>
-          ) : null}
-        </Frame>
-      )}
-    </>
+          ) : calls.data.items.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title={hasFilters(search) ? "No calls match" : "No calls yet"}
+                description={
+                  hasFilters(search)
+                    ? "Change the search or clear the filters."
+                    : isAgent
+                      ? "Calls appear here once they are scored."
+                      : "Upload stereo recordings to get started."
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <CallsTable
+                calls={calls.data.items}
+                showAgent={!isAgent}
+                groupBy={search.groupBy}
+                role={me.data?.role}
+              />
+              <PageNav
+                page={search.page ?? 1}
+                pageSize={PAGE_SIZE}
+                total={calls.data.total}
+                label="Call pages"
+                onPage={(page) => {
+                  onSearch({ ...search, page });
+                }}
+              />
+            </>
+          )}
+        </FramePanel>
+      </Frame>
+    </div>
   );
 }
 
-/** S5: calls waiting for a QA decision, oldest first (US-01-005). */
+/** S5: calls waiting for a QA decision, oldest first (US-01-005), searched and paged in the browser. */
 export function QueuePage() {
+  const me = useQuery(meQuery);
+  const reference = useQuery(referenceQuery);
   const queue = useQuery({ ...queueQuery, refetchInterval: 15_000 });
+  const [search, setSearch] = useState<CallsSearch>({});
+  const shown = queue.data ? applyLocally(queue.data.items, search) : null;
+
   return (
-    <>
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Review queue"
         description="Calls with a prohibited statement, a missed mandatory item or an unscored judge."
       />
-      {queue.isPending ? (
-        <Loading />
-      ) : queue.isError ? (
-        <ErrorState error={queue.error} />
-      ) : queue.data.items.length === 0 ? (
-        <EmptyState title="Queue is clear" description="Nothing is waiting for review." />
-      ) : (
-        <Frame>
-          <CallsTable calls={queue.data.items} />
-        </Frame>
-      )}
-    </>
+      <Frame>
+        <CallsToolbar search={search} onChange={setSearch} reference={reference.data} local />
+        <FramePanel className="p-0">
+          {queue.isPending ? (
+            <Loading label="Loading calls" shape="table" />
+          ) : queue.isError ? (
+            <div className="p-4">
+              <ErrorState error={queue.error} />
+            </div>
+          ) : !shown || shown.items.length === 0 ? (
+            <div className="p-4">
+              <EmptyState
+                title={hasFilters(search) ? "No calls match" : "Queue is clear"}
+                description={
+                  hasFilters(search)
+                    ? "Change the search or clear the filters."
+                    : "Nothing is waiting for review."
+                }
+              />
+            </div>
+          ) : (
+            <>
+              <CallsTable calls={shown.items} groupBy={search.groupBy} role={me.data?.role} />
+              <PageNav
+                page={search.page ?? 1}
+                pageSize={PAGE_SIZE}
+                total={shown.total}
+                label="Queue pages"
+                onPage={(page) => {
+                  setSearch({ ...search, page });
+                }}
+              />
+            </>
+          )}
+        </FramePanel>
+      </Frame>
+    </div>
   );
 }

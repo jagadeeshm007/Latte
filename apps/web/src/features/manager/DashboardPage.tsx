@@ -1,4 +1,4 @@
-import type { Agreement, Dashboard, Usage } from "@scc/shared";
+import type { Agreement, Usage } from "@scc/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -21,60 +21,64 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { agreementQuery, dashboardQuery, rubricQuery, usageQuery } from "@/lib/endpoints";
+import { agreementQuery, highlightsQuery, usageQuery } from "@/lib/endpoints";
 import { formatPercent } from "@/lib/format";
 
-// S8: compliance by team and product, judge agreement per item and model
-// spend against the budget (US-01-007, US-01-008, US-02-001).
+import { Breakdown } from "./Breakdown";
+import { RANGES, rangeOf, type RangeKey } from "./date-range";
+import { HighlightsGrid, KpiStrip } from "./Highlights";
+import { UsageDialog } from "./UsageDialog";
+
+// S8: the period at a glance (headline numbers and the few agents, teams and
+// items worth acting on), a breakdown chart, judge agreement per item and
+// model spend against the budget (US-01-007, US-01-008, US-02-001). Full
+// rankings live on the Performance page.
 
 export function DashboardPage() {
-  const [groupBy, setGroupBy] = useState<"team" | "product">("team");
-  const dashboard = useQuery(dashboardQuery(groupBy));
+  const [range, setRange] = useState<RangeKey>("30d");
+  const dates = rangeOf(range);
+  const highlights = useQuery(highlightsQuery(dates));
   const agreement = useQuery(agreementQuery);
   const usage = useQuery(usageQuery);
-  const rubric = useQuery(rubricQuery);
-  // The group table shows mandatory items only (AC-US-01-008-1); agreement covers every item.
-  const labels = new Map(
-    (rubric.data?.items ?? []).filter((i) => i.type === "mandatory").map((i) => [i.key, i.label]),
-  );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title="Dashboard"
         description="Where compliance slips, how far the judge can be trusted, and what it costs."
+        actions={
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            aria-label="Period"
+            value={[range]}
+            onValueChange={(v: unknown[]) => {
+              const next = RANGES.find((r) => r.value === v[0]);
+              if (next) setRange(next.value);
+            }}
+          >
+            {RANGES.map((r) => (
+              <ToggleGroupItem key={r.value} value={r.value}>
+                {r.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        }
       />
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Frame role="region" aria-labelledby="groups-heading" className="min-w-0">
-          <FrameHeader className="flex-row items-center justify-between gap-2 px-3 py-2">
-            <FrameTitle role="heading" aria-level={2} id="groups-heading">
-              Results by {groupBy}
-            </FrameTitle>
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              aria-label="Group results"
-              value={[groupBy]}
-              onValueChange={(v: unknown[]) => {
-                if (v[0] === "team" || v[0] === "product") setGroupBy(v[0]);
-              }}
-            >
-              <ToggleGroupItem value="team">By team</ToggleGroupItem>
-              <ToggleGroupItem value="product">By product</ToggleGroupItem>
-            </ToggleGroup>
-          </FrameHeader>
-          <FramePanel className="p-0">
-            {dashboard.isPending ? (
-              <Loading />
-            ) : dashboard.isError ? (
-              <ErrorState error={dashboard.error} />
-            ) : (
-              <GroupTable data={dashboard.data} labels={labels} />
-            )}
-          </FramePanel>
-        </Frame>
+      {highlights.isPending ? (
+        <Loading label="Loading highlights" shape="cards" />
+      ) : highlights.isError ? (
+        <ErrorState error={highlights.error} />
+      ) : (
+        <>
+          <KpiStrip data={highlights.data} />
+          <HighlightsGrid data={highlights.data} range={range} />
+        </>
+      )}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Breakdown range={range} />
         {usage.isPending ? (
-          <Loading />
+          <Loading label="Loading spend" shape="text" />
         ) : usage.isError ? (
           <ErrorState error={usage.error} />
         ) : (
@@ -82,7 +86,7 @@ export function DashboardPage() {
         )}
       </div>
       <Frame role="region" aria-labelledby="agreement-heading">
-        <FrameHeader className="px-3 py-2">
+        <FrameHeader className="px-4 py-3">
           <FrameTitle role="heading" aria-level={2} id="agreement-heading">
             Judge agreement with QA
           </FrameTitle>
@@ -93,7 +97,7 @@ export function DashboardPage() {
         </FrameHeader>
         <FramePanel className="p-0">
           {agreement.isPending ? (
-            <Loading />
+            <Loading label="Loading agreement" shape="table" />
           ) : agreement.isError ? (
             <ErrorState error={agreement.error} />
           ) : (
@@ -105,60 +109,20 @@ export function DashboardPage() {
   );
 }
 
-function GroupTable({ data, labels }: { data: Dashboard; labels: Map<string, string> }) {
-  const mandatoryKeys = [...labels.keys()];
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{data.groupBy === "team" ? "Team" : "Product"}</TableHead>
-          <TableHead className="text-end">Calls</TableHead>
-          <TableHead className="text-end">Flagged</TableHead>
-          <TableHead className="text-end">Avg score</TableHead>
-          {mandatoryKeys.map((k) => (
-            <TableHead key={k} className="text-end">
-              {labels.get(k) ?? k}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.groups.map((g) => (
-          <TableRow key={g.id}>
-            <TableCell className="font-medium">{g.name}</TableCell>
-            <TableCell className="text-end tabular-nums">{g.callsScored}</TableCell>
-            <TableCell className="text-end tabular-nums">
-              {g.flagRate === null ? "" : formatPercent(g.flagRate)}
-            </TableCell>
-            <TableCell className="text-end tabular-nums">
-              {g.avgOverall === null ? "" : `${g.avgOverall.toFixed(0)}%`}
-            </TableCell>
-            {mandatoryKeys.map((k) => {
-              const rate = g.items.find((i) => i.key === k)?.passRate ?? null;
-              return (
-                <TableCell key={k} className="text-end tabular-nums">
-                  {rate === null ? "" : formatPercent(rate)}
-                </TableCell>
-              );
-            })}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-
 export function UsageCard({ usage }: { usage: Usage }) {
   const share = usage.budgetUsd > 0 ? Math.min(1, usage.spentUsd / usage.budgetUsd) : 1;
   return (
     <Frame role="region" aria-labelledby="usage-heading">
-      <FrameHeader className="px-3 py-2">
+      <FrameHeader className="px-4 py-3">
         <FrameTitle role="heading" aria-level={2} id="usage-heading">
           Model spend this month
         </FrameTitle>
         <FrameDescription>
           ${usage.spentUsd.toFixed(4)} of ${usage.budgetUsd.toFixed(2)} budget
         </FrameDescription>
+        <div className="mt-2">
+          <UsageDialog usage={usage} />
+        </div>
       </FrameHeader>
       <FramePanel className="flex flex-col gap-3 px-4 py-3">
         {share >= 0.8 ? (

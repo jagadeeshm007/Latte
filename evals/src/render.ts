@@ -19,6 +19,7 @@ import { createGateway, MemoryUsageStore, RateLimitedError } from "@scc/gateway"
 import type * as Wavefile from "wavefile";
 
 import type { Planted } from "./eval.ts";
+import { REGIONAL } from "./regional.ts";
 import { CALLS, type CallScript } from "./scripts.ts";
 import { wordErrorRate } from "./wer.ts";
 
@@ -40,11 +41,17 @@ const gateway = createGateway(
     mode: "live",
     budgetUsd: Number(process.env.RENDER_BUDGET_USD ?? "2"),
     cassetteDir: path.join(ROOT, "cassettes"),
-    apiKeys: process.env.GROQ_API_KEY ? { groq: process.env.GROQ_API_KEY } : {},
+    apiKeys: {
+      ...(process.env.GROQ_API_KEY ? { groq: process.env.GROQ_API_KEY } : {}),
+      ...(process.env.SARVAM_API_KEY ? { sarvam: process.env.SARVAM_API_KEY } : {}),
+    },
     routes: {
       chat: { provider: "groq", model: "openai/gpt-oss-120b" },
       stt: { provider: "groq", model: process.env.STT_MODEL ?? "whisper-large-v3" },
       tts: { provider: "groq", model: process.env.TTS_MODEL ?? "canopylabs/orpheus-v1-english" },
+      // The regional seed calls (regional.ts): Bulbul voices them, Saaras transcribes them.
+      ttsRegional: { provider: "sarvam", model: "bulbul:v3" },
+      sttRegional: { provider: "sarvam", model: process.env.STT_REGIONAL_MODEL ?? "saaras:v4" },
     },
     limits: { "canopylabs/orpheus-v1-english": { rpm: 10 } },
   },
@@ -84,7 +91,10 @@ function pieces(text: string): string[] {
   return text.match(/[^.!?]+[.!?]+/g)?.map((s) => s.trim()) ?? [text];
 }
 
-async function voiceLine(text: string, voice: string): Promise<Float32Array> {
+/** Sarvam's real-time speech-to-text takes about 30 s of audio per request; the worker uses the same. */
+const REGIONAL_CHUNK_MS = 28_000;
+
+async function voiceLine(text: string, voice: string, language?: string): Promise<Float32Array> {
   const parts: Float32Array[] = [];
   for (const piece of pieces(text)) {
     const file = path.join(
@@ -93,7 +103,12 @@ async function voiceLine(text: string, voice: string): Promise<Float32Array> {
     );
     if (!existsSync(file)) {
       const result = await withRetry(() =>
-        gateway.callModel({ kind: "tts", text: piece, voice }, { purpose: "seed_tts" }),
+        gateway.callModel(
+          language
+            ? { kind: "tts", text: piece, voice, regional: true, language }
+            : { kind: "tts", text: piece, voice },
+          { purpose: "seed_tts" },
+        ),
       );
       writeFileSync(file, result.audio);
     }
@@ -112,7 +127,13 @@ async function voiceLine(text: string, voice: string): Promise<Float32Array> {
 async function renderCall(call: CallScript): Promise<void> {
   const voiced: Float32Array[] = [];
   for (const line of call.lines) {
-    voiced.push(await voiceLine(line.t, line.s === "A" ? call.voices.agent : call.voices.customer));
+    voiced.push(
+      await voiceLine(
+        line.t,
+        line.s === "A" ? call.voices.agent : call.voices.customer,
+        call.languageCode,
+      ),
+    );
   }
   const totalSamples = Math.ceil(
     RATE * (0.5 + voiced.reduce((s, v) => s + v.length / RATE + GAP_S, 0)),
@@ -138,12 +159,21 @@ async function renderCall(call: CallScript): Promise<void> {
     async (chunk, durationSeconds, label) => {
       const r = await withRetry(() =>
         gateway.callModel(
-          { kind: "stt", audio: chunk, filename: `${call.id}-${label}.wav`, durationSeconds },
+          {
+            kind: "stt",
+            audio: chunk,
+            filename: `${call.id}-${label}.wav`,
+            durationSeconds,
+            ...(call.languageCode
+              ? { regional: true, language: call.languageCode, keyterms: [call.product] }
+              : {}),
+          },
           { purpose: "seed_stt" },
         ),
       );
-      return { language: r.language, segments: r.segments };
+      return { language: r.language, segments: r.segments, words: r.words };
     },
+    call.languageCode ? { maxChunkMs: REGIONAL_CHUNK_MS, onePerUtterance: true } : {},
   );
   const segments = transcript.segments.map((s) => ({
     seq: s.seq,
@@ -174,7 +204,7 @@ if (args.includes("--probe")) {
 const prefix = args.find((a) => !a.startsWith("--")) ?? "";
 let done = 0;
 try {
-  for (const call of CALLS.filter((c) => c.id.startsWith(prefix))) {
+  for (const call of [...CALLS, ...REGIONAL].filter((c) => c.id.startsWith(prefix))) {
     if (existsSync(path.join(FIXTURES, `${call.id}.json`)) && !args.includes("--force")) {
       done++;
       continue;

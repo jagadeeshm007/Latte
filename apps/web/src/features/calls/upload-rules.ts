@@ -1,4 +1,4 @@
-import { type AUDIO_MIME_TYPES, MAX_UPLOAD_BYTES } from "@scc/shared";
+import { type AUDIO_MIME_TYPES, type Language, MAX_UPLOAD_BYTES } from "@scc/shared";
 
 // Checks on each file before it is uploaded; the API checks them again (AC-US-01-001-3).
 
@@ -12,6 +12,8 @@ export interface Row {
   teamId: string | null;
   productId: string | null;
   callDate: string;
+  /** Picks the speech-to-text engine: English to Whisper, Indian languages to Sarvam (ADR-0014). */
+  language: Language;
   progress: number;
   error: string | null;
 }

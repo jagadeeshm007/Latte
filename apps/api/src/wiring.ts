@@ -17,11 +17,14 @@ export function buildGateway(config: Config, db: Queryable): Gateway {
         ...(config.GROQ_API_KEY ? { groq: config.GROQ_API_KEY } : {}),
         ...(config.OPENROUTER_API_KEY ? { openrouter: config.OPENROUTER_API_KEY } : {}),
         ...(config.GEMINI_API_KEY ? { gemini: config.GEMINI_API_KEY } : {}),
+        ...(config.SARVAM_API_KEY ? { sarvam: config.SARVAM_API_KEY } : {}),
       },
       routes: {
         chat: { provider: config.LLM_PROVIDER, model: config.LLM_MODEL },
         stt: { provider: "groq", model: config.STT_MODEL },
         tts: { provider: "groq", model: config.TTS_MODEL },
+        sttRegional: { provider: "sarvam", model: config.STT_REGIONAL_MODEL },
+        translate: { provider: "sarvam", model: config.TRANSLATE_MODEL },
       },
       limits: {
         [config.LLM_MODEL]: { rpm: config.LIMIT_LLM_RPM, tpm: config.LIMIT_LLM_TPM },
@@ -29,6 +32,8 @@ export function buildGateway(config: Config, db: Queryable): Gateway {
           rpm: config.LIMIT_STT_RPM,
           audioSecondsPerHour: config.LIMIT_STT_AUDIO_SECONDS_PER_HOUR,
         },
+        [config.STT_REGIONAL_MODEL]: { rpm: config.LIMIT_SARVAM_RPM },
+        [config.TRANSLATE_MODEL]: { rpm: config.LIMIT_SARVAM_RPM },
       },
     },
     new PgUsageStore(db),

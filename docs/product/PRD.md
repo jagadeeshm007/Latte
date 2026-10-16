@@ -1,4 +1,4 @@
-# PRD: Sales Call Compliance and Coaching Intelligence
+# PRD: Latte (sales call compliance and coaching)
 
 Source: brief pasted in the session of 2026-10-14 (project, AI depth, description, use case, spec, suggestions; 11 paragraphs) plus answers given in the same session.   Normalised: 2026-10-14
 Owner: unconfirmed: the requester   Tracker epic: unconfirmed: tracker is none

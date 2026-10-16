@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { captionsUrl } from "@/lib/captions";
 import { callsQuery } from "@/lib/endpoints";
@@ -50,7 +50,7 @@ describe("CallsTable states", () => {
     expect(screen.queryByRole("columnheader", { name: "Agent" })).not.toBeInTheDocument();
     expect(screen.getByText("Recording must be stereo")).toBeInTheDocument();
     expect(screen.getByText("Unscored")).toBeInTheDocument();
-    expect(screen.getByText("2 breaches")).toBeInTheDocument();
+    expect(screen.getByTitle("Flagged: 2 breaches, needs review")).toBeInTheDocument();
     expect(screen.getByText("Reviewed")).toBeInTheDocument();
     expect(screen.getByText("80%")).toBeInTheDocument();
     expect(screen.getByText("Transcribing")).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("endpoints", () => {
     server.use(
       http.get("*/api/calls", ({ request }) => {
         seen.push(new URL(request.url).search);
-        return HttpResponse.json({ items: [], nextCursor: null });
+        return HttpResponse.json({ items: [], nextCursor: null, total: 0 });
       }),
     );
     const options = callsQuery({ status: "failed", needsReview: true, agentId: "a1" });
@@ -92,42 +92,36 @@ describe("captions", () => {
   });
 });
 
-describe("dashboard by product", () => {
-  it("switches the grouping and asks the API for products", async () => {
+describe("dashboard period", () => {
+  it("asks for the highlights of the chosen period, and says when they fail", async () => {
     const asked: string[] = [];
     server.use(
-      http.get("*/api/dashboard", ({ request }) => {
-        const groupBy = new URL(request.url).searchParams.get("groupBy") ?? "";
-        asked.push(groupBy);
-        return HttpResponse.json({
-          groupBy,
-          groups: [
-            {
-              id: "p",
-              name: groupBy === "product" ? "Term Shield" : "Team",
-              callsScored: 0,
-              flagged: 0,
-              flagRate: null,
-              avgOverall: null,
-              items: [],
-            },
-          ],
-        });
+      http.get("*/api/dashboard/highlights", ({ request }) => {
+        const p = new URL(request.url).searchParams;
+        asked.push(`${p.get("from") ?? ""}..${p.get("to") ?? ""}`);
+        return HttpResponse.json(
+          { error: { code: "x", message: "highlights are down" } },
+          { status: 503 },
+        );
       }),
+      http.get("*/api/dashboard/leaderboard", () =>
+        HttpResponse.json({ groupBy: "language", total: 0, items: [] }),
+      ),
       http.get("*/api/agreement", () => HttpResponse.json({ items: [] })),
       http.get("*/api/usage", () =>
         HttpResponse.json({ monthStart: "2026-10-01", budgetUsd: 5, spentUsd: 0, byPurpose: [] }),
       ),
-      http.get("*/api/rubrics/active", () =>
-        HttpResponse.json({ error: { code: "x", message: "no rubric" } }, { status: 503 }),
-      ),
     );
     await renderInRouter(<DashboardPage />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "By product" }));
+    expect(await screen.findByText(/highlights are down/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "7 days" }));
 
-    expect(await screen.findByText("Term Shield")).toBeInTheDocument();
-    expect(asked).toContain("product");
+    await waitFor(() => {
+      expect(new Set(asked).size).toBe(2);
+    });
+    const [from, to] = asked.at(-1)!.split("..");
+    expect((Date.parse(to!) - Date.parse(from!)) / 86_400_000).toBe(6);
   });
 });
 
@@ -192,17 +186,20 @@ describe("more page states", () => {
       http.get("*/api/calls", () => {
         calls++;
         return HttpResponse.json({
-          items: [summary({ status: calls > 1 ? "scored" : "scoring" })],
+          items: [summary({ status: calls > 1 ? "scored" : "scoring", flag: "pending" })],
           nextCursor: null,
+          total: 1,
         });
       }),
     );
-    const { CallsPage } = await import("./calls/CallsPage");
+    const { StatefulCallsPage } = await import("@/test/calls-page");
 
-    await renderInRouter(<CallsPage />);
+    await renderInRouter(<StatefulCallsPage />);
 
     expect(await screen.findByText("Your scored calls.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Upload calls" })).not.toBeInTheDocument();
+    await screen.findByRole("link", { name: "call-01.wav" });
+    expect(screen.queryByRole("button", { name: /^Actions for/ })).not.toBeInTheDocument();
     await waitFor(
       () => {
         expect(calls).toBeGreaterThan(1);
@@ -226,27 +223,104 @@ describe("more page states", () => {
   });
 });
 
-describe("calls paging (review finding 8)", () => {
-  it("loads the next page with the API's cursor", async () => {
-    const cursors: (string | null)[] = [];
+describe("calls paging, search and filters", () => {
+  beforeEach(() => {
+    server.use(
+      http.get("*/api/me", () =>
+        HttpResponse.json({
+          id: "u",
+          email: "u@test",
+          displayName: "U",
+          role: "qa_reviewer",
+          agentId: null,
+        }),
+      ),
+      http.get("*/api/reference", () => HttpResponse.json({ agents: [], teams: [], products: [] })),
+    );
+  });
+
+  it("numbers pages and asks the API for the page chosen", async () => {
+    const pages: (string | null)[] = [];
     server.use(
       http.get("*/api/calls", ({ request }) => {
-        const cursor = new URL(request.url).searchParams.get("cursor");
-        cursors.push(cursor);
-        return HttpResponse.json(
-          cursor
-            ? { items: [summary({ id: "older", originalFilename: "older.wav" })], nextCursor: null }
-            : { items: [summary()], nextCursor: "page-2" },
-        );
+        const page = new URL(request.url).searchParams.get("page");
+        pages.push(page);
+        return HttpResponse.json({
+          items: [
+            page === "2" ? summary({ id: "older", originalFilename: "older.wav" }) : summary(),
+          ],
+          nextCursor: null,
+          total: 25,
+        });
       }),
     );
-    const { CallsPage } = await import("./calls/CallsPage");
-    await renderInRouter(<CallsPage />);
+    const { StatefulCallsPage } = await import("@/test/calls-page");
+    await renderInRouter(<StatefulCallsPage />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Load more calls" }));
+    expect(await screen.findByText("1–20 of 25")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Page 2" }));
 
     expect(await screen.findByRole("link", { name: "older.wav" })).toBeInTheDocument();
-    expect(cursors).toEqual([null, "page-2"]);
-    expect(screen.queryByRole("button", { name: "Load more calls" })).not.toBeInTheDocument();
+    expect(screen.getByText("21–25 of 25")).toBeInTheDocument();
+    expect(pages).toEqual(["1", "2"]);
+  });
+
+  it("sends the search after typing settles, and the filters chosen", async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      http.get("*/api/calls", ({ request }) => {
+        seen.push(new URL(request.url).searchParams);
+        return HttpResponse.json({ items: [summary()], nextCursor: null, total: 1 });
+      }),
+    );
+    const { StatefulCallsPage } = await import("@/test/calls-page");
+    await renderInRouter(<StatefulCallsPage />);
+    await screen.findByRole("link", { name: "call-01.wav" });
+
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search calls" }), "ravi");
+    await waitFor(() => {
+      expect(seen.at(-1)?.get("q")).toBe("ravi");
+    });
+    await userEvent.click(screen.getByRole("combobox", { name: "Flags" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Passed" }));
+    await waitFor(() => {
+      expect(seen.at(-1)?.get("flag")).toBe("passed");
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Show archived calls" }));
+
+    await waitFor(() => {
+      expect(seen.at(-1)?.get("archived")).toBe("true");
+    });
+    expect(seen.at(-1)?.get("q")).toBe("ravi");
+    expect(seen.at(-1)?.get("page")).toBe("1");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => {
+      expect(seen.at(-1)?.has("q")).toBe(false);
+    });
+  });
+
+  it("groups the rows under a header per group", async () => {
+    server.use(
+      http.get("*/api/calls", () =>
+        HttpResponse.json({
+          items: [
+            summary({ id: "a", originalFilename: "a.wav", agentName: "Anita Sharma" }),
+            summary({ id: "b", originalFilename: "b.wav", agentName: "Anita Sharma" }),
+            summary({ id: "c", originalFilename: "c.wav", agentName: "Ravi Kumar" }),
+          ],
+          nextCursor: null,
+          total: 3,
+        }),
+      ),
+    );
+    const { StatefulCallsPage } = await import("@/test/calls-page");
+
+    await renderInRouter(<StatefulCallsPage initial={{ groupBy: "agent" }} />);
+
+    const headers = await screen.findAllByText(/on this page/);
+    expect(headers.map((h) => h.closest("td")?.textContent)).toEqual([
+      "Anita Sharma · 2 on this page",
+      "Ravi Kumar · 1 on this page",
+    ]);
   });
 });

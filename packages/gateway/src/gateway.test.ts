@@ -197,6 +197,48 @@ describe("stt and tts", () => {
     expect(result.segments[0]).toMatchObject({ start: 0, end: 4, text: "hi" });
   });
 
+  it("asks for word timestamps and returns each word with its times", async () => {
+    const body = {
+      text: "hi there",
+      language: "english",
+      duration: 4,
+      segments: [{ start: 0, end: 2, text: " hi there" }],
+      words: [
+        { word: " hi", start: 0.1, end: 0.4 },
+        { word: "there ", start: 0.5, end: 0.9 },
+        { word: " ", start: 0.9, end: 0.9 },
+      ],
+    };
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+    const gw = createGateway(await config(), new MemoryUsageStore(), { fetch });
+
+    const result = await gw.callModel(
+      { kind: "stt", audio: new Uint8Array([1, 2, 3]), filename: "a.wav", durationSeconds: 4 },
+      { purpose: "transcribe" },
+    );
+
+    const form = (fetch.mock.calls[0] as [string, RequestInit])[1].body as FormData;
+    expect(form.getAll("timestamp_granularities[]")).toEqual(["segment", "word"]);
+    expect(result.words).toEqual([
+      { text: "hi", start: 0.1, end: 0.4 },
+      { text: "there", start: 0.5, end: 0.9 },
+    ]);
+  });
+
+  it("returns no words when the provider sends none", async () => {
+    const body = { text: "hi", duration: 4, segments: [{ start: 0, end: 4, text: "hi" }] };
+    const gw = createGateway(await config(), new MemoryUsageStore(), {
+      fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })),
+    });
+
+    const result = await gw.callModel(
+      { kind: "stt", audio: new Uint8Array([1, 2, 3]), filename: "a.wav", durationSeconds: 4 },
+      { purpose: "transcribe" },
+    );
+
+    expect(result.words).toEqual([]);
+  });
+
   it("returns speech audio and bills per character", async () => {
     const gw = createGateway(await config(), new MemoryUsageStore(), {
       fetch: vi.fn().mockResolvedValue(new Response(new Uint8Array([9, 9]), { status: 200 })),

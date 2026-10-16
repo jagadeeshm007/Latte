@@ -10,6 +10,7 @@ export const summary = (over: Partial<CallSummary> = {}): CallSummary => ({
   productName: "Suraksha ULIP",
   callDate: "2026-10-01",
   originalFilename: "call-01.wav",
+  language: "en-IN",
   status: "scored",
   error: null,
   durationMs: 125_000,
@@ -20,6 +21,10 @@ export const summary = (over: Partial<CallSummary> = {}): CallSummary => ({
   reviewStatus: "pending",
   breaches: 1,
   missed: 1,
+  flag: "flagged",
+  archivedAt: null,
+  batchId: "b1111111-1111-4111-8111-111111111111",
+  batchName: "October leads",
   ...over,
 });
 
@@ -45,6 +50,14 @@ export const detail = (over: Partial<CallDetail> = {}): CallDetail => ({
       text: "Good morning, this is Ravi.",
       language: "english",
       avgLogprob: -0.2,
+      translation: null,
+      words: [
+        { text: "Good", startMs: 1000, endMs: 1400 },
+        { text: "morning,", startMs: 1400, endMs: 2000 },
+        { text: "this", startMs: 2100, endMs: 2400 },
+        { text: "is", startMs: 2400, endMs: 2600 },
+        { text: "Ravi.", startMs: 2600, endMs: 4000 },
+      ],
     },
     {
       seq: 1,
@@ -54,6 +67,9 @@ export const detail = (over: Partial<CallDetail> = {}): CallDetail => ({
       text: "This plan gives guaranteed returns.",
       language: "english",
       avgLogprob: -0.3,
+      // Transcribed before word timestamps: the line highlights as a whole.
+      translation: null,
+      words: [],
     },
   ],
   findings: [

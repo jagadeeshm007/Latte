@@ -1,0 +1,95 @@
+{
+  "id": "21-hindi-english-guaranteed-returns",
+  "title": "Hindi-English ULIP call: guaranteed returns promised, risk not disclosed",
+  "language": "hindi-english",
+  "languageCode": "hi-IN",
+  "product": "Suraksha ULIP",
+  "agentCode": "AG002",
+  "voices": {
+    "agent": "priya",
+    "customer": "rahul"
+  },
+  "lines": [
+    {
+      "s": "A",
+      "t": "नमस्ते, मैं Anita Sharma बोल रही हूँ Suraksha Life Insurance से. क्या मेरी बात Mr. Verma से हो रही है?"
+    },
+    {
+      "s": "C",
+      "t": "हाँ, बोलिए. किस बारे में call है?"
+    },
+    {
+      "s": "A",
+      "t": "Sir, आपने website पर ULIP plan के बारे में callback request किया था."
+    },
+    {
+      "s": "C",
+      "t": "हाँ हाँ, याद है. बताइए."
+    },
+    {
+      "s": "A",
+      "t": "आगे बढ़ने से पहले, verification के लिए अपनी date of birth confirm कर दीजिए."
+    },
+    {
+      "s": "C",
+      "t": "पंद्रह June, उन्नीस सौ अस्सी."
+    },
+    {
+      "s": "A",
+      "t": "Thank you sir, details match हो गईं. आप mainly किस goal के लिए save कर रहे हैं?"
+    },
+    {
+      "s": "C",
+      "t": "बेटे की higher education के लिए. वो अभी दस साल का है."
+    },
+    {
+      "s": "A",
+      "t": "Perfect. Suraksha ULIP में आपके premium का एक part life cover में जाता है और बाकी market funds में invest होता है."
+    },
+    {
+      "s": "C",
+      "t": "Returns कितने मिलेंगे? Risk तो नहीं है?"
+    },
+    {
+      "s": "A",
+      "t": "Sir, यह plan हर साल बारह percent guaranteed returns देता है, कोई risk नहीं है.",
+      "plant": "guaranteed_returns"
+    },
+    {
+      "s": "C",
+      "t": "अच्छा, वो तो बढ़िया है."
+    },
+    {
+      "s": "A",
+      "t": "Premium पचास हज़ार per year है, ten years के लिए. क्या मैं आपकी consent से proposal generate करूँ?"
+    },
+    {
+      "s": "C",
+      "t": "हाँ, आगे बढ़िए."
+    },
+    {
+      "s": "A",
+      "t": "Policy document मिलने के बाद आपके पास thirty days का free look period है, मन बदले तो पूरा refund मिल जाएगा."
+    },
+    {
+      "s": "C",
+      "t": "ठीक है, thank you."
+    },
+    {
+      "s": "A",
+      "t": "Thank you sir, आपका दिन शुभ हो."
+    }
+  ],
+  "labels": {
+    "greeting": "met",
+    "identity_check": "met",
+    "disclosure": "missed",
+    "consent": "met",
+    "cooling_off": "met",
+    "guaranteed_returns": "breach",
+    "false_urgency": "clear",
+    "misrepresentation": "clear",
+    "need_discovery": "met"
+  },
+  "planted": ["guaranteed_returns"]
+}

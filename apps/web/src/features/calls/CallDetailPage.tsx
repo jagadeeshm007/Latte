@@ -1,37 +1,29 @@
-import type { CallDetail, Finding, Me, RubricItem, Segment } from "@scc/shared";
+import type { CallDetail, Me } from "@scc/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlayIcon, RotateCwIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { RotateCwIcon, SparklesIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import {
-  CallStatusBadge,
-  ErrorState,
-  FindingBadge,
-  Loading,
-  PageHeader,
-} from "@/components/states";
+import { CallStatusBadge, ErrorState, Loading, PageHeader } from "@/components/states";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Frame, FrameFooter, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
-import { Group, GroupText } from "@/components/ui/group";
 import { toastManager } from "@/components/ui/toast";
-import { AddFindingDialog } from "@/features/review/AddFindingDialog";
-import { CompleteReview, ReviewDecision } from "@/features/review/ReviewControls";
+import { load, seek, usePlayer } from "@/features/player/player-store";
 import { captionsUrl } from "@/lib/captions";
 import { api, callQuery, meQuery } from "@/lib/endpoints";
-import { formatClock, formatDate, IN_PROGRESS } from "@/lib/format";
+import { formatDate, IN_PROGRESS, languageLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+import { AnalysingCard, CoachingNotesCard } from "./CoachingNotes";
+import { DownloadMenu } from "./DownloadMenu";
+import { FindingsPanel } from "./FindingsPanel";
+import { LyricsTranscript } from "./LyricsTranscript";
+import { PlayerPanel } from "./PlayerPanel";
 
 // S4 and S6: one call with its evidence. Clicking a finding plays the
 // recording from the cited moment (REQ-016); QA reviewers decide on each
 // finding here (US-01-006). Related content sits in one Frame, related
 // controls in one Group.
-
-const TYPE_LABEL = {
-  prohibited: "Prohibited statements",
-  mandatory: "Mandatory items",
-  quality: "Quality",
-} as const;
 
 export function CallDetailPage({ callId }: { callId: string }) {
   const me = useQuery(meQuery);
@@ -40,7 +32,7 @@ export function CallDetailPage({ callId }: { callId: string }) {
     refetchInterval: (q) =>
       q.state.data && IN_PROGRESS.has(q.state.data.call.status) ? 3000 : false,
   });
-  if (detail.isPending || me.isPending) return <Loading />;
+  if (detail.isPending || me.isPending) return <Loading label="Loading the call" shape="call" />;
   if (detail.isError) return <ErrorState error={detail.error} title="Could not open this call" />;
   if (me.isError) return <ErrorState error={me.error} />;
   // key: a new call id starts with a fresh player and review state.
@@ -49,52 +41,38 @@ export function CallDetailPage({ callId }: { callId: string }) {
 
 function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
   const { call, score } = detail;
-  const audio = useRef<HTMLAudioElement>(null);
-  const [nowMs, setNowMs] = useState(0);
-  const [audioError, setAudioError] = useState<string | null>(null);
-  const [audioLoaded, setAudioLoaded] = useState(false);
-  // When the signed URL stops working; a fresh one is fetched before then (review finding 6).
-  const expiresAt = useRef(0);
+  const [hoveredSeq, setHoveredSeq] = useState<number | null>(null);
+  // Coaching notes stay hidden until someone asks for the AI analysis.
+  const [analysis, setAnalysis] = useState<"idle" | "running" | "done">("idle");
+  const isThis = usePlayer((s) => s.now?.callId === call.id);
+  const positionMs = usePlayer((s) => (isThis ? s.positionMs : 0));
+  const playing = usePlayer((s) => isThis && s.status === "playing");
   const queryClient = useQueryClient();
-  const labels = new Map(detail.rubricItems.map((i) => [i.key, i]));
   const reviewing = me.role === "qa_reviewer" && call.reviewStatus === "pending";
+  const breaches = detail.findings.filter((f) => f.status === "breach").length;
 
-  async function playAt(ms: number) {
-    const el = audio.current;
-    if (!el) return;
-    setAudioError(null);
-    try {
-      if (!audioLoaded || Date.now() > expiresAt.current - 30_000) {
-        const { url, expiresInSeconds } = await api.audioUrl(call.id);
-        expiresAt.current = Date.now() + expiresInSeconds * 1000;
-        el.src = url;
-        await new Promise<void>((resolve, reject) => {
-          el.addEventListener(
-            "loadedmetadata",
-            () => {
-              resolve();
-            },
-            { once: true },
-          );
-          el.addEventListener(
-            "error",
-            () => {
-              reject(new Error("The recording could not be loaded"));
-            },
-            { once: true },
-          );
-        });
-        setAudioLoaded(true);
-      }
-      el.currentTime = ms / 1000;
-      await el.play();
-    } catch (e) {
-      // A signed URL lasts 10 minutes; the next play asks for a fresh one.
-      el.removeAttribute("src");
-      setAudioLoaded(false);
-      setAudioError(e instanceof Error ? e.message : "The recording could not be played");
-    }
-  }
+  // Opening a call loads its recording into the app-wide player, paused, so Play
+  // works at once; a call already playing elsewhere carries on from where it was.
+  useEffect(() => {
+    if (!detail.audioAvailable) return;
+    void load({
+      callId: call.id,
+      title: call.originalFilename,
+      subtitle: `${call.agentName} · ${call.productName}`,
+      captions: captionsUrl(detail.segments),
+    });
+  }, [
+    detail.audioAvailable,
+    detail.segments,
+    call.id,
+    call.originalFilename,
+    call.agentName,
+    call.productName,
+  ]);
+
+  const playFrom = (ms: number) => {
+    seek(ms, true);
+  };
 
   const retry = useMutation({
     mutationFn: () => api.retry(call.id),
@@ -111,18 +89,53 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
       (call.status === "scored" && call.judgeStatus === "failed" && call.reviewStatus !== "done"));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={call.originalFilename}
         description={`${call.agentName} · ${call.teamName} · ${call.productName} · ${formatDate(call.callDate)}`}
         actions={
-          <Group aria-label="Call actions">
-            {detail.audioAvailable && !audioLoaded ? (
-              <Button variant="outline" size="sm" onClick={() => void playAt(0)}>
-                <PlayIcon aria-hidden="true" />
-                Load and play recording
-              </Button>
+          <>
+            {call.overallScore !== null || score ? (
+              <dl
+                aria-label="Call summary"
+                className="flex items-stretch divide-x rounded-lg border bg-card text-center shadow-xs/5"
+              >
+                {[
+                  [
+                    "Score",
+                    call.overallScore === null ? "Unscored" : `${call.overallScore.toFixed(0)}%`,
+                  ],
+                  ["Talk ratio", score ? `${String(Math.round(score.talkRatio * 100))}%` : "None"],
+                  ["Breaches", String(breaches)],
+                  ["Rubric", score ? `v${String(score.rubricVersion)}` : "None"],
+                ].map(([term, value]) => (
+                  <div key={term} className="px-3 py-1">
+                    <dt className="text-xs text-muted-foreground">{term}</dt>
+                    <dd
+                      className={cn(
+                        "text-sm font-semibold tabular-nums",
+                        term === "Breaches" && breaches > 0 && "text-destructive-foreground",
+                      )}
+                    >
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!score || analysis === "running"}
+              loading={analysis === "running"}
+              onClick={() => {
+                setAnalysis("running");
+              }}
+            >
+              <SparklesIcon aria-hidden="true" />
+              AI Analyse
+            </Button>
+            <DownloadMenu detail={detail} />
             {canRetry ? (
               <Button
                 variant="outline"
@@ -136,38 +149,20 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
                 Retry
               </Button>
             ) : null}
-          </Group>
+          </>
         }
-      />
-
-      <Group aria-label="Call summary" className="flex-wrap">
-        <GroupText>
+      >
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Call status">
           <CallStatusBadge status={call.status} />
+          <Badge variant="outline">{languageLabel(call.language)}</Badge>
           {call.reviewStatus === "pending" ? <Badge variant="info">Needs review</Badge> : null}
           {call.reviewStatus === "done" ? (
             <Badge variant="secondary">
               Reviewed{score?.reviewedBy ? ` by ${score.reviewedBy}` : ""}
             </Badge>
           ) : null}
-        </GroupText>
-        {call.overallScore !== null ? (
-          <GroupText>
-            Score{" "}
-            <strong className="text-foreground tabular-nums">
-              {call.overallScore.toFixed(0)}%
-            </strong>
-          </GroupText>
-        ) : null}
-        {score ? (
-          <GroupText>
-            Agent talk ratio{" "}
-            <strong className="text-foreground tabular-nums">
-              {Math.round(score.talkRatio * 100)}%
-            </strong>
-          </GroupText>
-        ) : null}
-        {score ? <GroupText>Rubric v{score.rubricVersion}</GroupText> : null}
-      </Group>
+        </div>
+      </PageHeader>
 
       {call.error || IN_PROGRESS.has(call.status) || score?.judgeError ? (
         <div className="flex flex-col gap-2">
@@ -200,230 +195,24 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
         </div>
       ) : null}
 
-      <Frame>
-        <FramePanel className="flex flex-col gap-1 px-3 py-2">
-          {detail.audioAvailable ? (
-            <audio
-              ref={audio}
-              controls
-              preload="none"
-              className="h-9 w-full"
-              aria-label="Call recording"
-              onTimeUpdate={(e) => {
-                setNowMs(e.currentTarget.currentTime * 1000);
-              }}
-              onError={() => {
-                // An expired or revoked URL: the next play fetches a fresh one.
-                if (audioLoaded) {
-                  setAudioLoaded(false);
-                  setAudioError("The recording link expired; press play again");
-                }
-              }}
-            >
-              <track
-                kind="captions"
-                srcLang="en"
-                label="Transcript"
-                src={captionsUrl(detail.segments)}
-                default
-              />
-            </audio>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              The recording was deleted after its retention period. The transcript and findings
-              remain.
-            </p>
-          )}
-          {audioError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {audioError}
-            </p>
-          ) : null}
-        </FramePanel>
-      </Frame>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <Frame role="region" aria-labelledby="findings-heading">
-          <FrameHeader className="flex-row items-center justify-between gap-2 px-4 py-2.5">
-            <FrameTitle role="heading" aria-level={2} id="findings-heading">
-              Findings
-            </FrameTitle>
-            {reviewing ? (
-              <AddFindingDialog
-                callId={call.id}
-                items={detail.rubricItems}
-                segments={detail.segments}
-              />
-            ) : null}
-          </FrameHeader>
-          {detail.findings.length === 0 ? (
-            <FramePanel className="px-4 py-3 text-sm text-muted-foreground">
-              No findings yet.
-            </FramePanel>
-          ) : null}
-          {(["prohibited", "mandatory", "quality"] as const).map((type) => {
-            const group = detail.findings.filter((f) => f.itemType === type);
-            if (group.length === 0) return null;
-            return (
-              <FramePanel key={type} className="p-0">
-                <h3 className="border-b px-4 py-2 text-xs font-medium text-muted-foreground uppercase">
-                  {TYPE_LABEL[type]}
-                </h3>
-                <ul className="divide-y">
-                  {group.map((f) => (
-                    <FindingRow
-                      key={f.id}
-                      finding={f}
-                      item={labels.get(f.itemKey)}
-                      onPlay={playAt}
-                      callId={call.id}
-                      reviewing={reviewing}
-                    />
-                  ))}
-                </ul>
-              </FramePanel>
-            );
-          })}
-          {score && score.coachingNotes.length > 0 ? (
-            <FramePanel className="px-4 py-3">
-              <h3 className="mb-1 text-xs font-medium text-muted-foreground uppercase">
-                Coaching notes
-              </h3>
-              <ul className="list-disc space-y-0.5 ps-5 text-sm">
-                {score.coachingNotes.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            </FramePanel>
-          ) : null}
-          {reviewing ? (
-            <FrameFooter className="px-4 py-2.5">
-              <CompleteReview callId={call.id} findings={detail.findings} />
-            </FrameFooter>
-          ) : null}
-        </Frame>
-        <Transcript
-          segments={detail.segments}
-          nowMs={nowMs}
-          onPlay={playAt}
-          canPlay={detail.audioAvailable}
+      {analysis === "running" ? (
+        <AnalysingCard
+          onDone={() => {
+            setAnalysis("done");
+          }}
         />
-      </div>
+      ) : null}
+      {analysis === "done" && score ? <CoachingNotesCard notes={score.coachingNotes} /> : null}
+
+      <PlayerPanel detail={detail} hoveredSeq={hoveredSeq} onHover={setHoveredSeq} />
+      <LyricsTranscript
+        segments={detail.segments}
+        nowMs={positionMs}
+        playing={playing}
+        canPlay={detail.audioAvailable}
+        onPlay={playFrom}
+      />
+      <FindingsPanel detail={detail} reviewing={reviewing} onPlay={playFrom} />
     </div>
-  );
-}
-
-function FindingRow({
-  finding: f,
-  item,
-  onPlay,
-  callId,
-  reviewing,
-}: {
-  finding: Finding;
-  item: RubricItem | undefined;
-  onPlay: (ms: number) => Promise<void>;
-  callId: string;
-  reviewing: boolean;
-}) {
-  return (
-    <li
-      className={`flex flex-col gap-1.5 px-4 py-3 ${f.status === "breach" ? "bg-destructive/4" : ""}`}
-    >
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="me-1 text-sm font-medium">{item?.label ?? f.itemKey}</span>
-        <FindingBadge status={f.status} />
-        {f.source === "rule" ? <Badge variant="outline">Phrase rule</Badge> : null}
-        {f.source === "reviewer" ? <Badge variant="outline">Added by QA</Badge> : null}
-        {!f.grounded ? <Badge variant="warning">Not grounded</Badge> : null}
-        {f.review ? (
-          <Badge variant={f.review.decision === "agree" ? "success" : "error"}>
-            QA {f.review.decision === "agree" ? "agrees" : "disagrees"} ({f.review.reviewerName})
-          </Badge>
-        ) : null}
-      </div>
-      {f.quote ? (
-        <blockquote className="border-s-2 ps-2.5 text-sm whitespace-pre-line">
-          <span className="text-xs text-muted-foreground uppercase">{f.channel}</span> {f.quote}
-        </blockquote>
-      ) : null}
-      {f.rationale ? <p className="text-sm text-muted-foreground">{f.rationale}</p> : null}
-      {f.review?.note ? <p className="text-sm whitespace-pre-line">Note: {f.review.note}</p> : null}
-      {f.startMs !== null || reviewing ? (
-        <div className="flex flex-wrap items-start gap-2">
-          {f.startMs !== null ? (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => void onPlay(f.startMs ?? 0)}
-              aria-label={`Play from ${formatClock(f.startMs)}`}
-            >
-              <PlayIcon aria-hidden="true" />
-              {formatClock(f.startMs)}
-            </Button>
-          ) : null}
-          {reviewing ? <ReviewDecision callId={callId} finding={f} /> : null}
-        </div>
-      ) : null}
-    </li>
-  );
-}
-
-function Transcript({
-  segments,
-  nowMs,
-  onPlay,
-  canPlay,
-}: {
-  segments: Segment[];
-  nowMs: number;
-  onPlay: (ms: number) => Promise<void>;
-  canPlay: boolean;
-}) {
-  return (
-    <Frame role="region" aria-labelledby="transcript-heading">
-      <FrameHeader className="px-4 py-2.5">
-        <FrameTitle role="heading" aria-level={2} id="transcript-heading">
-          Transcript
-        </FrameTitle>
-      </FrameHeader>
-      <FramePanel className="p-0">
-        {segments.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-muted-foreground">No transcript yet.</p>
-        ) : null}
-        <ol className="flex max-h-[70svh] flex-col overflow-y-auto py-1">
-          {segments.map((s) => {
-            const active = nowMs >= s.startMs && nowMs < s.endMs;
-            const stamp = (
-              <>
-                {formatClock(s.startMs)}
-                <span className="block font-sans text-xs uppercase">{s.channel}</span>
-              </>
-            );
-            return (
-              <li
-                key={s.seq}
-                className={`grid grid-cols-[4rem_1fr] gap-2 px-3 py-1 text-sm ${active ? "bg-accent" : ""} ${s.channel === "customer" ? "text-muted-foreground" : ""}`}
-              >
-                {canPlay ? (
-                  <button
-                    type="button"
-                    className="self-start text-start font-mono text-xs tabular-nums underline-offset-4 hover:underline"
-                    onClick={() => void onPlay(s.startMs)}
-                  >
-                    {stamp}
-                  </button>
-                ) : (
-                  <span className="font-mono text-xs tabular-nums">{stamp}</span>
-                )}
-                <span className={(s.avgLogprob ?? 0) < -1 ? "opacity-70" : undefined}>
-                  {s.text}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-      </FramePanel>
-    </Frame>
   );
 }

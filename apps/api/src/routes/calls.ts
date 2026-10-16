@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  audioUrlRequestSchema,
   callListQuerySchema,
+  MAX_BATCH_FILES,
   MAX_UPLOAD_FILES,
   uploadConfirmRequestSchema,
   uploadSignRequestSchema,
@@ -12,11 +14,12 @@ import { z } from "zod";
 
 import { currentUser, requireRole, scopeOf } from "../auth.ts";
 import type { AppDeps } from "./deps.ts";
-import { inTransaction } from "../db/pool.ts";
+import { inTransaction, type Client } from "../db/pool.ts";
 import { AppError, ConflictError, NotFoundError } from "../errors.ts";
 import { STALE_SECONDS } from "../jobs/handlers.ts";
-import { QUEUES } from "../jobs/queue.ts";
+import { PRIORITY, QUEUES } from "../jobs/queue.ts";
 import { perUserLimit } from "../rate-limit.ts";
+import * as batches from "../repo/batches.ts";
 import * as calls from "../repo/calls.ts";
 import {
   activeRubric,
@@ -28,6 +31,39 @@ import {
 import { getScore, listFindings } from "../repo/scores.ts";
 
 const idParam = z.object({ id: z.uuid() });
+/** A confirm with more files than this is bulk work, queued behind one-off uploads. */
+const BULK_FROM_FILES = 10;
+
+/**
+ * batchForUpload returns the batch a confirm fills: one the caller started
+ * (locked, so two chunks cannot overfill it), or a new one.
+ */
+async function batchForUpload(
+  db: Client,
+  userId: string,
+  body: { files: unknown[]; batchId?: string | undefined; batchName?: string | undefined },
+  apiKeyId: string | null,
+): Promise<string> {
+  if (body.batchId) {
+    const batch = await batches.lockBatchForUpload(db, body.batchId);
+    if (batch?.createdBy !== userId) throw new NotFoundError("batch not found");
+    if (batch.archived) throw new ConflictError("this batch is archived");
+    if (batch.calls + body.files.length > MAX_BATCH_FILES) {
+      throw new ConflictError(`a batch holds at most ${String(MAX_BATCH_FILES)} calls`);
+    }
+    return body.batchId;
+  }
+  const name =
+    body.batchName ?? `Upload ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+  const id = await batches.insertBatch(db, {
+    name,
+    createdBy: userId,
+    source: apiKeyId ? "api" : "web",
+    apiKeyId,
+  });
+  await audit(db, userId, "batch_created", null, id, apiKeyId);
+  return id;
+}
 
 /** Upload, list, detail, audio and retry (US-01-001, US-01-002, US-02-003). */
 export function callsRouter(deps: AppDeps): Router {
@@ -71,11 +107,11 @@ export function callsRouter(deps: AppDeps): Router {
         throw new AppError(`file ${f.originalFilename} was not uploaded`, 400, "upload_missing");
       }
     }
-    const batchId = randomUUID();
     if (new Set(body.files.map((f) => f.path)).size !== body.files.length) {
       throw new ConflictError("the same file is listed twice");
     }
-    const callIds = await inTransaction(pool, async (client) => {
+    const { batchId, callIds } = await inTransaction(pool, async (client) => {
+      const batchId = await batchForUpload(client, user.id, body, req.apiKey?.id ?? null);
       const ids: string[] = [];
       for (const f of body.files) {
         const id = await calls.insertCall(client, {
@@ -90,11 +126,12 @@ export function callsRouter(deps: AppDeps): Router {
           sizeBytes: f.sizeBytes,
           storagePath: f.path,
           retentionDays: config.AUDIO_RETENTION_DAYS,
+          language: f.language,
         });
         await audit(client, user.id, "call_uploaded", id);
         ids.push(id);
       }
-      return ids;
+      return { batchId, callIds: ids };
     }).catch((error: unknown) => {
       // uq_calls_storage_path: each uploaded object becomes one call, once.
       if (
@@ -107,8 +144,14 @@ export function callsRouter(deps: AppDeps): Router {
       }
       throw error;
     });
+    // Chunks of a large batch wait behind one-off uploads.
+    const bulk = body.batchId !== undefined || body.files.length > BULK_FROM_FILES;
     for (const callId of callIds) {
-      await enqueue(QUEUES.transcribe, { callId });
+      await enqueue(
+        QUEUES.transcribe,
+        { callId },
+        { priority: bulk ? PRIORITY.bulk : PRIORITY.interactive },
+      );
     }
     req.log.info({ batchId, files: callIds.length, max: MAX_UPLOAD_FILES }, "upload confirmed");
     res.status(201).json({ batchId, callIds });
@@ -122,7 +165,16 @@ export function callsRouter(deps: AppDeps): Router {
         status: q.status,
         needsReview: q.needsReview === undefined ? undefined : q.needsReview === "true",
         agentId: q.agentId,
+        teamId: q.teamId,
+        productId: q.productId,
+        language: q.language,
+        batchId: q.batchId,
+        flag: q.flag,
+        q: q.q === "" ? undefined : q.q,
+        archived: q.archived === "true",
+        groupBy: q.groupBy,
         limit: q.limit,
+        page: q.page,
         cursor: q.cursor,
       }),
     );
@@ -165,6 +217,8 @@ export function callsRouter(deps: AppDeps): Router {
         text: s.text,
         language: s.language,
         avgLogprob: s.avg_logprob,
+        words: s.words,
+        translation: s.text_en,
       })),
       findings,
     };
@@ -178,7 +232,11 @@ export function callsRouter(deps: AppDeps): Router {
     if (!row) throw new NotFoundError("call not found");
     if (!row.storage_path)
       throw new AppError("the audio for this call has been deleted", 410, "audio_purged");
-    const url = await storage.signDownload(row.storage_path, config.SIGNED_URL_SECONDS);
+    const { download } = audioUrlRequestSchema.parse(req.body ?? {});
+    const name = download
+      ? (await calls.getCallSummary(pool, scopeOf(user), id))?.originalFilename
+      : undefined;
+    const url = await storage.signDownload(row.storage_path, config.SIGNED_URL_SECONDS, name);
     await audit(pool, user.id, "audio_url_issued", id);
     res.json({ url, expiresInSeconds: config.SIGNED_URL_SECONDS });
   });
@@ -192,6 +250,33 @@ export function callsRouter(deps: AppDeps): Router {
     await enqueue(step === "score" ? QUEUES.score : QUEUES.transcribe, { callId: id });
     await audit(pool, currentUser(req).id, "call_retried", id);
     res.status(202).json({ status: "queued" });
+  });
+
+  // Archive and delete only hide a call (ADR-0015); each change is audited.
+  for (const [path, archived, action] of [
+    ["archive", true, "call_archived"],
+    ["unarchive", false, "call_unarchived"],
+  ] as const) {
+    router.post(`/calls/:id/${path}`, uploaders, async (req, res) => {
+      const { id } = idParam.parse(req.params);
+      const user = currentUser(req);
+      await inTransaction(pool, async (client) => {
+        if (!(await calls.setArchived(client, scopeOf(user), id, archived)))
+          throw new NotFoundError("call not found");
+        await audit(client, user.id, action, id);
+      });
+      res.status(204).end();
+    });
+  }
+
+  router.post("/calls/:id/delete", requireRole("manager"), async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    const user = currentUser(req);
+    await inTransaction(pool, async (client) => {
+      if (!(await calls.softDelete(client, id))) throw new NotFoundError("call not found");
+      await audit(client, user.id, "call_deleted", id);
+    });
+    res.status(204).end();
   });
 
   return router;

@@ -119,6 +119,8 @@ export function buildChunks(
   sampleRate: number,
   regions: Region[],
   maxChunkMs = 10 * 60 * 1000,
+  /** One chunk per region: for engines that time a whole request as one line (Sarvam). */
+  onePerRegion = false,
 ): Chunk[] {
   const chunks: Chunk[] = [];
   let parts: Float32Array[] = [];
@@ -142,16 +144,10 @@ export function buildChunks(
     cursorMs = 0;
   };
   // A region longer than a chunk (a long monologue) is cut into chunk-sized pieces.
-  const pieces: Region[] = regions.flatMap((r) => {
-    const out: Region[] = [];
-    for (let start = r.startMs; start < r.endMs; start += maxChunkMs) {
-      out.push({ startMs: start, endMs: Math.min(r.endMs, start + maxChunkMs) });
-    }
-    return out;
-  });
+  const pieces: Region[] = regions.flatMap((r) => splitAtQuiet(samples, sampleRate, r, maxChunkMs));
   for (const r of pieces) {
     const duration = r.endMs - r.startMs;
-    if (cursorMs > 0 && cursorMs + duration > maxChunkMs) {
+    if (cursorMs > 0 && (onePerRegion || cursorMs + duration > maxChunkMs)) {
       flush();
     }
     if (cursorMs > 0) {
@@ -166,6 +162,47 @@ export function buildChunks(
   }
   flush();
   return chunks;
+}
+
+const CUT_FRAME_MS = 100;
+const CUT_STEP_MS = 10;
+
+/**
+ * splitAtQuiet cuts a region longer than maxMs into pieces of at most maxMs,
+ * each cut at the quietest moment in the second half of its window: a breath
+ * or a pause between sentences rather than the middle of a word.
+ */
+export function splitAtQuiet(
+  samples: Float32Array,
+  sampleRate: number,
+  region: Region,
+  maxMs: number,
+): Region[] {
+  const out: Region[] = [];
+  let start = region.startMs;
+  while (region.endMs - start > maxMs) {
+    const from = start + maxMs / 2;
+    const to = start + maxMs - CUT_FRAME_MS;
+    let cut = start + maxMs;
+    let quietest = Number.POSITIVE_INFINITY;
+    for (let t = from; t <= to; t += CUT_STEP_MS) {
+      const a = Math.floor((t / 1000) * sampleRate);
+      const b = Math.min(samples.length, Math.floor(((t + CUT_FRAME_MS) / 1000) * sampleRate));
+      let energy = 0;
+      for (let i = a; i < b; i++) {
+        const v = samples[i] ?? 0;
+        energy += v * v;
+      }
+      if (energy < quietest) {
+        quietest = energy;
+        cut = Math.round(t + CUT_FRAME_MS / 2);
+      }
+    }
+    out.push({ startMs: start, endMs: cut });
+    start = cut;
+  }
+  out.push({ startMs: start, endMs: region.endMs });
+  return out;
 }
 
 /** toCallTime maps a time in a chunk to call time; a time inside a gap snaps to the nearest region edge. */

@@ -7,11 +7,13 @@ import { readFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { ENGLISH, languageSchema } from "@scc/shared";
 import { createClient } from "@supabase/supabase-js";
 
 import { databaseUrl, loadConfig, sslOptions } from "./config.ts";
 import { createPool } from "./db/pool.ts";
 import { bossEnqueue, QUEUES, startBoss } from "./jobs/queue.ts";
+import * as batches from "./repo/batches.ts";
 import * as calls from "./repo/calls.ts";
 import { audit } from "./repo/reference.ts";
 
@@ -41,6 +43,8 @@ try {
     .filter((f) => f.endsWith(".wav"))
     .sort();
   let loaded = 0;
+  // One batch for the whole load, created with its first call.
+  let batchId: string | null = null;
   for (const file of files) {
     const id = file.replace(/\.wav$/, "");
     const exists = await pool.query("SELECT 1 FROM calls WHERE original_filename = $1", [file]);
@@ -48,6 +52,7 @@ try {
     const script = JSON.parse(await readFile(path.join(ROOT, "calls", `${id}.json`), "utf8")) as {
       agentCode: string;
       product: string;
+      languageCode?: string;
     };
     const ref = await pool.query<{ agent_id: string; team_id: string; product_id: string }>(
       `SELECT a.id AS agent_id, a.team_id, p.id AS product_id
@@ -61,18 +66,26 @@ try {
     const objectPath = `${uploader}/${randomUUID()}.wav`;
     const { error } = await storage.upload(objectPath, bytes, { contentType: "audio/wav" });
     if (error) throw new Error(`upload ${file}: ${error.message}`);
+    batchId ??= await batches.insertBatch(pool, {
+      name: `Seed calls ${new Date().toISOString().slice(0, 10)}`,
+      createdBy: uploader,
+      source: "web",
+    });
     const callId = await calls.insertCall(pool, {
       agentId: r.agent_id,
       teamId: r.team_id,
       productId: r.product_id,
       callDate: new Date().toISOString().slice(0, 10),
-      batchId: randomUUID(),
+      batchId,
       uploadedBy: uploader,
       originalFilename: file,
       mimeType: "audio/wav",
       sizeBytes: bytes.length,
       storagePath: objectPath,
       retentionDays: config.AUDIO_RETENTION_DAYS,
+      // English and Hinglish scripts go to Whisper; the code-mixed Hindi and Telugu
+      // ones (evals/src/regional.ts) carry their language and go to Sarvam.
+      language: languageSchema.parse(script.languageCode ?? ENGLISH),
     });
     await audit(pool, uploader, "call_uploaded", callId);
     await enqueue(QUEUES.transcribe, { callId });

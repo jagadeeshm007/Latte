@@ -1,4 +1,9 @@
-import type { CallStatus, FindingStatus } from "@scc/shared";
+import { type CallStatus, type FindingStatus, type Language, LANGUAGES } from "@scc/shared";
+
+/** languageLabel names a call's language for people: "Tamil", "Auto-detect (Indian)". */
+export function languageLabel(code: Language): string {
+  return LANGUAGES.find((l) => l.code === code)?.label ?? code;
+}
 
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));

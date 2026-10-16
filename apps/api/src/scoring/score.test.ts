@@ -239,6 +239,55 @@ describe("scoreCall", () => {
   });
 });
 
+describe("regional calls (ADR-0014)", () => {
+  const hindi: ScoringSegment[] = [
+    {
+      ...seg(0, "agent", "नमस्ते, मैं सुरक्षा लाइफ से रवि बोल रहा हूँ।"),
+      textEn: "Hello, this is Ravi from Suraksha Life.",
+    },
+    {
+      ...seg(1, "agent", "यह प्लान हर साल 12 प्रतिशत गारंटीड रिटर्न देता है।"),
+      textEn: "This plan gives guaranteed 12 percent returns every year.",
+    },
+  ];
+
+  it("shows the judge the English translation and says it is one", () => {
+    const [system, user] = buildJudgeMessages(DEFAULT_RUBRIC, hindi);
+
+    expect(user!.content).toContain(
+      "[S1][AGENT][00:05] This plan gives guaranteed 12 percent returns",
+    );
+    expect(user!.content).not.toContain("गारंटीड");
+    expect(system!.content).toContain("translated into English");
+  });
+
+  it("runs the phrase rules on the translation but quotes the original line", async () => {
+    const judge = vi
+      .fn()
+      .mockResolvedValue(
+        judgeReply([{ key: "guaranteed_returns", status: "breach", segments: [1] }]),
+      );
+
+    const result = await scoreCall({ rubric: DEFAULT_RUBRIC, segments: hindi, judge });
+
+    expect(result.ruleHits.map((h) => [h.itemKey, h.seq])).toContainEqual([
+      "guaranteed_returns",
+      1,
+    ]);
+    const breach = result.findings.find(
+      (f) => f.itemKey === "guaranteed_returns" && f.source === "llm",
+    );
+    expect(breach!.quote).toBe("यह प्लान हर साल 12 प्रतिशत गारंटीड रिटर्न देता है।");
+    expect(breach!.startMs).toBe(5000);
+  });
+
+  it("keeps the usual prompt for an English call", () => {
+    const [system] = buildJudgeMessages(DEFAULT_RUBRIC, transcript);
+
+    expect(system!.content).not.toContain("translated into English");
+  });
+});
+
 describe("overallScore and needsReview", () => {
   const f = (itemType: "mandatory" | "quality" | "prohibited", status: string) =>
     ({ itemKey: "k", itemType, status, source: "llm", grounded: true }) as Parameters<

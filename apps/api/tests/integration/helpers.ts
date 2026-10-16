@@ -35,7 +35,7 @@ export async function testPool(): Promise<Pool> {
 
 export async function resetData(pool: Pool): Promise<void> {
   await pool.query(
-    `TRUNCATE audit_events, finding_reviews, findings, scores, model_calls, transcript_segments, calls, rubrics,
+    `TRUNCATE audit_events, finding_reviews, findings, scores, model_calls, transcript_segments, calls, batches, rate_limit_windows, api_requests, api_keys, rubrics,
               profiles, agents, products, teams RESTART IDENTITY CASCADE`,
   );
 }
@@ -109,8 +109,9 @@ export class MemoryStorage implements Storage {
       token: "upload-token",
     });
   }
-  signDownload(path: string, seconds: number) {
-    return Promise.resolve(`https://storage.test/download/${path}?expires=${String(seconds)}`);
+  signDownload(path: string, seconds: number, downloadAs?: string) {
+    const as = downloadAs ? `&download=${encodeURIComponent(downloadAs)}` : "";
+    return Promise.resolve(`https://storage.test/download/${path}?expires=${String(seconds)}${as}`);
   }
   exists(path: string) {
     return Promise.resolve(this.objects.has(path));
@@ -141,9 +142,15 @@ export function recordingQueue() {
     queue: string;
     callId: string | undefined;
     startAfterSeconds: number | undefined;
+    priority: number | undefined;
   }[] = [];
   const enqueue: Enqueue = (queue, data, options) => {
-    sent.push({ queue, callId: data.callId, startAfterSeconds: options?.startAfterSeconds });
+    sent.push({
+      queue,
+      callId: data.callId,
+      startAfterSeconds: options?.startAfterSeconds,
+      priority: options?.priority,
+    });
     return Promise.resolve();
   };
   return { sent, enqueue };
@@ -173,12 +180,17 @@ export async function testApp(pool: Pool) {
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
-/** fakeGateway answers stt and chat calls from the functions given, through the real gateway. */
+/**
+ * fakeGateway answers model calls from the functions given, through the real
+ * gateway: Groq STT and chat, and Sarvam STT and translation (through its SDK).
+ */
 export function fakeGateway(
   pool: Pool,
   responses: {
     stt?: (body: FormData) => unknown;
     chat?: (body: Record<string, unknown>) => unknown;
+    sarvamStt?: (body: FormData) => unknown;
+    translate?: (body: Record<string, unknown>) => unknown;
   },
 ): { gateway: Gateway; fetch: Mock<FetchLike> } {
   const store = new PgUsageStore(pool);
@@ -187,6 +199,15 @@ export function fakeGateway(
       return Promise.resolve(
         new Response(JSON.stringify(responses.stt(init.body as FormData)), { status: 200 }),
       );
+    }
+    if (url.endsWith("api.sarvam.ai/speech-to-text") && responses.sarvamStt) {
+      return Promise.resolve(
+        Response.json(responses.sarvamStt(init.body as FormData), { status: 200 }),
+      );
+    }
+    if (url.endsWith("api.sarvam.ai/translate") && responses.translate) {
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      return Promise.resolve(Response.json(responses.translate(body), { status: 200 }));
     }
     if (url.endsWith("/chat/completions") && responses.chat) {
       const body = JSON.parse(init.body as string) as Record<string, unknown>;
@@ -199,11 +220,13 @@ export function fakeGateway(
       mode: "live",
       budgetUsd: 5,
       cassetteDir: "/nonexistent",
-      apiKeys: { groq: "test" },
+      apiKeys: { groq: "test", sarvam: "test" },
       routes: {
         chat: { provider: "groq", model: "openai/gpt-oss-120b" },
         stt: { provider: "groq", model: "whisper-large-v3" },
         tts: { provider: "groq", model: "canopylabs/orpheus-v1-english" },
+        sttRegional: { provider: "sarvam", model: "saaras:v4" },
+        translate: { provider: "sarvam", model: "sarvam-translate:v1" },
       },
     },
     store,

@@ -3,9 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
   AudioLinesIcon,
+  CoffeeIcon,
   BookCheckIcon,
+  TrophyIcon,
   GaugeIcon,
   InboxIcon,
+  KeyRoundIcon,
+  LayersIcon,
   ListIcon,
   LogOutIcon,
   UploadIcon,
@@ -13,9 +17,13 @@ import {
 import { Suspense, type ReactNode } from "react";
 
 import { ErrorState, Loading } from "@/components/states";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
 import { SignInPage } from "@/features/auth/SignInPage";
+import { MiniPlayer } from "@/features/player/MiniPlayer";
+import { PlayerHost } from "@/features/player/PlayerHost";
 import { meQuery } from "@/lib/endpoints";
 
 const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
@@ -32,10 +40,10 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     icon: <ListIcon aria-hidden="true" />,
   },
   {
-    to: "/upload",
-    label: "Upload",
+    to: "/batches",
+    label: "Batches",
     roles: ["qa_reviewer", "manager"],
-    icon: <UploadIcon aria-hidden="true" />,
+    icon: <LayersIcon aria-hidden="true" />,
   },
   {
     to: "/scorecard",
@@ -48,6 +56,18 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     label: "Dashboard",
     roles: ["manager"],
     icon: <GaugeIcon aria-hidden="true" />,
+  },
+  {
+    to: "/performance",
+    label: "Performance",
+    roles: ["manager"],
+    icon: <TrophyIcon aria-hidden="true" />,
+  },
+  {
+    to: "/developers",
+    label: "Developers",
+    roles: ["manager"],
+    icon: <KeyRoundIcon aria-hidden="true" />,
   },
   {
     to: "/rubric",
@@ -70,14 +90,14 @@ const ROLE_LABEL: Record<Role, string> = {
  */
 export function RootLayout() {
   const session = useSession();
-  if (session.status === "loading") return <Loading />;
+  if (session.status === "loading") return <Loading shape="app" />;
   if (session.status === "signed_out") return <SignInPage />;
   return <Shell />;
 }
 
 function Shell() {
   const me = useQuery(meQuery);
-  if (me.isPending) return <Loading label="Loading your account" />;
+  if (me.isPending) return <Loading label="Loading your account" shape="app" />;
   if (me.isError) {
     return (
       <main className="mx-auto max-w-lg px-4 py-16">
@@ -91,49 +111,106 @@ function Shell() {
   return <Frame me={me.data} />;
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return (
+    (parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "")
+  ).toUpperCase();
+}
+
 function Frame({ me }: { me: Me }) {
   return (
-    <div className="min-h-svh bg-background text-foreground md:grid md:grid-cols-[13.5rem_1fr]">
-      <aside className="border-b bg-sidebar md:min-h-svh md:border-e md:border-b-0">
-        <div className="flex items-center justify-between gap-2 px-3 py-3 md:flex-col md:items-start md:gap-1">
-          <Link to="/" className="font-heading text-base font-semibold">
-            Call Compliance
+    <div className="min-h-svh bg-background text-foreground md:grid md:grid-cols-[15rem_1fr]">
+      <aside className="flex flex-col border-b bg-sidebar md:sticky md:top-0 md:h-svh md:border-e md:border-b-0">
+        <div className="px-4 py-4">
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground shadow-sm [&_svg]:size-4.5">
+              <CoffeeIcon aria-hidden="true" />
+            </span>
+            <span className="font-heading text-sm leading-tight font-semibold">
+              Latte
+              <span className="block text-xs font-normal text-muted-foreground">QA workspace</span>
+            </span>
           </Link>
-          <p className="text-sm text-muted-foreground">
-            {me.displayName}
-            <span className="block text-xs">{ROLE_LABEL[me.role]}</span>
-          </p>
         </div>
+        {me.role !== "agent" ? (
+          // The one action people come here for most: first, and a button, not a nav row.
+          <div className="px-3 pb-3">
+            <Button
+              className="w-full justify-center"
+              render={<Link to="/upload" />}
+              aria-label="Upload calls"
+            >
+              <UploadIcon aria-hidden="true" />
+              Upload calls
+            </Button>
+          </div>
+        ) : null}
         <nav
           aria-label="Main"
-          className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible"
+          className="flex gap-0.5 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-visible"
         >
+          <span className="hidden px-2.5 pt-2 pb-1.5 text-xs font-medium text-muted-foreground md:block">
+            Workspace
+          </span>
           {NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
             <Link
               key={n.to}
               to={n.to}
-              className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent [&_svg]:size-4"
-              activeProps={{ className: "bg-sidebar-accent font-medium text-foreground" }}
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm whitespace-nowrap text-sidebar-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+              activeProps={{
+                className: "bg-sidebar-accent font-medium text-foreground shadow-xs/5",
+              }}
             >
               {n.icon}
               {n.label}
             </Link>
           ))}
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-start text-sm text-sidebar-foreground hover:bg-sidebar-accent [&_svg]:size-4"
-          >
-            <LogOutIcon aria-hidden="true" />
-            Sign out
-          </button>
         </nav>
+        <div className="flex flex-col gap-3 border-t px-3 py-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-xs font-medium text-muted-foreground">Theme</span>
+            <ThemeToggle />
+          </div>
+          <UserCard me={me} />
+        </div>
       </aside>
-      <main className="min-w-0 px-4 py-4 md:px-6">
-        <Suspense fallback={<Loading />}>
-          <Outlet />
-        </Suspense>
+      {/* One player for the whole app, so a call keeps playing across pages. */}
+      <PlayerHost />
+      <MiniPlayer />
+      <main className="min-w-0 px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto w-full max-w-7xl">
+          <Suspense fallback={<Loading label="Loading the page" />}>
+            <Outlet />
+          </Suspense>
+        </div>
       </main>
+    </div>
+  );
+}
+
+function UserCard({ me }: { me: Me }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg px-1">
+      <Avatar className="size-8">
+        <AvatarFallback className="text-xs">{initials(me.displayName)}</AvatarFallback>
+      </Avatar>
+      <p className="min-w-0 flex-1 text-sm leading-tight">
+        <span className="block truncate font-medium">{me.displayName}</span>
+        <span className="block truncate text-xs text-muted-foreground">{ROLE_LABEL[me.role]}</span>
+      </p>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Sign out"
+        title="Sign out"
+        onClick={() => void signOut()}
+      >
+        <LogOutIcon aria-hidden="true" />
+      </Button>
     </div>
   );
 }

@@ -111,8 +111,9 @@ export function CompleteReview({ callId, findings }: { callId: string; findings:
       }),
   });
   return (
-    <Group aria-label="Review">
-      <GroupText role="status">
+    <Group aria-label="Review" className="max-w-full">
+      {/* Wraps on a phone instead of pushing the page wider than the screen. */}
+      <GroupText role="status" className="min-w-0 py-1 whitespace-normal">
         {undecided > 0
           ? `${String(undecided)} finding${undecided > 1 ? "s" : ""} still need a decision`
           : "Every finding has a decision"}

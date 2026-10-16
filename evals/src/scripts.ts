@@ -20,7 +20,9 @@ export interface ScriptLine {
 export interface CallScript {
   id: string;
   title: string;
-  language: "english" | "hinglish";
+  language: "english" | "hinglish" | "hindi-english" | "telugu-english";
+  /** Set for calls in an Indian language: the upload language, which routes them to Sarvam (ADR-0014). */
+  languageCode?: "hi-IN" | "te-IN";
   product: string;
   agentCode: string;
   voices: { agent: string; customer: string };
@@ -28,12 +30,12 @@ export interface CallScript {
   labels: Record<string, FindingStatus>;
 }
 
-const A = (t: string, plant?: Prohibited): ScriptLine =>
+export const A = (t: string, plant?: Prohibited): ScriptLine =>
   plant ? { s: "A", t, plant } : { s: "A", t };
-const C = (t: string): ScriptLine => ({ s: "C", t });
+export const C = (t: string): ScriptLine => ({ s: "C", t });
 
 type Labels = Partial<Record<string, FindingStatus>>;
-const labels = (overrides: Labels = {}): Record<string, FindingStatus> => {
+export const labels = (overrides: Labels = {}): Record<string, FindingStatus> => {
   const base: Record<string, FindingStatus> = {
     greeting: "met",
     identity_check: "met",

@@ -17,6 +17,15 @@ settled again, differently, in each file that runs into it.
 | ADR-0008 | Use coss ui on React 19 with Vite and TanStack for the web app | frontend | Accepted | awkward: components re-skinned |
 | ADR-0009 | Keep speech-to-text behind a segment-timestamp contract | speech | Accepted | awkward: a provider without segment timestamps breaks the time map, grounding and click-to-seek |
 | ADR-0010 | Use parameterised SQL with pg instead of Drizzle | orm | Accepted | cheap: repositories in apps/api/src/repo are the only SQL; swapping the query layer touches those files |
+| ADR-0011 | Use the audio/ui waveform for the call player | web ui | Accepted | cheap: one component |
+| ADR-0012 | Use AI Elements transcription for the call transcript | web ui | Accepted | cheap: one component |
+| ADR-0013 | Store word timestamps as jsonb on transcript segments | data model | Accepted | moderate: migration 0003 has a down file |
+| ADR-0014 | Use Sarvam for Indian-language calls | speech | Accepted | cheap: a gateway provider and routes |
+| ADR-0015 | Archive and delete calls by hiding them | data model | Accepted | moderate: migration 0005 has a down file |
+| ADR-0016 | Use Recharts for dashboard charts | web ui | Accepted | cheap: charts in two components |
+| ADR-0017 | Batches as a table, and batch exports streamed by the API | api, data model | Accepted | moderate: migration 0007 has a down file |
+| ADR-0018 | Scoped API keys, Postgres rate limits and per-key request logs | api, auth | Accepted | moderate: migration 0008 has a down file |
+| ADR-0019 | A TypeScript SDK as a workspace package | sdk | Accepted | cheap: packages/sdk depends only on @scc/shared |
 
 ## Conflicts that were settled
 

@@ -12,6 +12,10 @@ import { setupServer } from "msw/node";
  */
 export const handlers = [
   http.get("*/healthz", () => HttpResponse.json({ status: "ok", version: "msw" })),
+  // A call page fetches its recording link as soon as it opens.
+  http.post("*/api/calls/:id/audio-url", () =>
+    HttpResponse.json({ url: "https://storage.test/a.wav", expiresInSeconds: 600 }),
+  ),
 ];
 
 export const server = setupServer(...handlers);

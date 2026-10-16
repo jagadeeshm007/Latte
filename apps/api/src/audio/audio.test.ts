@@ -112,6 +112,24 @@ describe("buildChunks and toCallTime", () => {
 
     expect(chunks.length).toBe(3);
   });
+
+  it("cuts one long stretch of speech at its quietest point, not mid-word", () => {
+    // 50 s of continuous speech with one soft dip at 20.0-20.2 s, as between two sentences.
+    const samples = channel(50, [[0, 50]]);
+    for (let i = 20 * RATE; i < 20.2 * RATE; i++) samples[i] = samples[i]! * 0.02;
+    const region = { startMs: 0, endMs: 50_000 };
+
+    const chunks = buildChunks(samples, RATE, [region], 28_000);
+
+    // Cut at the dip (about 20 s), not at the fixed 28 s mark; no chunk passes 28 s.
+    const firstEnd = chunks[0]!.map[0]!.srcStartMs + chunks[0]!.map[0]!.durationMs;
+    expect(Math.abs(firstEnd - 20_100)).toBeLessThan(200);
+    expect(Math.max(...chunks.map((c) => c.durationMs))).toBeLessThanOrEqual(28_000);
+    // Nothing is lost: the pieces cover the whole region.
+    expect(chunks.reduce((sum, c) => sum + c.map.reduce((t, m) => t + m.durationMs, 0), 0)).toBe(
+      50_000,
+    );
+  });
 });
 
 describe("transcribeRecording", () => {
@@ -124,12 +142,14 @@ describe("transcribeRecording", () => {
         segments: [
           { start: 0.2, end: 1.8, text: " Hello sir ", avgLogprob: -0.2, noSpeechProb: 0.01 },
         ],
+        words: [],
       })
       .mockResolvedValueOnce({
         language: "hindi",
         segments: [
           { start: 0.2, end: 1.5, text: "haan boliye", avgLogprob: -0.3, noSpeechProb: 0.02 },
         ],
+        words: [],
       });
 
     const transcript = await transcribeRecording(wav, "audio/wav", transcribe);
@@ -148,12 +168,98 @@ describe("transcribeRecording", () => {
     const transcribe = vi.fn().mockResolvedValue({
       language: "english",
       segments: [{ start: 0, end: 1, text: "Thank you.", avgLogprob: -1.5, noSpeechProb: 0.95 }],
+      words: [
+        { text: "Thank", start: 0.1, end: 0.4 },
+        { text: "you.", start: 0.4, end: 0.8 },
+      ],
     });
 
     const transcript = await transcribeRecording(wav, "audio/wav", transcribe);
 
     expect(transcript.segments).toEqual([]);
     expect(transcribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts each word on the segment it was spoken in, in call time", async () => {
+    const wav = encodeWav([channel(12, [[6, 8]]), new Float32Array(12 * RATE)], RATE);
+    const transcribe = vi.fn().mockResolvedValue({
+      language: "english",
+      segments: [
+        { start: 0.2, end: 0.9, text: "Hello sir", avgLogprob: -0.2, noSpeechProb: 0.01 },
+        { start: 1.0, end: 1.8, text: "good morning", avgLogprob: -0.2, noSpeechProb: 0.01 },
+      ],
+      words: [
+        { text: "Hello", start: 0.2, end: 0.5 },
+        { text: "sir", start: 0.5, end: 0.9 },
+        { text: "good", start: 1.0, end: 1.3 },
+        // Ends a touch after its segment: still placed by its midpoint.
+        { text: "morning", start: 1.4, end: 1.95 },
+        // Between and outside every segment: goes to the nearest one.
+        { text: "uh", start: 2.2, end: 2.4 },
+      ],
+    });
+
+    const transcript = await transcribeRecording(wav, "audio/wav", transcribe);
+
+    const [first, second] = transcript.segments;
+    expect(first!.words.map((w) => w.text)).toEqual(["Hello", "sir"]);
+    expect(second!.words.map((w) => w.text)).toEqual(["good", "morning", "uh"]);
+    // The chunk starts before the speech at 6 s, so call time is well past 5 s.
+    expect(first!.words[0]!.startMs).toBeGreaterThan(5000);
+    expect(first!.words[0]!.startMs).toBe(first!.startMs);
+    expect(first!.words[1]!.endMs).toBeGreaterThan(first!.words[1]!.startMs);
+  });
+
+  it("drops the words of a segment it drops as not speech", async () => {
+    const wav = encodeWav([channel(4, [[1, 3]]), new Float32Array(4 * RATE)], RATE);
+    const transcribe = vi.fn().mockResolvedValue({
+      language: "english",
+      segments: [
+        { start: 0, end: 1, text: "Thank you.", avgLogprob: -1.5, noSpeechProb: 0.95 },
+        { start: 1, end: 2, text: "Hello", avgLogprob: -0.2, noSpeechProb: 0.01 },
+      ],
+      words: [
+        { text: "Thank", start: 0.1, end: 0.4 },
+        { text: "you.", start: 0.4, end: 0.8 },
+        { text: "Hello", start: 1.1, end: 1.5 },
+      ],
+    });
+
+    const transcript = await transcribeRecording(wav, "audio/wav", transcribe);
+
+    expect(transcript.segments.map((s) => s.words.map((w) => w.text))).toEqual([["Hello"]]);
+  });
+
+  // SCC-1: Sarvam returns one timestamp chunk per request, so joining several
+  // utterances into one request made one transcript line out of all of them.
+  it("sends each utterance on its own when asked, so each keeps its own times", async () => {
+    const wav = encodeWav(
+      [
+        channel(30, [
+          [1, 3],
+          [10, 12],
+          [20, 22],
+        ]),
+        new Float32Array(30 * RATE),
+      ],
+      RATE,
+    );
+    const transcribe = vi.fn((_wav: Uint8Array, seconds: number) =>
+      Promise.resolve({
+        language: "hi-IN",
+        segments: [{ start: 0, end: seconds, text: "line", avgLogprob: null, noSpeechProb: null }],
+        words: [],
+      }),
+    );
+
+    const transcript = await transcribeRecording(wav, "audio/wav", transcribe, {
+      maxChunkMs: 28_000,
+      onePerUtterance: true,
+    });
+
+    expect(transcribe).toHaveBeenCalledTimes(3);
+    expect(transcript.segments.map((s) => Math.round(s.startMs / 1000))).toEqual([1, 10, 20]);
+    for (const s of transcript.segments) expect(s.endMs - s.startMs).toBeLessThan(3000);
   });
 });
 
