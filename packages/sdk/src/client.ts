@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   audioUrlSchema,
   batchDetailSchema,
@@ -17,6 +19,13 @@ import {
   referenceSchema,
   uploadConfirmResponseSchema,
   uploadSignResponseSchema,
+  createdWebhookSchema,
+  type CreateWebhookRequest,
+  type UpdateWebhookRequest,
+  webhookDeliveryListSchema,
+  type webhookDeliveryQuerySchema,
+  webhookEndpointListSchema,
+  webhookEndpointSchema,
   type BatchDetail,
   type BatchExportPart,
   type BatchUpdateRequest,
@@ -52,6 +61,14 @@ type Query = Record<string, unknown>;
 interface RequestOptions {
   query?: Query | undefined;
   body?: unknown;
+  /** Sent as Idempotency-Key; a write with one may be retried safely (ADR-0022). */
+  idempotencyKey?: string | undefined;
+}
+
+/** Options for a create call. */
+export interface WriteOptions {
+  /** The same key replays the first response for 24 hours instead of creating twice. */
+  idempotencyKey?: string;
 }
 
 /** One recording to upload, with what it is about. */
@@ -146,8 +163,10 @@ export class LatteClient {
     get: (id: string) => this.request("GET", `/api/batches/${id}`, batchDetailSchema),
     update: (id: string, patch: BatchUpdateRequest) =>
       this.request("PATCH", `/api/batches/${id}`, batchDetailSchema, { body: patch }),
-    retryFailed: (id: string) =>
-      this.request("POST", `/api/batches/${id}/retry-failed`, batchRetryResponseSchema),
+    retryFailed: (id: string, opts: WriteOptions = {}) =>
+      this.request("POST", `/api/batches/${id}/retry-failed`, batchRetryResponseSchema, {
+        idempotencyKey: opts.idempotencyKey,
+      }),
     /**
      * Uploads many recordings as one batch: chunks of chunkSize files, the
      * first creating the batch, then `concurrency` chunks at a time. A failed
@@ -188,6 +207,31 @@ export class LatteClient {
       if (!res.body) throw new ApiError("the export came back empty", res.status, "empty", null);
       return res.body;
     },
+  };
+
+  readonly webhooks = {
+    list: () => this.request("GET", "/api/webhooks", webhookEndpointListSchema),
+    get: (id: string) => this.request("GET", `/api/webhooks/${id}`, webhookEndpointSchema),
+    /** Registers an endpoint; keep the returned secret to check signatures. */
+    create: (body: CreateWebhookRequest, opts: WriteOptions = {}) =>
+      this.request("POST", "/api/webhooks", createdWebhookSchema, {
+        body,
+        idempotencyKey: opts.idempotencyKey,
+      }),
+    update: (id: string, patch: UpdateWebhookRequest) =>
+      this.request("PATCH", `/api/webhooks/${id}`, webhookEndpointSchema, { body: patch }),
+    delete: (id: string) => this.request("DELETE", `/api/webhooks/${id}`, noContent),
+    /** Sends a ping event to the endpoint. */
+    test: (id: string) =>
+      this.request("POST", `/api/webhooks/${id}/test`, z.object({ queued: z.number() })),
+    deliveries: (id: string, query: z.input<typeof webhookDeliveryQuerySchema> = {}) =>
+      this.request("GET", `/api/webhooks/${id}/deliveries`, webhookDeliveryListSchema, { query }),
+    redeliver: (id: string, deliveryId: string) =>
+      this.request(
+        "POST",
+        `/api/webhooks/${id}/deliveries/${deliveryId}/redeliver`,
+        z.object({ queued: z.number() }),
+      ),
   };
 
   readonly analytics = {
@@ -277,7 +321,13 @@ export class LatteClient {
         }
       }),
     );
+    // Keyed by the signed paths, so a retried confirm never creates the calls twice.
+    const idempotencyKey = `confirm-${createHash("sha256")
+      .update(signed.uploads.map((u) => u.path).join("|"))
+      .digest("hex")
+      .slice(0, 40)}`;
     return this.request("POST", "/api/uploads/confirm", uploadConfirmResponseSchema, {
+      idempotencyKey,
       body: {
         ...batch,
         files: files.map((f, i) => ({
@@ -326,6 +376,8 @@ export class LatteClient {
       }
     }
     const requestId = crypto.randomUUID();
+    // A read, or a write with an idempotency key, can be sent again without doing it twice.
+    const safe = method === "GET" || opts.idempotencyKey !== undefined;
     for (let attempt = 0; ; attempt++) {
       let res: Response;
       try {
@@ -337,13 +389,13 @@ export class LatteClient {
             "X-Request-Id": requestId,
             "User-Agent": `latte-sdk/${SDK_VERSION}`,
             ...(opts.body === undefined ? {} : { "Content-Type": "application/json" }),
+            ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
           },
           ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
           signal: AbortSignal.timeout(this.timeoutMs),
         });
       } catch (cause) {
-        // A read that never reached the server is safe to send again; a write may have landed.
-        if (method === "GET" && attempt < this.maxRetries) {
+        if (safe && attempt < this.maxRetries) {
           await this.sleep(this.backoff(attempt));
           continue;
         }
@@ -356,8 +408,8 @@ export class LatteClient {
       }
       if (res.ok) return res;
       const error = await this.errorOf(res, requestId);
-      // 429 is refused before any work, so any method may retry; a 5xx only on reads.
-      const retryable = error instanceof RateLimitError || (res.status >= 500 && method === "GET");
+      // 429 is refused before any work, so any method may retry; a 5xx only when safe.
+      const retryable = error instanceof RateLimitError || (res.status >= 500 && safe);
       if (!retryable || attempt >= this.maxRetries) throw error;
       await this.sleep(
         error instanceof RateLimitError ? error.retryAfterSeconds * 1000 : this.backoff(attempt),

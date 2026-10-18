@@ -106,11 +106,11 @@ function serverMessage(body: string): string | null {
   }
 }
 
-/** apiSend sends a JSON body and validates the reply, for POST, PUT and PATCH calls. */
+/** apiSend sends a JSON body (if any) and validates the reply, for POST, PUT, PATCH and DELETE calls. */
 export function apiSend<T>(
   path: string,
   schema: z.ZodType<T>,
-  method: "POST" | "PUT" | "PATCH",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: unknown,
 ): Promise<T> {
   return apiFetch(path, schema, {

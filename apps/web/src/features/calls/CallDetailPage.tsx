@@ -1,5 +1,5 @@
 import type { CallDetail, Me } from "@scc/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCwIcon, SparklesIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -18,6 +18,7 @@ import { AnalysingCard, CoachingNotesCard } from "./CoachingNotes";
 import { DownloadMenu } from "./DownloadMenu";
 import { FindingsPanel } from "./FindingsPanel";
 import { LyricsTranscript } from "./LyricsTranscript";
+import { PiiNotice } from "./PiiNotice";
 import { PlayerPanel } from "./PlayerPanel";
 
 // S4 and S6: one call with its evidence. Clicking a finding plays the
@@ -27,8 +28,12 @@ import { PlayerPanel } from "./PlayerPanel";
 
 export function CallDetailPage({ callId }: { callId: string }) {
   const me = useQuery(meQuery);
+  // Held against the call, so opening another call never shows its personal data unasked.
+  const [revealedFor, setRevealedFor] = useState<string | null>(null);
+  const reveal = revealedFor === callId;
   const detail = useQuery({
-    ...callQuery(callId),
+    ...callQuery(callId, reveal),
+    placeholderData: keepPreviousData,
     refetchInterval: (q) =>
       q.state.data && IN_PROGRESS.has(q.state.data.call.status) ? 3000 : false,
   });
@@ -36,10 +41,30 @@ export function CallDetailPage({ callId }: { callId: string }) {
   if (detail.isError) return <ErrorState error={detail.error} title="Could not open this call" />;
   if (me.isError) return <ErrorState error={me.error} />;
   // key: a new call id starts with a fresh player and review state.
-  return <CallView key={callId} detail={detail.data} me={me.data} />;
+  return (
+    <CallView
+      key={callId}
+      detail={detail.data}
+      me={me.data}
+      pii={{
+        revealed: reveal,
+        onToggle: () => {
+          setRevealedFor(reveal ? null : callId);
+        },
+      }}
+    />
+  );
 }
 
-function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
+function CallView({
+  detail,
+  me,
+  pii,
+}: {
+  detail: CallDetail;
+  me: Me;
+  pii: { revealed: boolean; onToggle: () => void };
+}) {
   const { call, score } = detail;
   const [hoveredSeq, setHoveredSeq] = useState<number | null>(null);
   // Coaching notes stay hidden until someone asks for the AI analysis.
@@ -163,6 +188,12 @@ function CallView({ detail, me }: { detail: CallDetail; me: Me }) {
           ) : null}
         </div>
       </PageHeader>
+      <PiiNotice
+        redactions={detail.redactions}
+        revealed={pii.revealed}
+        canReveal={me.role === "qa_reviewer" || me.role === "manager"}
+        onToggle={pii.onToggle}
+      />
 
       {call.error || IN_PROGRESS.has(call.status) || score?.judgeError ? (
         <div className="flex flex-col gap-2">

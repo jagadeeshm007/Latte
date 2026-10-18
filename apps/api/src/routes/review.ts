@@ -4,6 +4,7 @@ import {
   highlightsQuerySchema,
   leaderboardQuerySchema,
   reviewDecisionRequestSchema,
+  rubricQuerySchema,
   saveRubricRequestSchema,
   statusFits,
   usageHistoryQuerySchema,
@@ -22,6 +23,7 @@ import {
   activeRubric,
   audit,
   listRubrics,
+  rubricFor,
   saveRubricVersion,
   usageHistory,
   usageThisMonth,
@@ -180,22 +182,36 @@ export function reviewRouter(deps: AppDeps): Router {
     res.json(await highlights(pool, (await rubricOrFail(deps)).items, q, new Date()));
   });
 
-  router.get("/rubrics/active", async (_req, res) => {
-    res.json(await rubricOrFail(deps));
+  // With productId: the rubric that scores that product (its own, or the default).
+  router.get("/rubrics/active", async (req, res) => {
+    const { productId } = rubricQuerySchema.parse(req.query);
+    if (!productId) {
+      res.json(await rubricOrFail(deps));
+      return;
+    }
+    const rubric = await rubricFor(pool, productId);
+    if (!rubric) throw new AppError("no active rubric; run the seed", 503, "no_rubric");
+    res.json(rubric);
   });
 
-  router.get("/rubrics", qaOrManager, async (_req, res) => {
-    res.json({ items: await listRubrics(pool) });
+  router.get("/rubrics", qaOrManager, async (req, res) => {
+    const { productId } = rubricQuerySchema.parse(req.query);
+    res.json({ items: await listRubrics(pool, productId ?? null) });
   });
 
   router.post("/rubrics", manager, async (req, res) => {
     const body = saveRubricRequestSchema.parse(req.body);
     const user = currentUser(req);
+    if (body.productId) {
+      const known = await pool.query("SELECT 1 FROM products WHERE id = $1", [body.productId]);
+      if (known.rowCount === 0) throw new AppError("unknown product", 400, "validation_error");
+    }
     const saved = await inTransaction(pool, async (client) => {
       const rubric = await saveRubricVersion(client, {
         name: body.name,
         items: body.items,
         createdBy: user.id,
+        productId: body.productId,
       });
       await audit(client, user.id, "rubric_saved", null);
       return rubric;

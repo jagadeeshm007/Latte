@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import {
   audioUrlRequestSchema,
+  callDetailQuerySchema,
+  findPii,
+  redactText,
+  redactWords,
   callListQuerySchema,
   MAX_BATCH_FILES,
   MAX_UPLOAD_FILES,
@@ -182,7 +186,11 @@ export function callsRouter(deps: AppDeps): Router {
 
   router.get("/calls/:id", async (req, res) => {
     const { id } = idParam.parse(req.params);
+    const { reveal } = callDetailQuerySchema.parse(req.query);
     const user = currentUser(req);
+    // Personal data is masked unless QA or a manager, signed in to the app, asks to see it (ADR-0023).
+    const showPii =
+      reveal === "pii" && !req.apiKey && (user.role === "qa_reviewer" || user.role === "manager");
     const summary = await calls.getCallSummary(pool, scopeOf(user), id);
     if (!summary) throw new NotFoundError("call not found");
     const [row, score, findings, segments] = await Promise.all([
@@ -194,6 +202,13 @@ export function callsRouter(deps: AppDeps): Router {
     const rubrics = await listRubrics(pool);
     const rubric =
       rubrics.find((r) => r.version === score?.rubric_version) ?? (await activeRubric(pool));
+    let redactions = 0;
+    const mask = (text: string) => {
+      if (showPii) return text;
+      const spans = findPii(text);
+      redactions += spans.length;
+      return redactText(text, spans);
+    };
     const detail: CallDetail = {
       call: summary,
       audioAvailable: Boolean(row?.storage_path),
@@ -214,14 +229,16 @@ export function callsRouter(deps: AppDeps): Router {
         channel: s.channel,
         startMs: s.start_ms,
         endMs: s.end_ms,
-        text: s.text,
+        text: mask(s.text),
         language: s.language,
         avgLogprob: s.avg_logprob,
-        words: s.words,
-        translation: s.text_en,
+        words: showPii ? s.words : redactWords(s.words).words,
+        translation: s.text_en === null ? null : mask(s.text_en),
       })),
-      findings,
+      findings: findings.map((f) => ({ ...f, quote: f.quote === null ? null : mask(f.quote) })),
+      redactions,
     };
+    if (showPii) await audit(pool, user.id, "pii_revealed", id);
     res.json(detail);
   });
 
@@ -247,6 +264,7 @@ export function callsRouter(deps: AppDeps): Router {
       throw new NotFoundError("call not found");
     const step = await calls.requeueForRetry(pool, id, STALE_SECONDS);
     if (!step) throw new ConflictError("only a failed, unscored or stuck call can be retried");
+    await batches.reopenBatch(pool, { callId: id });
     await enqueue(step === "score" ? QUEUES.score : QUEUES.transcribe, { callId: id });
     await audit(pool, currentUser(req).id, "call_retried", id);
     res.status(202).json({ status: "queued" });

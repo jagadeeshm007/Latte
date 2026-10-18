@@ -7,7 +7,13 @@ import {
   uploadConfirmRequestSchema,
   uploadSignRequestSchema,
   batchExportQuerySchema,
+  alertRuleRequestSchema,
   createApiKeyRequestSchema,
+  saveViewRequestSchema,
+  updateViewRequestSchema,
+  createWebhookRequestSchema,
+  isWebhookUrl,
+  updateWebhookRequestSchema,
   updateApiKeyRequestSchema,
   batchUpdateRequestSchema,
 } from "./api.ts";
@@ -122,5 +128,65 @@ describe("API key requests (ADR-0018)", () => {
     expect(updateApiKeyRequestSchema.parse({ limits: { read: 1200 } })).toEqual({
       limits: { read: 1200 },
     });
+  });
+});
+
+describe("webhook requests (ADR-0021)", () => {
+  it("takes only https on the standard port, without credentials", () => {
+    expect(
+      [
+        "https://hooks.example.com/x",
+        "https://hooks.example.com:443/x",
+        "http://hooks.example.com/x",
+        "https://hooks.example.com:8443/x",
+        "https://user:pw@hooks.example.com/x",
+        "not a url",
+      ].map(isWebhookUrl),
+    ).toEqual([true, true, false, false, false, false]);
+  });
+
+  it("needs an event, refuses one listed twice, and needs something to change", () => {
+    const url = "https://hooks.example.com/x";
+
+    expect(createWebhookRequestSchema.parse({ url, events: ["call.scored"] })).toEqual({
+      url,
+      description: "",
+      events: ["call.scored"],
+    });
+    expect(createWebhookRequestSchema.safeParse({ url, events: [] }).success).toBe(false);
+    expect(
+      createWebhookRequestSchema.safeParse({ url, events: ["call.scored", "call.scored"] }).success,
+    ).toBe(false);
+    expect(updateWebhookRequestSchema.safeParse({}).success).toBe(false);
+    expect(updateWebhookRequestSchema.parse({ enabled: false })).toEqual({ enabled: false });
+  });
+});
+
+describe("saved views and alert rules (ADR-0025)", () => {
+  it("keeps a view's filters flat and few", () => {
+    const base = { page: "calls", name: "Mine" };
+    const tooMany = Object.fromEntries(Array.from({ length: 31 }, (_, i) => [`k${String(i)}`, i]));
+
+    expect(saveViewRequestSchema.parse({ ...base, search: { flag: "flagged" } })).toMatchObject({
+      shared: false,
+    });
+    expect(saveViewRequestSchema.safeParse({ ...base, search: { q: { a: 1 } } }).success).toBe(
+      false,
+    );
+    expect(saveViewRequestSchema.safeParse({ ...base, search: tooMany }).success).toBe(false);
+    expect(updateViewRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("asks for a rubric item exactly when the metric is an item fail rate", () => {
+    const base = { name: "R", scope: "team", thresholdPoints: 10 };
+
+    expect([
+      alertRuleRequestSchema.safeParse({ ...base, metric: "flag_rate" }).success,
+      alertRuleRequestSchema.safeParse({ ...base, metric: "item_fail_rate" }).success,
+      alertRuleRequestSchema.safeParse({ ...base, metric: "flag_rate", itemKey: "consent" })
+        .success,
+      alertRuleRequestSchema.safeParse({ ...base, metric: "item_fail_rate", itemKey: "consent" })
+        .success,
+    ]).toEqual([true, false, false, true]);
   });
 });

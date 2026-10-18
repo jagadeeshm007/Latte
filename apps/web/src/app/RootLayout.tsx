@@ -1,6 +1,6 @@
 import type { Me, Role } from "@scc/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   AudioLinesIcon,
   CoffeeIcon,
@@ -8,6 +8,10 @@ import {
   TrophyIcon,
   GaugeIcon,
   InboxIcon,
+  SirenIcon,
+  ReceiptIcon,
+  UsersRoundIcon,
+  UserCogIcon,
   KeyRoundIcon,
   LayersIcon,
   ListIcon,
@@ -22,8 +26,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
 import { SignInPage } from "@/features/auth/SignInPage";
+import { NotificationBell } from "@/features/inbox/NotificationBell";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
 import { PlayerHost } from "@/features/player/PlayerHost";
+import { StatusBanner } from "@/features/status/StatusBanner";
 import { meQuery } from "@/lib/endpoints";
 
 const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
@@ -64,6 +70,30 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     icon: <TrophyIcon aria-hidden="true" />,
   },
   {
+    to: "/alerts",
+    label: "Alerts",
+    roles: ["manager"],
+    icon: <SirenIcon aria-hidden="true" />,
+  },
+  {
+    to: "/members",
+    label: "Members",
+    roles: ["manager"],
+    icon: <UserCogIcon aria-hidden="true" />,
+  },
+  {
+    to: "/teams",
+    label: "Teams",
+    roles: ["manager"],
+    icon: <UsersRoundIcon aria-hidden="true" />,
+  },
+  {
+    to: "/billing",
+    label: "Billing",
+    roles: ["manager"],
+    icon: <ReceiptIcon aria-hidden="true" />,
+  },
+  {
     to: "/developers",
     label: "Developers",
     roles: ["manager"],
@@ -88,8 +118,21 @@ const ROLE_LABEL: Record<Role, string> = {
  * caller's role. Every route renders inside it; the API still checks every
  * role on every request, the menu only hides what a role cannot use.
  */
+/** Pages anyone may open without signing in. */
+const PUBLIC_PATHS = new Set(["/status"]);
+
 export function RootLayout() {
   const session = useSession();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (PUBLIC_PATHS.has(pathname) && session.status !== "signed_in") {
+    return (
+      <main className="min-h-svh bg-muted/40 px-4 py-10">
+        <Suspense fallback={<Loading label="Loading the page" />}>
+          <Outlet />
+        </Suspense>
+      </main>
+    );
+  }
   if (session.status === "loading") return <Loading shape="app" />;
   if (session.status === "signed_out") return <SignInPage />;
   return <Shell />;
@@ -121,7 +164,7 @@ function initials(name: string): string {
 function Frame({ me }: { me: Me }) {
   return (
     <div className="min-h-svh bg-background text-foreground md:grid md:grid-cols-[15rem_1fr]">
-      <aside className="flex flex-col border-b bg-sidebar md:sticky md:top-0 md:h-svh md:border-e md:border-b-0">
+      <aside className="flex flex-col border-b bg-sidebar md:sticky md:top-0 md:h-svh md:border-e md:border-b-0 print:hidden">
         <div className="px-4 py-4">
           <Link
             to="/"
@@ -173,7 +216,10 @@ function Frame({ me }: { me: Me }) {
         <div className="flex flex-col gap-3 border-t px-3 py-3">
           <div className="flex items-center justify-between gap-2 px-1">
             <span className="text-xs font-medium text-muted-foreground">Theme</span>
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
           </div>
           <UserCard me={me} />
         </div>
@@ -182,6 +228,9 @@ function Frame({ me }: { me: Me }) {
       <PlayerHost />
       <MiniPlayer />
       <main className="min-w-0 px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto mb-4 w-full max-w-7xl empty:hidden">
+          <StatusBanner />
+        </div>
         <div className="mx-auto w-full max-w-7xl">
           <Suspense fallback={<Loading label="Loading the page" />}>
             <Outlet />

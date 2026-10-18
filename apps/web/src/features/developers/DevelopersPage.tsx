@@ -1,16 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { ExternalLinkIcon } from "lucide-react";
+import { BookOpenIcon } from "lucide-react";
 
 import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states";
 import { Badge } from "@/components/ui/badge";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
+import { buttonVariants } from "@/components/ui/button";
+import { Frame, FramePanel } from "@/components/ui/frame";
 import {
   Table,
   TableBody,
@@ -21,33 +16,53 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { apiKeysQuery } from "@/lib/endpoints";
-import { env } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 
 import { CreateKeyDialog } from "./CreateKeyDialog";
 import { keyStatus, maskedKey, SCOPE_LABEL, STATUS_BADGE } from "./key-labels";
+import { QuickSetup } from "./QuickSetup";
+import { RevokeAllKeys } from "./RevokeAllKeys";
+import { WebhooksTab } from "./Webhooks";
 
-// Developers: API keys for machine clients, with their traffic, and a quick
-// start for the API and the SDK (ADR-0018, ADR-0019).
+// Developers: API keys for machine clients, webhooks, and a quick setup that
+// checks itself off (ADR-0018, ADR-0019, ADR-0021).
 
 export function DevelopersPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Developers"
-        description="Connect a CRM, dialler or data warehouse to Latte with an API key."
-        actions={<CreateKeyDialog />}
+        description="Connect a CRM, dialler or data warehouse to Latte with an API key and webhooks."
+        actions={
+          <>
+            <Link
+              to="/developers/docs"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <BookOpenIcon aria-hidden="true" />
+              Documentation
+            </Link>
+            <CreateKeyDialog />
+          </>
+        }
       />
       <Tabs defaultValue="keys">
         <TabsList>
           <TabsTab value="keys">API keys</TabsTab>
-          <TabsTab value="quickstart">Quick start</TabsTab>
+          <TabsTab value="webhooks">Webhooks</TabsTab>
+          <TabsTab value="setup">Quick setup</TabsTab>
         </TabsList>
-        <TabsPanel value="keys" className="pt-4">
+        <TabsPanel value="keys" className="flex flex-col gap-3 pt-4">
+          <div className="flex justify-end">
+            <RevokeAllKeys />
+          </div>
           <KeysTable />
         </TabsPanel>
-        <TabsPanel value="quickstart" className="pt-4">
-          <QuickStart />
+        <TabsPanel value="webhooks" className="pt-4">
+          <WebhooksTab />
+        </TabsPanel>
+        <TabsPanel value="setup" className="pt-4">
+          <QuickSetup />
         </TabsPanel>
       </Tabs>
     </div>
@@ -125,80 +140,5 @@ function KeysTable() {
         </Table>
       </FramePanel>
     </Frame>
-  );
-}
-
-function Snippet({ label, code }: { label: string; code: string }) {
-  return (
-    <figure className="flex flex-col gap-1.5">
-      <figcaption className="text-xs font-medium text-muted-foreground">{label}</figcaption>
-      <pre className="overflow-x-auto rounded-lg border bg-muted/50 p-3 font-mono text-xs leading-relaxed">
-        <code>{code}</code>
-      </pre>
-    </figure>
-  );
-}
-
-function QuickStart() {
-  const base = env.VITE_API_URL;
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Frame>
-        <FrameHeader className="px-4 py-3">
-          <FrameTitle>With curl</FrameTitle>
-          <FrameDescription>Every request sends the key as a bearer token.</FrameDescription>
-        </FrameHeader>
-        <FramePanel className="flex flex-col gap-4 px-4 py-3">
-          <Snippet
-            label="List the latest calls"
-            code={`curl ${base}/api/calls?limit=10 \\\n  -H "Authorization: Bearer $LATTE_API_KEY"`}
-          />
-          <Snippet
-            label="Download a batch's results"
-            code={`curl -OJ ${base}/api/batches/$BATCH_ID/results.csv \\\n  -H "Authorization: Bearer $LATTE_API_KEY"`}
-          />
-        </FramePanel>
-      </Frame>
-      <Frame>
-        <FrameHeader className="px-4 py-3">
-          <FrameTitle>With the TypeScript SDK</FrameTitle>
-          <FrameDescription>
-            Retries rate limits for you and uploads batches in chunks.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="flex flex-col gap-4 px-4 py-3">
-          <Snippet
-            label="Upload a day of calls and wait for the results"
-            code={`import { LatteClient } from "@latte/sdk";
-
-const latte = new LatteClient({
-  apiKey: process.env.LATTE_API_KEY!,
-  baseUrl: "${base}",
-});
-
-const batch = await latte.batches.create(files, { name: "Inbound, 16 Oct" });
-const done = await latte.batches.wait(batch.batchId!);
-console.log(done.scored, "scored,", done.flagged, "flagged");`}
-          />
-        </FramePanel>
-      </Frame>
-      <Frame className="lg:col-span-2">
-        <FramePanel className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
-          <span>
-            Limits are per key and bucket. Each response carries <code>RateLimit-Remaining</code>; a{" "}
-            <code>429</code> carries <code>Retry-After</code>.
-          </span>
-          <a
-            href={`${base}/api/openapi.json`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 font-medium underline-offset-4 hover:underline"
-          >
-            OpenAPI reference
-            <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
-          </a>
-        </FramePanel>
-      </Frame>
-    </div>
   );
 }

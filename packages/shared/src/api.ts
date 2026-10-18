@@ -270,6 +270,8 @@ export const callDetailSchema = z.object({
   rubricItems: z.array(rubricItemSchema),
   segments: z.array(segmentSchema),
   findings: z.array(findingSchema),
+  /** Pieces of personal data masked in the transcript; 0 when revealed (ADR-0023). */
+  redactions: z.number().default(0),
 });
 export type CallDetail = z.infer<typeof callDetailSchema>;
 
@@ -475,14 +477,21 @@ export const rubricSchema = z.object({
   items: z.array(rubricItemSchema),
   isActive: z.boolean(),
   createdAt: timestamp,
+  /** The product this rubric scores; null for the default (older responses leave it out). */
+  productId: z.string().nullable().default(null),
 });
 export type Rubric = z.infer<typeof rubricSchema>;
+
+/** Which rubric to read: a product's own, or the default when productId is left out. */
+export const rubricQuerySchema = z.object({ productId: z.uuid().optional() });
 
 export const rubricListSchema = z.object({ items: z.array(rubricSchema) });
 
 export const saveRubricRequestSchema = z.object({
   name: z.string().min(1).max(80),
   items: rubricItemsSchema,
+  /** Save as this product's rubric; null (or left out) saves the default. */
+  productId: z.uuid().nullable().default(null),
 });
 
 export const errorEnvelopeSchema = z.object({
@@ -563,6 +572,7 @@ export const API_SCOPES = [
   "batches:write",
   "exports:read",
   "analytics:read",
+  "webhooks:write",
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
@@ -692,6 +702,8 @@ export const apiKeyMetricsSchema = z.object({
       p95Ms: z.number().nullable(),
     }),
   ),
+  /** What the key's uploads cost in the period: calls in its batches, and their model spend. */
+  usage: z.object({ callsUploaded: z.number(), callsScored: z.number(), costUsd: z.number() }),
 });
 export type ApiKeyMetrics = z.infer<typeof apiKeyMetricsSchema>;
 
@@ -720,3 +732,372 @@ export const apiKeyLogsSchema = z.object({
   total: z.number(),
 });
 export type ApiKeyLogs = z.infer<typeof apiKeyLogsSchema>;
+
+export const revokeAllKeysRequestSchema = z.object({
+  /** Typed by the person, so all keys are never revoked by a stray click. */
+  confirm: z.literal("REVOKE ALL"),
+});
+export const revokeAllKeysResponseSchema = z.object({ revoked: z.number() });
+
+/** Events a webhook can subscribe to (ADR-0021); ping is the test event. */
+export const WEBHOOK_EVENTS = [
+  "call.scored",
+  "call.failed",
+  "batch.completed",
+  "alert.triggered",
+  "digest.ready",
+] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
+
+export const webhookEndpointSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  description: z.string(),
+  events: z.array(z.enum(WEBHOOK_EVENTS)),
+  createdBy: z.string(),
+  createdAt: timestamp,
+  disabledAt: timestamp.nullable(),
+  disabledReason: z.string().nullable(),
+  consecutiveFailures: z.number(),
+  deliveries24h: z.number(),
+  failures24h: z.number(),
+});
+export type WebhookEndpoint = z.infer<typeof webhookEndpointSchema>;
+export const webhookEndpointListSchema = z.object({ items: z.array(webhookEndpointSchema) });
+
+/** An https URL on the standard port with no credentials in it. */
+export function isWebhookUrl(u: string): boolean {
+  try {
+    const url = new URL(u);
+    return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
+      (url.port === "" || url.port === "443")
+    );
+  } catch {
+    return false;
+  }
+}
+
+const webhookUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine(isWebhookUrl, "use an https:// URL on the standard port, with no user name or password");
+
+export const createWebhookRequestSchema = z.object({
+  url: webhookUrl,
+  description: z.string().trim().max(200).default(""),
+  events: z
+    .array(z.enum(WEBHOOK_EVENTS))
+    .min(1, "choose at least one event")
+    .refine((e) => new Set(e).size === e.length, "an event is listed twice"),
+});
+export type CreateWebhookRequest = z.input<typeof createWebhookRequestSchema>;
+
+export const updateWebhookRequestSchema = z
+  .object({
+    url: webhookUrl.optional(),
+    description: z.string().trim().max(200).optional(),
+    events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), "nothing to change");
+export type UpdateWebhookRequest = z.infer<typeof updateWebhookRequestSchema>;
+
+/** The new endpoint and its signing secret, shown this once. */
+export const createdWebhookSchema = z.object({
+  endpoint: webhookEndpointSchema,
+  secret: z.string(),
+});
+export type CreatedWebhook = z.infer<typeof createdWebhookSchema>;
+
+export const webhookDeliverySchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  eventType: z.string(),
+  status: z.enum(["pending", "succeeded", "failed"]),
+  attempts: z.number(),
+  lastStatus: z.number().nullable(),
+  lastError: z.string().nullable(),
+  nextAttemptAt: timestamp,
+  deliveredAt: timestamp.nullable(),
+  createdAt: timestamp,
+  payload: z.unknown(),
+});
+export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>;
+export const webhookDeliveryListSchema = z.object({
+  items: z.array(webhookDeliverySchema),
+  total: z.number(),
+});
+export const webhookDeliveryQuerySchema = z.object({
+  status: z.enum(["pending", "succeeded", "failed"]).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+/** Pages whose filters can be saved under a name. */
+export const SAVED_VIEW_PAGES = ["calls", "performance", "batches"] as const;
+export type SavedViewPage = (typeof SAVED_VIEW_PAGES)[number];
+
+/** A page's filters: short scalar values only, as they would sit in a URL. */
+const viewSearchSchema = z
+  .record(z.string().max(40), z.union([z.string().max(200), z.number(), z.boolean()]))
+  .refine((s) => Object.keys(s).length <= 30, "too many filters");
+
+export const savedViewSchema = z.object({
+  id: z.string(),
+  page: z.enum(SAVED_VIEW_PAGES),
+  name: z.string(),
+  search: viewSearchSchema,
+  shared: z.boolean(),
+  ownerId: z.string(),
+  ownerName: z.string(),
+  mine: z.boolean(),
+  updatedAt: timestamp,
+});
+export type SavedView = z.infer<typeof savedViewSchema>;
+export const savedViewListSchema = z.object({ items: z.array(savedViewSchema) });
+export const savedViewQuerySchema = z.object({ page: z.enum(SAVED_VIEW_PAGES) });
+
+export const saveViewRequestSchema = z.object({
+  page: z.enum(SAVED_VIEW_PAGES),
+  name: z.string().trim().min(1).max(80),
+  search: viewSearchSchema,
+  shared: z.boolean().default(false),
+});
+export type SaveViewRequest = z.input<typeof saveViewRequestSchema>;
+
+export const updateViewRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    search: viewSearchSchema.optional(),
+    shared: z.boolean().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), "nothing to change");
+export type UpdateViewRequest = z.infer<typeof updateViewRequestSchema>;
+
+export const notificationSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["alert", "digest"]),
+  title: z.string(),
+  body: z.string(),
+  link: z.string().nullable(),
+  data: z.record(z.string(), z.unknown()),
+  readAt: timestamp.nullable(),
+  createdAt: timestamp,
+});
+export type Notification = z.infer<typeof notificationSchema>;
+export const notificationListSchema = z.object({
+  items: z.array(notificationSchema),
+  total: z.number(),
+  unread: z.number(),
+});
+export const notificationQuerySchema = z.object({
+  unread: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+export const unreadCountSchema = z.object({ unread: z.number() });
+
+export const ALERT_METRICS = ["flag_rate", "avg_score", "item_fail_rate"] as const;
+export type AlertMetric = (typeof ALERT_METRICS)[number];
+export const ALERT_SCOPES = ["team", "product", "agent"] as const;
+
+const alertRuleFields = {
+  name: z.string().trim().min(1).max(80),
+  metric: z.enum(ALERT_METRICS),
+  scope: z.enum(ALERT_SCOPES),
+  itemKey: z.string().max(60).nullable().default(null),
+  /** How far the window must move from the baseline, in points (percentage points, or score points). */
+  thresholdPoints: z.number().positive().max(100),
+  windowDays: z.number().int().min(1).max(30).default(7),
+  baselineDays: z.number().int().min(7).max(180).default(28),
+  minCalls: z.number().int().min(1).max(1000).default(5),
+  cooldownHours: z.number().int().min(1).max(720).default(24),
+  enabled: z.boolean().default(true),
+};
+
+export const alertRuleRequestSchema = z
+  .object(alertRuleFields)
+  .refine((r) => (r.metric === "item_fail_rate") === (r.itemKey !== null), {
+    message: "choose a rubric item for an item fail rate, and only then",
+    path: ["itemKey"],
+  });
+export type AlertRuleRequest = z.input<typeof alertRuleRequestSchema>;
+
+export const alertRuleSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  metric: z.enum(ALERT_METRICS),
+  scope: z.enum(ALERT_SCOPES),
+  itemKey: z.string().nullable(),
+  thresholdPoints: z.number(),
+  windowDays: z.number(),
+  baselineDays: z.number(),
+  minCalls: z.number(),
+  cooldownHours: z.number(),
+  enabled: z.boolean(),
+  createdAt: timestamp,
+  lastEvaluatedAt: timestamp.nullable(),
+  firings30d: z.number(),
+});
+export type AlertRule = z.infer<typeof alertRuleSchema>;
+export const alertRuleListSchema = z.object({ items: z.array(alertRuleSchema) });
+
+export const alertFiringSchema = z.object({
+  id: z.string(),
+  ruleId: z.string(),
+  ruleName: z.string(),
+  groupId: z.string(),
+  groupName: z.string(),
+  value: z.number(),
+  baseline: z.number(),
+  calls: z.number(),
+  firedAt: timestamp,
+});
+export type AlertFiring = z.infer<typeof alertFiringSchema>;
+export const alertFiringListSchema = z.object({ items: z.array(alertFiringSchema) });
+
+export const DIGEST_FREQUENCIES = ["off", "daily", "weekly"] as const;
+export const digestSettingSchema = z.object({ frequency: z.enum(DIGEST_FREQUENCIES) });
+export type DigestSetting = z.infer<typeof digestSettingSchema>;
+
+export const teamSettingsSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** The team's own setting; null uses the default. */
+  audioRetentionDays: z.number().nullable(),
+  /** What applies: the team's setting or the default. */
+  effectiveRetentionDays: z.number(),
+  calls: z.number(),
+});
+export type TeamSettings = z.infer<typeof teamSettingsSchema>;
+export const teamSettingsListSchema = z.object({
+  items: z.array(teamSettingsSchema),
+  defaultRetentionDays: z.number(),
+});
+export const updateTeamRequestSchema = z.object({
+  audioRetentionDays: z.number().int().min(1).max(3650).nullable(),
+});
+export const callDetailQuerySchema = z.object({ reveal: z.enum(["pii"]).optional() });
+
+export const memberSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  displayName: z.string(),
+  role: z.enum(ROLES),
+  agentId: z.string().nullable(),
+  agentName: z.string().nullable(),
+  disabledAt: timestamp.nullable(),
+  createdAt: timestamp,
+});
+export type Member = z.infer<typeof memberSchema>;
+export const memberListSchema = z.object({ items: z.array(memberSchema) });
+
+/** Invite someone: Supabase emails them a link; their role is set here, before they first sign in. */
+export const inviteMemberRequestSchema = z
+  .object({
+    email: z.email().max(254),
+    displayName: z.string().trim().min(1).max(80),
+    role: z.enum(ROLES),
+    agentId: z.uuid().nullable().default(null),
+  })
+  .refine((m) => (m.role === "agent") === (m.agentId !== null), {
+    message: "an agent account links to an agent record, and only an agent account",
+    path: ["agentId"],
+  });
+export type InviteMemberRequest = z.input<typeof inviteMemberRequestSchema>;
+
+export const updateMemberRequestSchema = z
+  .object({
+    role: z.enum(ROLES).optional(),
+    agentId: z.uuid().nullable().optional(),
+    disabled: z.boolean().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), "nothing to change");
+export type UpdateMemberRequest = z.infer<typeof updateMemberRequestSchema>;
+
+export const billingPricesSchema = z.object({
+  currency: z.string().regex(/^[A-Z]{3}$/, "a three-letter currency code"),
+  /** Units of the currency per US dollar, for model spend. */
+  usdRate: z.number().positive().max(100_000),
+  perCall: z.number().min(0).max(1_000_000),
+  perAudioMinute: z.number().min(0).max(1_000_000),
+  modelMarkupPct: z.number().min(0).max(1000),
+});
+export type BillingPrices = z.infer<typeof billingPricesSchema>;
+
+export const statementQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "YYYY-MM"),
+});
+
+const usageBreakdownSchema = z.array(
+  z.object({
+    name: z.string(),
+    calls: z.number(),
+    audioMinutes: z.number(),
+    modelCostUsd: z.number(),
+  }),
+);
+
+export const statementSchema = z.object({
+  month: z.string(),
+  from: isoDate,
+  to: isoDate,
+  prices: billingPricesSchema,
+  lines: z.array(
+    z.object({
+      label: z.string(),
+      quantity: z.number(),
+      unit: z.string(),
+      unitPrice: z.number(),
+      amount: z.number(),
+    }),
+  ),
+  total: z.number(),
+  byTeam: usageBreakdownSchema,
+  byProduct: usageBreakdownSchema,
+  byApiKey: usageBreakdownSchema,
+});
+export type Statement = z.infer<typeof statementSchema>;
+
+export const STATUS_COMPONENTS = ["api", "database", "storage", "processing", "models"] as const;
+export type StatusComponent = (typeof STATUS_COMPONENTS)[number];
+export const NOTICE_SEVERITIES = ["info", "degraded", "outage"] as const;
+
+export const statusNoticeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  severity: z.enum(NOTICE_SEVERITIES),
+  startedAt: timestamp,
+  resolvedAt: timestamp.nullable(),
+});
+export type StatusNotice = z.infer<typeof statusNoticeSchema>;
+
+export const statusSchema = z.object({
+  /** operational when every component is up and no outage is posted. */
+  overall: z.enum(["operational", "degraded", "outage"]),
+  checkedAt: timestamp,
+  components: z.array(
+    z.object({
+      component: z.enum(STATUS_COMPONENTS),
+      ok: z.boolean(),
+      latencyMs: z.number().nullable(),
+      detail: z.string().nullable(),
+      /** Share of checks that passed per day, oldest first; null for a day with no checks. */
+      history: z.array(z.object({ day: isoDate, uptime: z.number().nullable() })),
+    }),
+  ),
+  notices: z.array(statusNoticeSchema),
+});
+export type Status = z.infer<typeof statusSchema>;
+
+export const postNoticeRequestSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  body: z.string().trim().max(2000).default(""),
+  severity: z.enum(NOTICE_SEVERITIES),
+});
+export type PostNoticeRequest = z.input<typeof postNoticeRequestSchema>;

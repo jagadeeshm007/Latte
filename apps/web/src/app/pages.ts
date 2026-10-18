@@ -38,3 +38,27 @@ export const DevelopersPage = lazy(() =>
 export const ApiKeyPage = lazy(() =>
   import("@/features/developers/ApiKeyPage").then((m) => ({ default: m.ApiKeyPage })),
 );
+export const WebhookPage = lazy(() =>
+  import("@/features/developers/WebhookPage").then((m) => ({ default: m.WebhookPage })),
+);
+export const DocsPage = lazy(() =>
+  import("@/features/developers/DocsPage").then((m) => ({ default: m.DocsPage })),
+);
+export const NotificationsPage = lazy(() =>
+  import("@/features/inbox/NotificationsPage").then((m) => ({ default: m.NotificationsPage })),
+);
+export const AlertsPage = lazy(() =>
+  import("@/features/alerts/AlertsPage").then((m) => ({ default: m.AlertsPage })),
+);
+export const TeamsPage = lazy(() =>
+  import("@/features/settings/TeamsPage").then((m) => ({ default: m.TeamsPage })),
+);
+export const MembersPage = lazy(() =>
+  import("@/features/members/MembersPage").then((m) => ({ default: m.MembersPage })),
+);
+export const BillingPage = lazy(() =>
+  import("@/features/billing/BillingPage").then((m) => ({ default: m.BillingPage })),
+);
+export const StatusPage = lazy(() =>
+  import("@/features/status/StatusPage").then((m) => ({ default: m.StatusPage })),
+);

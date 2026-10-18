@@ -40,6 +40,10 @@ const envSchema = z.object({
    * API process serves traffic; unset, each process makes its own at start.
    */
   EXPORT_LINK_SECRET: optional(z.string().min(32)),
+  /** 32 bytes as 64 hex characters; encrypts webhook signing secrets at rest (ADR-0021). */
+  DATA_ENCRYPTION_KEY: optional(z.string().regex(/^[0-9a-fA-F]{64}$/, "64 hex characters")),
+  /** Vercel Cron sends it as a bearer token; the cron routes refuse anything else (ADR-0020). */
+  CRON_SECRET: optional(z.string().min(32)),
 
   GROQ_API_KEY: optional(z.string().min(10)),
   OPENROUTER_API_KEY: optional(z.string().min(10)),

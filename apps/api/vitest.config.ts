@@ -19,6 +19,7 @@ export default defineConfig({
       exclude: [
         "src/**/*.test.ts",
         "src/server.ts",
+        "src/vercel.ts",
         "src/worker.ts",
         "src/seed.ts",
         "src/env-check.ts",

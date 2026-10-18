@@ -303,3 +303,16 @@ export function resultsTable(
     ]),
   ];
 }
+
+/** reopenBatch clears completed_at after a retry, so batch.completed fires again when the retry finishes. */
+export async function reopenBatch(
+  db: Queryable,
+  by: { batchId: string } | { callId: string },
+): Promise<void> {
+  await db.query(
+    "batchId" in by
+      ? "UPDATE batches SET completed_at = NULL WHERE id = $1"
+      : "UPDATE batches SET completed_at = NULL WHERE id = (SELECT batch_id FROM calls WHERE id = $1)",
+    ["batchId" in by ? by.batchId : by.callId],
+  );
+}

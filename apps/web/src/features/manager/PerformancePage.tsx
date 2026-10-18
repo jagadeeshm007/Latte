@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { toastManager } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SavedViewsMenu } from "@/features/views/SavedViewsMenu";
 import { saveCsv } from "@/lib/download";
 import { leaderboardQuery, rubricQuery, type LeaderboardParams } from "@/lib/endpoints";
 import { formatPercent } from "@/lib/format";
@@ -38,7 +39,11 @@ import { cn } from "@/lib/utils";
 
 import { groupName, rateTone } from "./dashboard-labels";
 import { RANGES, rangeOf, type RangeKey } from "./date-range";
-import { PERFORMANCE_PAGE_SIZE, type PerformanceSearch } from "./performance-search";
+import {
+  PERFORMANCE_PAGE_SIZE,
+  performanceSearchSchema,
+  type PerformanceSearch,
+} from "./performance-search";
 
 // Every team, product, agent or language ranked: sorted, searched and paged on
 // the server, so 500 agents read as easily as five. State lives in the URL.
@@ -165,16 +170,27 @@ export function PerformancePage({
         title="Performance"
         description="Every agent, team, product and language, ranked for the period you choose."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            loading={exporting}
-            disabled={!board.data?.total}
-            onClick={() => void downloadCsv()}
-          >
-            <DownloadIcon aria-hidden="true" />
-            Download CSV
-          </Button>
+          <>
+            <SavedViewsMenu
+              page="performance"
+              current={{ ...search, page: undefined }}
+              onApply={(view) => {
+                const next = performanceSearchSchema.parse(view);
+                setText(next.q ?? "");
+                onSearch({ ...next, page: undefined });
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              loading={exporting}
+              disabled={!board.data?.total}
+              onClick={() => void downloadCsv()}
+            >
+              <DownloadIcon aria-hidden="true" />
+              Download CSV
+            </Button>
+          </>
         }
       />
       <Frame>

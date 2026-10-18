@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArchiveIcon, SearchIcon, UploadIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 
 import { PageNav } from "@/components/PageNav";
 import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SavedViewsMenu } from "@/features/views/SavedViewsMenu";
 import { batchesQuery } from "@/lib/endpoints";
 import { formatDate } from "@/lib/format";
 
@@ -29,6 +31,12 @@ import { BatchProgress, BatchStateBadge } from "./batch-ui";
 // pipeline and its results (ADR-0017). Refreshes itself while any batch runs.
 
 const PAGE_SIZE = 20;
+/** A saved view's filters, each parsed on its own so one stale value drops only itself. */
+const batchViewSchema = z.object({
+  q: z.string().max(100).optional().catch(undefined),
+  state: z.enum(BATCH_STATES).optional().catch(undefined),
+  archived: z.boolean().optional().catch(undefined),
+});
 const SEARCH_DELAY_MS = 300;
 const REFRESH_MS = 5000;
 const STATE_LABEL: Record<BatchState | "all", string> = {
@@ -70,10 +78,24 @@ export function BatchesPage() {
         title="Batches"
         description="Calls uploaded together, by people in the app or through the API."
         actions={
-          <Link to="/upload" className={buttonVariants({ size: "sm" })}>
-            <UploadIcon aria-hidden="true" />
-            Upload a batch
-          </Link>
+          <>
+            <SavedViewsMenu
+              page="batches"
+              current={{ q, state, archived: archived || undefined }}
+              onApply={(view) => {
+                const next = batchViewSchema.parse(view);
+                setText(next.q ?? "");
+                setQ(next.q);
+                setState(next.state);
+                setArchived(next.archived ?? false);
+                setPage(1);
+              }}
+            />
+            <Link to="/upload" className={buttonVariants({ size: "sm" })}>
+              <UploadIcon aria-hidden="true" />
+              Upload a batch
+            </Link>
+          </>
         }
       />
       <Frame>

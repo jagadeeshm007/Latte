@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -86,5 +86,11 @@ env-check: ## Show which configuration variables are set (never their values)
 build-web: ## Production build of the web app
 	$(PNPM) --filter @scc/web build
 
+vercel-build: ## Build .vercel/output: static web app, bundled API function, routes and crons (ADR-0020)
+	node scripts/vercel-build.js
+
+vercel-smoke: db vercel-build ## Load the built function locally and check it answers (needs Docker)
+	node scripts/vercel-smoke.js
+
 clean: ## Remove build and test output
-	rm -rf apps/*/dist apps/*/coverage packages/*/coverage evals/coverage $(STATE)/.check-passed
+	rm -rf .vercel/output apps/*/dist apps/*/coverage packages/*/coverage evals/coverage $(STATE)/.check-passed

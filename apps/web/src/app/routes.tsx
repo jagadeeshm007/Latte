@@ -9,18 +9,26 @@ import {
 import { HomeRedirect } from "@/app/HomeRedirect";
 import { NotFound } from "@/app/NotFound";
 import {
+  AlertsPage,
   ApiKeyPage,
   BatchDetailPage,
+  BillingPage,
   BatchesPage,
   CallDetailPage,
   CallsPage,
   DashboardPage,
   DevelopersPage,
+  DocsPage,
+  MembersPage,
+  NotificationsPage,
   PerformancePage,
   QueuePage,
   RubricPage,
   ScorecardPage,
+  StatusPage,
+  TeamsPage,
   UploadPage,
+  WebhookPage,
 } from "@/app/pages";
 import { RootLayout } from "@/app/RootLayout";
 import { RouteError } from "@/app/RouteError";
@@ -117,6 +125,30 @@ const apiKeyRoute = createRoute({
     return <ApiKeyPage key={keyId} keyId={keyId} />;
   },
 });
+const docsRoute = createRoute({
+  ...child,
+  path: "/developers/docs",
+  component: () => <DocsPage />,
+});
+const webhookRoute = createRoute({
+  ...child,
+  path: "/developers/webhooks/$webhookId",
+  component: function WebhookRoute() {
+    const { webhookId } = webhookRoute.useParams();
+    return <WebhookPage key={webhookId} webhookId={webhookId} />;
+  },
+});
+const notificationsRoute = createRoute({
+  ...child,
+  path: "/notifications",
+  component: () => <NotificationsPage />,
+});
+const alertsRoute = createRoute({ ...child, path: "/alerts", component: () => <AlertsPage /> });
+const teamsRoute = createRoute({ ...child, path: "/teams", component: () => <TeamsPage /> });
+const membersRoute = createRoute({ ...child, path: "/members", component: () => <MembersPage /> });
+const billingRoute = createRoute({ ...child, path: "/billing", component: () => <BillingPage /> });
+// Public: RootLayout serves it without a sign-in (ADR-0026).
+const statusRoute = createRoute({ ...child, path: "/status", component: () => <StatusPage /> });
 const rubricRoute = createRoute({ ...child, path: "/rubric", component: () => <RubricPage /> });
 
 const callRoute = createRoute({
@@ -151,6 +183,14 @@ export const routeTree = rootRoute.addChildren([
   batchRoute,
   developersRoute,
   apiKeyRoute,
+  docsRoute,
+  webhookRoute,
+  notificationsRoute,
+  alertsRoute,
+  teamsRoute,
+  membersRoute,
+  billingRoute,
+  statusRoute,
   rubricRoute,
 ]);
 

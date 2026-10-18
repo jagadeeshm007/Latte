@@ -677,6 +677,7 @@ describe("rubric editor (US-01-004)", () => {
     items: DEFAULT_RUBRIC.slice(0, 2),
     isActive: true,
     createdAt: "2026-10-01T00:00:00Z",
+    productId: null,
   };
   // An open dialog hides the page behind it from assistive tech, so look past that.
   const items = () => within(screen.getByRole("list", { name: "Rubric items", hidden: true }));

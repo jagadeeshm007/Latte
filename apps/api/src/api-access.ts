@@ -62,6 +62,14 @@ export const API_KEY_ROUTES: Rule[] = [
   rule("GET", "/dashboard", "analytics:read", "read"),
   rule("GET", "/dashboard/highlights", "analytics:read", "read"),
   rule("GET", "/dashboard/leaderboard", "analytics:read", "read"),
+  rule("GET", "/webhooks", "webhooks:write", "read"),
+  rule("POST", "/webhooks", "webhooks:write", "single"),
+  rule("GET", "/webhooks/:id", "webhooks:write", "read"),
+  rule("PATCH", "/webhooks/:id", "webhooks:write", "single"),
+  rule("DELETE", "/webhooks/:id", "webhooks:write", "single"),
+  rule("POST", "/webhooks/:id/test", "webhooks:write", "single"),
+  rule("GET", "/webhooks/:id/deliveries", "webhooks:write", "read"),
+  rule("POST", "/webhooks/:id/deliveries/:deliveryId/redeliver", "webhooks:write", "single"),
 ];
 
 export function matchRule(method: string, path: string): Rule | undefined {

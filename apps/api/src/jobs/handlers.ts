@@ -4,17 +4,19 @@ import { BudgetExceededError, type Gateway, RateLimitedError } from "@scc/gatewa
 import { ENGLISH, isRegional } from "@scc/shared";
 import type { Logger } from "pino";
 
+import { announceScored, failCall } from "./events.ts";
+import { type Enqueue, QUEUES, RETRY_LIMIT } from "./queue.ts";
 import { AudioError } from "../audio/decode.ts";
 import { type SttChunkResult, transcribeRecording } from "../audio/transcribe.ts";
 import { translateLines } from "../audio/translate.ts";
 import { inTransaction, type Pool } from "../db/pool.ts";
 import { purgeApiTraffic } from "../repo/api-keys.ts";
 import * as calls from "../repo/calls.ts";
-import { activeRubric, audit } from "../repo/reference.ts";
+import { audit, rubricFor } from "../repo/reference.ts";
 import { replaceScore } from "../repo/scores.ts";
+import { purgeDeliveries } from "../repo/webhooks.ts";
 import { scoreCall } from "../scoring/score.ts";
 import type { Storage } from "../storage.ts";
-import { type Enqueue, QUEUES, RETRY_LIMIT } from "./queue.ts";
 
 // The worker's three jobs. Each claims its call with one conditional update
 // (no check-then-act), re-reads every row it needs (tenet 6), reschedules on
@@ -86,7 +88,7 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
     return;
   }
   if (!call.storage_path) {
-    await calls.markFailed(pool, call.id, "Recording audio is no longer stored");
+    await failCall(pool, call.id, "Recording audio is no longer stored");
     return;
   }
   try {
@@ -166,7 +168,8 @@ export async function handleScore(deps: JobDeps, job: JobInfo): Promise<void> {
     return;
   }
   try {
-    const rubric = await activeRubric(pool);
+    // A product with its own rubric is scored by it; the rest by the default.
+    const rubric = await rubricFor(pool, call.product_id);
     if (!rubric) {
       throw new Error("no active rubric; run the seed");
     }
@@ -210,6 +213,7 @@ export async function handleScore(deps: JobDeps, job: JobInfo): Promise<void> {
         result.findings,
       );
       await calls.setStatus(client, call.id, "scored");
+      await announceScored(client, call.id);
     });
     log.info(
       {
@@ -237,7 +241,7 @@ async function handleFailure(
   if (error instanceof RateLimitedError) {
     const reschedules = (job.reschedules ?? 0) + 1;
     if (reschedules > MAX_RESCHEDULES) {
-      await calls.markFailed(
+      await failCall(
         pool,
         job.callId,
         "The model provider kept rate limiting this call; retry later or raise the plan limits",
@@ -254,16 +258,16 @@ async function handleFailure(
     return;
   }
   if (error instanceof AudioError) {
-    await calls.markFailed(pool, job.callId, error.message);
+    await failCall(pool, job.callId, error.message);
     return;
   }
   if (error instanceof BudgetExceededError) {
-    await calls.markFailed(pool, job.callId, BUDGET_MESSAGE);
+    await failCall(pool, job.callId, BUDGET_MESSAGE);
     return;
   }
   log.error({ err: error, callId: job.callId, attempt: job.retryCount }, `${queue} failed`);
   if (job.retryCount >= RETRY_LIMIT) {
-    await calls.markFailed(
+    await failCall(
       pool,
       job.callId,
       queue === "transcribe"
@@ -305,6 +309,8 @@ export async function handlePurge(
   }
   const stuck = await calls.failStuckCalls(pool, 2 * 3600);
   const apiRequests = await purgeApiTraffic(pool);
-  log.info({ purged, orphans, stuck, apiRequests }, "purge done");
+  const deliveries = await purgeDeliveries(pool);
+  await pool.query("DELETE FROM idempotency_keys WHERE created_at < now() - interval '24 hours'");
+  log.info({ purged, orphans, stuck, apiRequests, deliveries }, "purge done");
   return { purged, orphans };
 }

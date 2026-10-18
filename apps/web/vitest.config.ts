@@ -12,6 +12,8 @@ export default mergeConfig(
       include: ["src/**/*.test.{ts,tsx}"],
       // An absolute origin so MSW can match request URLs in node.
       env: { VITE_API_URL: "http://api.test" },
+      // Coverage-instrumented runs load lazy pages slowly; the default 5 s per test is too tight.
+      testTimeout: 15_000,
       restoreMocks: true,
       unstubGlobals: true,
       coverage: {

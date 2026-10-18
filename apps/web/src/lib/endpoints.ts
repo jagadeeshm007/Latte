@@ -1,10 +1,30 @@
 import {
   agreementSchema,
+  billingPricesSchema,
+  statementSchema,
+  statusSchema,
+  memberListSchema,
+  memberSchema,
+  teamSettingsListSchema,
+  teamSettingsSchema,
+  alertFiringListSchema,
+  alertRuleListSchema,
+  alertRuleSchema,
+  digestSettingSchema,
+  notificationListSchema,
+  savedViewListSchema,
+  savedViewSchema,
+  unreadCountSchema,
   apiKeyListSchema,
   apiKeyLogsSchema,
   apiKeyMetricsSchema,
   apiKeySchema,
   createdApiKeySchema,
+  createdWebhookSchema,
+  revokeAllKeysResponseSchema,
+  webhookDeliveryListSchema,
+  webhookEndpointListSchema,
+  webhookEndpointSchema,
   batchDetailSchema,
   batchListSchema,
   batchRetryResponseSchema,
@@ -23,9 +43,19 @@ import {
   uploadSignResponseSchema,
   usageHistorySchema,
   usageSchema,
+  type AlertRuleRequest,
+  type BillingPrices,
+  type PostNoticeRequest,
+  type InviteMemberRequest,
+  type UpdateMemberRequest,
   type ApiBucket,
+  type SavedViewPage,
+  type SaveViewRequest,
+  type UpdateViewRequest,
   type BatchExportPart,
   type CreateApiKeyRequest,
+  type CreateWebhookRequest,
+  type UpdateWebhookRequest,
   type UpdateApiKeyRequest,
   type BatchState,
   type BatchUpdateRequest,
@@ -96,11 +126,17 @@ export interface ApiKeyLogFilters {
   limit: number;
 }
 
+export interface DeliveryFilters {
+  status?: "pending" | "succeeded" | "failed" | undefined;
+  page: number;
+  limit: number;
+}
+
 export const keys = {
   me: ["me"] as const,
   reference: ["reference"] as const,
   calls: (f: CallFilters) => ["calls", "list", f] as const,
-  call: (id: string) => ["calls", "detail", id] as const,
+  call: (id: string, reveal = false) => ["calls", "detail", id, { reveal }] as const,
   queue: ["queue"] as const,
   scorecard: (agentId: string) => ["scorecard", agentId] as const,
   agreement: ["agreement"] as const,
@@ -111,11 +147,27 @@ export const keys = {
   batches: (f: BatchFilters) => ["batches", "list", f] as const,
   batch: (id: string) => ["batches", "detail", id] as const,
   apiKeys: ["api-keys", "list"] as const,
+  webhooks: ["webhooks", "list"] as const,
+  teams: ["teams"] as const,
+  members: ["members"] as const,
+  prices: ["billing", "prices"] as const,
+  statement: (month: string) => ["billing", "statement", month] as const,
+  status: ["status"] as const,
+  savedViews: (page: SavedViewPage) => ["saved-views", page] as const,
+  notifications: (f: { unread: boolean; page: number }) => ["notifications", "list", f] as const,
+  unread: ["notifications", "unread"] as const,
+  digest: ["digest"] as const,
+  alertRules: ["alerts", "rules"] as const,
+  alertFirings: ["alerts", "firings"] as const,
+  webhook: (id: string) => ["webhooks", "detail", id] as const,
+  webhookDeliveries: (id: string, f: DeliveryFilters) => ["webhooks", "deliveries", id, f] as const,
   apiKey: (id: string) => ["api-keys", "detail", id] as const,
   apiKeyMetrics: (id: string, days: number) => ["api-keys", "metrics", id, days] as const,
   apiKeyLogs: (id: string, f: ApiKeyLogFilters) => ["api-keys", "logs", id, f] as const,
   rubric: ["rubric", "active"] as const,
   rubrics: ["rubric", "all"] as const,
+  rubricFor: (productId: string | null) => ["rubric", "active", productId] as const,
+  rubricVersions: (productId: string | null) => ["rubric", "all", productId] as const,
 };
 
 const query = (f: object) => {
@@ -142,10 +194,12 @@ export const callsQuery = (f: CallFilters) =>
     queryKey: keys.calls(f),
     queryFn: ({ signal }) => apiFetch(`/api/calls${query(f)}`, callListSchema, { signal }),
   });
-export const callQuery = (id: string) =>
+/** reveal asks for personal data unmasked; the API allows it to QA and managers and records it. */
+export const callQuery = (id: string, reveal = false) =>
   queryOptions({
-    queryKey: keys.call(id),
-    queryFn: ({ signal }) => apiFetch(`/api/calls/${id}`, callDetailSchema, { signal }),
+    queryKey: keys.call(id, reveal),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/calls/${id}${reveal ? "?reveal=pii" : ""}`, callDetailSchema, { signal }),
   });
 export const queueQuery = queryOptions({
   queryKey: keys.queue,
@@ -206,6 +260,79 @@ export const apiKeyLogsQuery = (id: string, f: ApiKeyLogFilters) =>
     queryFn: ({ signal }) =>
       apiFetch(`/api/api-keys/${id}/logs${query(f)}`, apiKeyLogsSchema, { signal }),
   });
+export const webhooksQuery = queryOptions({
+  queryKey: keys.webhooks,
+  queryFn: ({ signal }) => apiFetch("/api/webhooks", webhookEndpointListSchema, { signal }),
+});
+export const webhookQuery = (id: string) =>
+  queryOptions({
+    queryKey: keys.webhook(id),
+    queryFn: ({ signal }) => apiFetch(`/api/webhooks/${id}`, webhookEndpointSchema, { signal }),
+  });
+export const webhookDeliveriesQuery = (id: string, f: DeliveryFilters) =>
+  queryOptions({
+    queryKey: keys.webhookDeliveries(id, f),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/webhooks/${id}/deliveries${query(f)}`, webhookDeliveryListSchema, { signal }),
+  });
+export const savedViewsQuery = (page: SavedViewPage) =>
+  queryOptions({
+    queryKey: keys.savedViews(page),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/saved-views?page=${page}`, savedViewListSchema, { signal }),
+  });
+export const notificationsQuery = (f: { unread: boolean; page: number }) =>
+  queryOptions({
+    queryKey: keys.notifications(f),
+    queryFn: ({ signal }) =>
+      apiFetch(
+        `/api/notifications${query({ unread: f.unread ? "true" : undefined, page: f.page, limit: 20 })}`,
+        notificationListSchema,
+        { signal },
+      ),
+  });
+export const unreadQuery = queryOptions({
+  queryKey: keys.unread,
+  queryFn: ({ signal }) =>
+    apiFetch("/api/notifications/unread-count", unreadCountSchema, { signal }),
+  refetchInterval: 60_000,
+});
+export const digestQuery = queryOptions({
+  queryKey: keys.digest,
+  queryFn: ({ signal }) => apiFetch("/api/digest", digestSettingSchema, { signal }),
+});
+export const alertRulesQuery = queryOptions({
+  queryKey: keys.alertRules,
+  queryFn: ({ signal }) => apiFetch("/api/alert-rules", alertRuleListSchema, { signal }),
+});
+export const alertFiringsQuery = queryOptions({
+  queryKey: keys.alertFirings,
+  queryFn: ({ signal }) => apiFetch("/api/alert-firings", alertFiringListSchema, { signal }),
+});
+export const pricesQuery = queryOptions({
+  queryKey: keys.prices,
+  queryFn: ({ signal }) => apiFetch("/api/billing/prices", billingPricesSchema, { signal }),
+});
+export const statementQuery = (month: string) =>
+  queryOptions({
+    queryKey: keys.statement(month),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/billing/statement?month=${month}`, statementSchema, { signal }),
+  });
+/** The public status page; it needs no sign-in, and refreshes every few minutes. */
+export const statusQuery = queryOptions({
+  queryKey: keys.status,
+  queryFn: ({ signal }) => apiFetch("/api/status", statusSchema, { signal }),
+  refetchInterval: 5 * 60_000,
+});
+export const membersQuery = queryOptions({
+  queryKey: keys.members,
+  queryFn: ({ signal }) => apiFetch("/api/members", memberListSchema, { signal }),
+});
+export const teamsQuery = queryOptions({
+  queryKey: keys.teams,
+  queryFn: ({ signal }) => apiFetch("/api/teams", teamSettingsListSchema, { signal }),
+});
 export const usageQuery = queryOptions({
   queryKey: keys.usage,
   queryFn: ({ signal }) => apiFetch("/api/usage", usageSchema, { signal }),
@@ -220,6 +347,24 @@ export const rubricQuery = queryOptions({
   queryKey: keys.rubric,
   queryFn: ({ signal }) => apiFetch("/api/rubrics/active", rubricSchema, { signal }),
 });
+/** The rubric that scores a product (its own or the default); null asks for the default. */
+export const rubricForQuery = (productId: string | null) =>
+  queryOptions({
+    queryKey: keys.rubricFor(productId),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/rubrics/active${productId ? `?productId=${productId}` : ""}`, rubricSchema, {
+        signal,
+      }),
+  });
+/** A product's own versions, or the default's when productId is null. */
+export const rubricVersionsQuery = (productId: string | null) =>
+  queryOptions({
+    queryKey: keys.rubricVersions(productId),
+    queryFn: ({ signal }) =>
+      apiFetch(`/api/rubrics${productId ? `?productId=${productId}` : ""}`, rubricListSchema, {
+        signal,
+      }),
+  });
 export const rubricsQuery = queryOptions({
   queryKey: keys.rubrics,
   queryFn: ({ signal }) => apiFetch("/api/rubrics", rubricListSchema, { signal }),
@@ -273,6 +418,47 @@ export const api = {
   updateApiKey: (id: string, body: UpdateApiKeyRequest) =>
     apiSend(`/api/api-keys/${id}`, apiKeySchema, "PATCH", body),
   revokeApiKey: (id: string) => apiSend(`/api/api-keys/${id}/revoke`, noContent, "POST"),
-  saveRubric: (name: string, items: RubricItem[]) =>
-    apiSend("/api/rubrics", rubricSchema, "POST", { name, items }),
+  rotateApiKey: (id: string) => apiSend(`/api/api-keys/${id}/rotate`, createdApiKeySchema, "POST"),
+  revokeAllApiKeys: () =>
+    apiSend("/api/api-keys/revoke-all", revokeAllKeysResponseSchema, "POST", {
+      confirm: "REVOKE ALL",
+    }),
+  createWebhook: (body: CreateWebhookRequest) =>
+    apiSend("/api/webhooks", createdWebhookSchema, "POST", body),
+  updateWebhook: (id: string, body: UpdateWebhookRequest) =>
+    apiSend(`/api/webhooks/${id}`, webhookEndpointSchema, "PATCH", body),
+  deleteWebhook: (id: string) => apiSend(`/api/webhooks/${id}`, noContent, "DELETE"),
+  testWebhook: (id: string) =>
+    apiSend(`/api/webhooks/${id}/test`, z.object({ queued: z.number() }), "POST"),
+  redeliverWebhook: (id: string, deliveryId: string) =>
+    apiSend(
+      `/api/webhooks/${id}/deliveries/${deliveryId}/redeliver`,
+      z.object({ queued: z.number() }),
+      "POST",
+    ),
+  setPrices: (body: BillingPrices) =>
+    apiSend("/api/billing/prices", billingPricesSchema, "PUT", body),
+  postNotice: (body: PostNoticeRequest) =>
+    apiSend("/api/status/notices", z.object({ id: z.string() }), "POST", body),
+  resolveNotice: (id: string) => apiSend(`/api/status/notices/${id}/resolve`, noContent, "POST"),
+  inviteMember: (body: InviteMemberRequest) => apiSend("/api/members", memberSchema, "POST", body),
+  updateMember: (id: string, body: UpdateMemberRequest) =>
+    apiSend(`/api/members/${id}`, memberSchema, "PATCH", body),
+  updateTeam: (id: string, body: { audioRetentionDays: number | null }) =>
+    apiSend(`/api/teams/${id}`, teamSettingsSchema, "PATCH", body),
+  saveView: (body: SaveViewRequest) => apiSend("/api/saved-views", savedViewSchema, "POST", body),
+  updateView: (id: string, body: UpdateViewRequest) =>
+    apiSend(`/api/saved-views/${id}`, savedViewSchema, "PATCH", body),
+  deleteView: (id: string) => apiSend(`/api/saved-views/${id}`, noContent, "DELETE"),
+  markRead: (id: string) => apiSend(`/api/notifications/${id}/read`, noContent, "POST"),
+  markAllRead: () => apiSend("/api/notifications/read-all", z.object({ read: z.number() }), "POST"),
+  setDigest: (frequency: "off" | "daily" | "weekly") =>
+    apiSend("/api/digest", digestSettingSchema, "PUT", { frequency }),
+  createAlertRule: (body: AlertRuleRequest) =>
+    apiSend("/api/alert-rules", alertRuleSchema, "POST", body),
+  updateAlertRule: (id: string, body: AlertRuleRequest) =>
+    apiSend(`/api/alert-rules/${id}`, alertRuleSchema, "PUT", body),
+  deleteAlertRule: (id: string) => apiSend(`/api/alert-rules/${id}`, noContent, "DELETE"),
+  saveRubric: (name: string, items: RubricItem[], productId: string | null = null) =>
+    apiSend("/api/rubrics", rubricSchema, "POST", { name, items, productId }),
 };

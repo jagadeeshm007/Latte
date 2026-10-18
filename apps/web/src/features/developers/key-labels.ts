@@ -1,4 +1,4 @@
-import type { ApiBucket, ApiKey, ApiScope } from "@scc/shared";
+import type { ApiBucket, ApiKey, ApiScope, WebhookEvent } from "@scc/shared";
 
 // Words for API keys, shared by the developer pages.
 
@@ -12,6 +12,7 @@ export const SCOPE_LABEL: Record<ApiScope, { label: string; hint: string }> = {
   "batches:write": { label: "Manage batches", hint: "Rename, archive and retry batches" },
   "exports:read": { label: "Export", hint: "Download batch results as CSV or ZIP" },
   "analytics:read": { label: "Analytics", hint: "Dashboard highlights and the leaderboard" },
+  "webhooks:write": { label: "Webhooks", hint: "Register endpoints and read their deliveries" },
 };
 
 export const BUCKET_LABEL: Record<ApiBucket, { label: string; per: string }> = {
@@ -39,4 +40,12 @@ export const STATUS_BADGE: Record<
   active: { label: "Active", variant: "success" },
   revoked: { label: "Revoked", variant: "secondary" },
   expired: { label: "Expired", variant: "warning" },
+};
+
+export const EVENT_LABEL: Record<Exclude<WebhookEvent, "ping">, string> = {
+  "call.scored": "Call scored",
+  "call.failed": "Call failed",
+  "batch.completed": "Batch completed",
+  "alert.triggered": "Alert fired",
+  "digest.ready": "Digest ready",
 };

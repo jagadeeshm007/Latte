@@ -1,4 +1,4 @@
-import { AudioWaveformIcon } from "lucide-react";
+import { AudioWaveformIcon, Building2Icon } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -6,13 +6,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { env } from "@/lib/env";
 
-import { signIn } from "./session";
+import { signIn, signInWithProvider, signInWithSso } from "./session";
 
-/** S1: sign in with the email and password Supabase Auth holds (US-00-003). */
+const PROVIDER_LABEL = {
+  google: "Continue with Google",
+  azure: "Continue with Microsoft",
+} as const;
+
+/**
+ * S1: sign in with an email and password, or with Google, Microsoft or the
+ * company's SAML sign-in where they are set up (US-00-003, ADR-0024). Latte
+ * is invite-only: whichever way someone signs in, the API lets them in only
+ * if a manager invited them.
+ */
 export function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [email, setEmail] = useState("");
+  const providers = env.VITE_AUTH_PROVIDERS;
+  const oauth = providers.filter((p): p is "google" | "azure" => p !== "saml");
+
+  async function run(attempt: Promise<string | null>) {
+    setPending(true);
+    setError(null);
+    const failure = await attempt;
+    setPending(false);
+    if (failure) setError(failure);
+  }
 
   async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,7 +70,16 @@ export function SignInPage() {
           <form className="flex flex-col gap-4" onSubmit={(e) => void onSubmit(e)} noValidate>
             <Field>
               <FieldLabel>Email</FieldLabel>
-              <Input name="email" type="email" autoComplete="username" required />
+              <Input
+                name="email"
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                }}
+              />
             </Field>
             <Field invalid={error !== null}>
               <FieldLabel>Password</FieldLabel>
@@ -59,6 +90,36 @@ export function SignInPage() {
               Sign in
             </Button>
           </form>
+          {providers.length > 0 ? (
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+                or
+              </p>
+              {oauth.map((p) => (
+                <Button
+                  key={p}
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => void run(signInWithProvider(p))}
+                >
+                  {PROVIDER_LABEL[p]}
+                </Button>
+              ))}
+              {providers.includes("saml") ? (
+                <Button
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => void run(signInWithSso(email))}
+                >
+                  <Building2Icon aria-hidden="true" />
+                  Sign in with your company (SSO)
+                </Button>
+              ) : null}
+              <p className="text-center text-xs text-muted-foreground">
+                Only people a manager has invited can sign in.
+              </p>
+            </div>
+          ) : null}
         </CardPanel>
       </Card>
     </main>

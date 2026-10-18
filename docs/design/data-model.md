@@ -414,6 +414,26 @@ One row per request made with a key: route template, bucket, status, duration an
 
 A request count per key, bucket and fixed window, upserted on every keyed request so limits hold across API processes. Kept one day. Primary key (api_key_id, bucket, window_start).
 
+### Platform tables (migrations 0009 to 0013)
+
+Added in SCC-1 for webhooks, idempotency, views, alerts, digests, governance, billing and status. Every table has RLS enabled with no policies, like the rest; the API is the only reader.
+
+| Table | Migration | Holds | Key columns | Kept |
+| --- | --- | --- | --- | --- |
+| `webhook_endpoints` | 0009 | A customer's HTTPS receiver (ADR-0021) | url, events text[], secret_ciphertext (AES-256-GCM), created_by, disabled_at, disabled_reason, consecutive_failures | until deleted |
+| `webhook_deliveries` | 0009 | The outbox: one row per event per endpoint | endpoint_id, event_id, event_type, payload jsonb, status, attempts, last_status, last_error, next_attempt_at, delivered_at | 30 days once finished |
+| `idempotency_keys` | 0009 | The first response per owner and key (ADR-0022) | PK (owner, key), method, route, request_hash, status, response_status, response_body | 24 hours |
+| `saved_views` | 0010 | Named filters per page (ADR-0025) | owner_id, page, name, search jsonb, shared | until deleted |
+| `notifications` | 0010 | The in-app inbox | recipient_id, kind, title, body, link, data jsonb, read_at | not purged yet |
+| `alert_rules` | 0010 | When to alert on a metric jump | name, metric, scope, item_key, threshold_points, window_days, baseline_days, min_calls, cooldown_hours, enabled, last_evaluated_at | until deleted |
+| `alert_firings` | 0010 | Each time a rule fired, for history and cooldown | rule_id, group_id, group_name, value, baseline, calls, fired_at | with its rule |
+| `digest_subscriptions` | 0010 | Who gets a digest and how often | PK profile_id, frequency, last_sent_at | until turned off |
+| `billing_prices` | 0013 | The single price list (ADR-0026) | id = 1, currency, usd_rate, per_call, per_audio_minute, model_markup_pct, updated_by | one row |
+| `status_checks` | 0013 | One row per component per check | component, ok, latency_ms, detail, checked_at | 90 days |
+| `status_notices` | 0013 | Incidents shown on /status | title, body, severity, started_at, resolved_at, created_by | kept |
+
+**New columns**: `batches.completed_at` (0009, guards a single `batch.completed` event); `rubrics.product_id` (0011, null is the default rubric, one active rubric per product by partial unique index); `teams.audio_retention_days` (0011, null means `AUDIO_RETENTION_DAYS`); `profiles.disabled_at` (0012, a disabled person is refused).
+
 ## 5. MongoDB
 
 n/a (no mongodb store)
@@ -441,7 +461,7 @@ n/a (no clickhouse store)
 
 | Table | Lifetime | Rule | Mechanism |
 | --- | --- | --- | --- |
-| calls (audio object) | 90 days from upload | Q-004 assumption, pending confirmation | daily purge job deletes the object, sets audio_purged_at, clears storage_path |
+| calls (audio object) | 90 days from upload, or the team's `audio_retention_days` | Q-004 assumption, pending confirmation; per team since 0011 | daily purge job deletes the object, sets audio_purged_at, clears storage_path |
 | calls (row) | UNDEFINED | owner question Q-009 | none until decided |
 | transcript_segments | UNDEFINED | owner question Q-009 | none until decided |
 | findings, finding_reviews, scores | UNDEFINED | owner question Q-009 | none until decided |
@@ -449,7 +469,7 @@ n/a (no clickhouse store)
 | audit_events | UNDEFINED | owner question Q-009 | none until decided |
 | agents, profiles | UNDEFINED | owner question Q-009 | none until decided |
 
-Personal-data columns: agents.name (agent name), profiles.email (contact), profiles.display_name (name), calls.original_filename (may carry customer name), transcript_segments.text (customer speech), findings.quote (customer or agent speech), finding_reviews.note (free text).
+Personal data is masked on read in transcripts, quotes and exports (ADR-0023); stored text is unchanged. Personal-data columns: agents.name (agent name), profiles.email (contact), profiles.display_name (name), calls.original_filename (may carry customer name), transcript_segments.text (customer speech), findings.quote (customer or agent speech), finding_reviews.note (free text).
 
 Erasure: a customer erasure request cannot be matched to calls today; no customer identifier is stored. Owner question Q-009.
 

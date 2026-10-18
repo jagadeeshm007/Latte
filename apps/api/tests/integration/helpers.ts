@@ -12,6 +12,7 @@ import { migrate } from "../../src/db/migrate.ts";
 import { createPool, inTransaction, type Pool } from "../../src/db/pool.ts";
 import type { Enqueue } from "../../src/jobs/queue.ts";
 import { PgUsageStore, saveRubricVersion } from "../../src/repo/reference.ts";
+import type { AppDeps } from "../../src/routes/deps.ts";
 import type { Storage } from "../../src/storage.ts";
 
 // Integration harness: a real Postgres (make db), a local JWKS standing in
@@ -35,9 +36,11 @@ export async function testPool(): Promise<Pool> {
 
 export async function resetData(pool: Pool): Promise<void> {
   await pool.query(
-    `TRUNCATE audit_events, finding_reviews, findings, scores, model_calls, transcript_segments, calls, batches, rate_limit_windows, api_requests, api_keys, rubrics,
+    `TRUNCATE audit_events, status_checks, status_notices, saved_views, notifications, alert_firings, alert_rules, digest_subscriptions, finding_reviews, findings, scores, model_calls, transcript_segments, webhook_deliveries, webhook_endpoints, idempotency_keys, calls, batches, rate_limit_windows, api_requests, api_keys, rubrics,
               profiles, agents, products, teams RESTART IDENTITY CASCADE`,
   );
+  // A single price row the migration seeds; put the defaults back for each test.
+  await pool.query("DELETE FROM billing_prices; INSERT INTO billing_prices (id) VALUES (1)");
 }
 
 export interface Fixture {
@@ -157,8 +160,26 @@ export function recordingQueue() {
 }
 
 export const log = pino({ level: "silent" });
+/** A fixed key for encrypting webhook secrets in tests. */
+export const TEST_ENCRYPTION_KEY = "ab".repeat(32);
+/** The scheduler's secret in tests; a deployment's comes from the environment. */
+export const TEST_CRON_SECRET = "cron-secret-for-tests-".padEnd(40, "x");
 
-export async function testApp(pool: Pool) {
+/** A stand-in for Supabase's invitations: records each one and hands back a new user id. */
+export function fakeInvites() {
+  const sent: { email: string; displayName: string; redirectTo: string }[] = [];
+  return {
+    sent,
+    invite: (email: string, displayName: string, redirectTo: string) => {
+      sent.push({ email, displayName, redirectTo });
+      return Promise.resolve({ id: randomUUID() });
+    },
+  };
+}
+
+/** testApp builds the app on fakes; extra adds or overrides dependencies, such as cron tasks. */
+export async function testApp(pool: Pool, extra: Partial<AppDeps> = {}) {
+  const invites = fakeInvites();
   const storage = new MemoryStorage();
   const queue = recordingQueue();
   const tokens = await tokenIssuer();
@@ -168,14 +189,18 @@ export async function testApp(pool: Pool) {
       SIGNED_URL_SECONDS: 600,
       LLM_BUDGET_USD: 5,
       WEB_ORIGIN: "http://localhost:5173",
+      DATA_ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
+      CRON_SECRET: TEST_CRON_SECRET,
     },
     pool,
     storage,
     enqueue: queue.enqueue,
     verify: tokens.verify,
     log,
+    authAdmin: invites,
+    ...extra,
   });
-  return { app, storage, queue, sign: tokens.sign };
+  return { app, storage, queue, sign: tokens.sign, invites };
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -233,4 +258,34 @@ export function fakeGateway(
     { fetch: fetch as unknown as typeof globalThis.fetch },
   );
   return { gateway, fetch };
+}
+
+/** insertScoredCall adds a scored call straight in SQL, for tests about dates and aggregates. */
+export async function insertScoredCall(
+  pool: Pool,
+  fx: Fixture,
+  o: { callDate: string; needsReview?: boolean; score?: number; agentId?: string },
+): Promise<string> {
+  const { rows } = await pool.query<{ id: string }>(
+    `WITH b AS (INSERT INTO batches (name, created_by) VALUES ('Scored', $4) RETURNING id),
+          c AS (INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename,
+                                   mime_type, size_bytes, storage_path, status, retention_until)
+                SELECT $1, $2, $3, $5::date, b.id, $4, 'c.wav', 'audio/wav', 10,
+                       $4::text || '/' || gen_random_uuid() || '.wav', 'scored', current_date + 90 FROM b
+                RETURNING id)
+     INSERT INTO scores (call_id, rubric_id, overall_score, judge_status, talk_ratio, needs_review, review_status)
+     SELECT c.id, (SELECT id FROM rubrics WHERE is_active LIMIT 1), $6, 'ok', 0.5, $7,
+            CASE WHEN $7 THEN 'pending'::review_status ELSE 'not_required'::review_status END
+       FROM c RETURNING call_id AS id`,
+    [
+      o.agentId ?? fx.agentA,
+      fx.teamId,
+      fx.productId,
+      fx.users.qa,
+      o.callDate,
+      o.score ?? 80,
+      o.needsReview ?? false,
+    ],
+  );
+  return rows[0]!.id;
 }
