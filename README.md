@@ -29,7 +29,7 @@ Everything runs on your machine: Postgres, Supabase Auth and Storage, the API, t
 GROQ_API_KEY=gsk_your_key make up
 ```
 
-- Open http://localhost:8000 and sign in with a user from `.scratch/seed-users.txt` (one per role).
+- Open http://localhost:8000 and sign in with a user from `.scratch/docker/seed-users.txt` (one per role; the hosted project keeps its own `.scratch/seed-users.txt`).
 - Invitation emails land in http://localhost:8025 (Mailpit).
 - `SARVAM_API_KEY=...` adds Indian-language calls. Keys can also go in `.env.docker` (generated on the first run with every other secret, git-ignored).
 - `make logs` follows the API and worker, and `make down` stops the stack while keeping the data. `docker compose --env-file .env.docker down -v` wipes it.

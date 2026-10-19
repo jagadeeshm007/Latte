@@ -70,12 +70,12 @@ db-stop: ## Stop the local Postgres for tests
 	docker compose -f docker-compose.test.yml down
 
 up: ## Run Latte completely locally in Docker; needs only a model key (GROQ_API_KEY=... make up)
-	@mkdir -p .scratch
+	@mkdir -p .scratch/docker
 	@if command -v node >/dev/null; then node scripts/docker-env.js; \
 	else docker run --rm -u "$$(id -u):$$(id -g)" -e GROQ_API_KEY -e SARVAM_API_KEY -e OPENROUTER_API_KEY -e GEMINI_API_KEY \
 	  -v "$$PWD:/w" -w /w node:24-slim node scripts/docker-env.js; fi
 	docker compose --env-file .env.docker up -d --build --wait
-	@echo "up: Latte on http://localhost:8000, mail on http://localhost:8025, sign-in details in .scratch/seed-users.txt"
+	@echo "up: Latte on http://localhost:8000, mail on http://localhost:8025, sign-in details in .scratch/docker/seed-users.txt"
 
 down: ## Stop the local stack (data stays; add -v to docker compose down to wipe it)
 	docker compose --env-file .env.docker down
