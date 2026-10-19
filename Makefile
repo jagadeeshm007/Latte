@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack up down logs setup-deploy clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack up down logs setup-deploy e2e-check clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -70,12 +70,12 @@ db-stop: ## Stop the local Postgres for tests
 	docker compose -f docker-compose.test.yml down
 
 up: ## Run Latte completely locally in Docker; needs only a model key (GROQ_API_KEY=... make up)
-	@mkdir -p .scratch
+	@mkdir -p .scratch/docker
 	@if command -v node >/dev/null; then node scripts/docker-env.js; \
 	else docker run --rm -u "$$(id -u):$$(id -g)" -e GROQ_API_KEY -e SARVAM_API_KEY -e OPENROUTER_API_KEY -e GEMINI_API_KEY \
 	  -v "$$PWD:/w" -w /w node:24-slim node scripts/docker-env.js; fi
 	docker compose --env-file .env.docker up -d --build --wait
-	@echo "up: Latte on http://localhost:8000, mail on http://localhost:8025, sign-in details in .scratch/seed-users.txt"
+	@echo "up: Latte on http://localhost:8000, mail on http://localhost:8025, sign-in details in .scratch/docker/seed-users.txt"
 
 down: ## Stop the local stack (data stays; add -v to docker compose down to wipe it)
 	docker compose --env-file .env.docker down
@@ -106,6 +106,9 @@ vercel-build: ## Build .vercel/output: static web app, bundled API function, rou
 
 vercel-smoke: db vercel-build ## Load the built function locally and check it answers (needs Docker)
 	node scripts/vercel-smoke.js
+
+e2e-check: sdk-build ## Sign in, upload one sample call and wait for its score (LATTE_URL=...; writes data, costs a few cents)
+	node scripts/e2e-check.js
 
 setup-deploy: ## One-time Vercel project and GitHub setup from .env; you run it, it never deploys (docs/runbooks/deploy-vercel.md)
 	bash scripts/setup-deploy.sh

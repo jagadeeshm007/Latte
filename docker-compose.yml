@@ -158,10 +158,11 @@ services:
     <<: *app
     restart: "no"
     # Reference data, the default rubric, the bucket and one user per role.
-    # New sign-in details are written to .scratch/seed-users.txt on the host.
+    # New sign-in details go to .scratch/docker/seed-users.txt on the host, apart
+    # from the hosted project's .scratch/seed-users.txt, which they must not replace.
     command: ["node_modules/.bin/tsx", "src/seed.ts"]
     volumes:
-      - ./.scratch:/app/.scratch
+      - ./.scratch/docker:/app/.scratch
     depends_on:
       migrate: { condition: service_completed_successfully }
 
