@@ -88,7 +88,8 @@ writeFileSync(path.join(funcDir, "package.json"), JSON.stringify({ type: "module
 // A function has no file to point DB_SSL_CA at, so the Supabase root CA can be
 // given as text in DB_SSL_CA_PEM at build time; it ships beside the bundle and
 // the server certificate is verified. Without it TLS is used unverified.
-const environment = {};
+// Set here, not as a project variable: NODE_ENV=production there skips devDependencies at install.
+const environment = { NODE_ENV: "production" };
 if (process.env.DB_SSL_CA_PEM) {
   mkdirSync(path.join(funcDir, "certs"), { recursive: true });
   writeFileSync(path.join(funcDir, "certs/db-ca.crt"), process.env.DB_SSL_CA_PEM);

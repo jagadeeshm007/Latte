@@ -3,6 +3,18 @@
 Owner: engineering. Covers ADR-0020. One Vercel project serves the web app,
 the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
+## First deploy
+
+`make setup-deploy` (`scripts/setup-deploy.sh`) does steps 1 and 5 of the setup below from your `.env`. It creates and links the project, connects GitHub, sets every variable, and sets the GitHub cron fallback. It never pushes, deploys or migrates. Then, in order:
+
+1. Run `make setup-deploy`.
+2. Apply the migrations to the hosted database: `pnpm --filter @scc/api migrate`. Then `make seed` once, if the project has no users yet.
+3. Push the branch. Vercel builds a preview deployment of it.
+4. Open the PR and merge it to `main`. Vercel builds production, and the `cron` workflow starts running from `main`.
+5. Read the production URL under Project > Domains. If it is not `https://latte.vercel.app`, run `LATTE_URL=<url> make setup-deploy` and redeploy, so invitations and the cron fallback use it.
+6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
+7. Release the SDK: push the tag `sdk-v0.1.0`.
+
 ## One-time setup
 
 1. **Project.** Import the repository in Vercel with the root directory at the
@@ -28,7 +40,7 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
    | Variable | Value |
    | --- | --- |
-   | `NODE_ENV` | `production` |
+   | `NODE_ENV` | do not set: the build sets it inside the function, and as a project variable it would skip devDependencies at install |
    | `DATABASE_URL` | Supabase session pooler URL |
    | `DB_SSL` | `true` |
    | `DB_SSL_CA_PEM` | the Supabase root CA as text (Database > SSL Configuration). The build writes it beside the function and sets `DB_SSL_CA`, so the server certificate is verified. Without it the connection is encrypted but not verified. Do not set `DB_SSL_CA` itself |
@@ -44,6 +56,7 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
    | `VITE_AUTH_PROVIDERS` | for example `google,azure,saml` once set up (`sso.md`) |
    | `VITE_API_URL` | leave unset: the API is on the same origin |
    | `VERCEL_CRON_PLAN` | `hobby` on a Hobby team, otherwise unset |
+   | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, so Vercel installs with the pnpm version in `package.json` |
 
 6. **Supabase Auth URLs.** Add the production URL (and the preview pattern) to
    Authentication > URL Configuration, so invitations and SSO return to Latte.
