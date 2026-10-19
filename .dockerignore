@@ -1,8 +1,15 @@
-node_modules
-dist
-coverage
+# Build context for docker/*.Dockerfile: sources and manifests only.
+**/node_modules
+**/dist
+**/coverage
+**/test-results
 .git
 .env
 .env.*
 !.env.example
-.bearing/state
+.vercel
+.scratch
+.bearing
+deliverables
+evals/audio
+packages/sdk/*.tgz

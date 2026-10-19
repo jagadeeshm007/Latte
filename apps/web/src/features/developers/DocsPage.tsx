@@ -23,6 +23,10 @@ import { env } from "@/lib/env";
 import { CodeBlock } from "./CodeBlock";
 import { BUCKET_LABEL, EVENT_LABEL, SCOPE_LABEL } from "./key-labels";
 
+/** The pinned SDK release; sdk-release.yml attaches it to the GitHub release for its tag. */
+const SDK_TARBALL =
+  "https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz";
+
 // The Latte API and SDK documentation, in the app so it always matches the
 // running version: scopes, limits and events come from the shared contract.
 
@@ -89,7 +93,11 @@ export function DocsPage() {
                 Create a key under <strong>Developers</strong>, then call the API from your server.
                 Never put a key in a browser or a mobile app.
               </p>
-              <CodeBlock label="Install the SDK" code="pnpm add @latte/sdk" />
+              <p>
+                The SDK has no dependencies and runs on Node 20 or later, Bun, Deno and edge
+                runtimes. Install a release straight from GitHub with npm, pnpm or yarn:
+              </p>
+              <CodeBlock label="Install the SDK" code={`npm install ${SDK_TARBALL}`} />
               <CodeBlock
                 label="First call"
                 code={`import { LatteClient } from "@latte/sdk";
@@ -215,8 +223,8 @@ const csv = await latte.batches.resultsCsv(done.id);`}
                 label="Check the signature (Express)"
                 code={`import { verifyWebhookSignature } from "@latte/sdk";
 
-app.post("/latte/webhooks", express.text({ type: "application/json" }), (req, res) => {
-  const ok = verifyWebhookSignature({
+app.post("/latte/webhooks", express.text({ type: "application/json" }), async (req, res) => {
+  const ok = await verifyWebhookSignature({
     secret: process.env.LATTE_WEBHOOK_SECRET!,
     header: req.get("Latte-Signature"),
     body: req.body,

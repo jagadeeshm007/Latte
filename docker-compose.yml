@@ -1,13 +1,182 @@
-# Local Postgres for the API integration tests (make db). Same major as Supabase.
+# Latte, completely local (ADR-0028): Postgres, Supabase Auth and Storage, a
+# mail catcher, the API, the worker and the web app. Only model keys come from
+# outside. Start it with `make up`, which writes .env.docker (every secret,
+# generated once) and runs:
+#   docker compose --env-file .env.docker up -d --build
+# Open http://localhost:8000; invitation emails land in http://localhost:8025.
+# The integration-test database is a separate file, docker-compose.test.yml.
+name: latte
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/app.Dockerfile
+  image: latte-app:local
+  # Shares the gateway's network, so http://localhost:8000 means the same
+  # thing here as in the browser (docker/nginx.conf).
+  network_mode: service:gateway
+  restart: unless-stopped
+  environment:
+    NODE_ENV: development
+    LOG_LEVEL: info
+    PORT: 8080
+    HOST: 127.0.0.1
+    WEB_ORIGIN: http://localhost:8000
+    DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?run make up}@db:5432/postgres
+    DB_POOL_MAX: 5
+    SUPABASE_URL: http://localhost:8000
+    SUPABASE_SECRET_KEY: ${SERVICE_ROLE_KEY:?run make up}
+    SUPABASE_JWKS_URL: http://localhost:8000/auth/v1/.well-known/jwks.json
+    RECORDINGS_BUCKET: recordings
+    EXPORT_LINK_SECRET: ${EXPORT_LINK_SECRET:?run make up}
+    DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?run make up}
+    GROQ_API_KEY: ${GROQ_API_KEY:-}
+    SARVAM_API_KEY: ${SARVAM_API_KEY:-}
+    OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    LLM_BUDGET_USD: ${LLM_BUDGET_USD:-5}
+    WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+
 services:
-  postgres:
-    image: postgres:17
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: scc_test
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports: ["${POSTGRES_PORT:-54329}:5432"]
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make up}
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: /var/run/postgresql
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+    volumes:
+      - ./docker/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 2s
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
       retries: 20
+
+  auth:
+    image: supabase/gotrue:v2.197.0
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: http://localhost:8000/auth/v1
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      GOTRUE_SITE_URL: http://localhost:8000
+      GOTRUE_URI_ALLOW_LIST: http://localhost:8000/**
+      # Invite-only (ADR-0024): people join through the Members page or the seed.
+      GOTRUE_DISABLE_SIGNUP: "true"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_ISSUER: http://localhost:8000/auth/v1
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?run make up}
+      # ES256 sessions with a public JWKS, which the API verifies (ADR-0003).
+      GOTRUE_JWT_KEYS: ${JWT_KEYS:?run make up}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SMTP_ADMIN_EMAIL: latte@localhost
+      GOTRUE_SMTP_HOST: mailpit
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_USER: latte
+      GOTRUE_SMTP_PASS: latte
+      GOTRUE_SMTP_SENDER_NAME: Latte
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  storage:
+    image: supabase/storage-api:v1.81.0
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      ANON_KEY: ${ANON_KEY:?run make up}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      JWT_JWKS: ${JWT_JWKS:?run make up}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      STORAGE_PUBLIC_URL: http://localhost:8000
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      GLOBAL_S3_BUCKET: stub
+      TENANT_ID: stub
+      REGION: stub
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+    volumes:
+      - storage-data:/var/lib/storage
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports: ["8025:8025"]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway.Dockerfile
+      args:
+        VITE_SUPABASE_URL: http://localhost:8000
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+    image: latte-gateway:local
+    restart: unless-stopped
+    depends_on:
+      auth: { condition: service_healthy }
+      storage: { condition: service_healthy }
+    ports: ["8000:8000"]
+
+  migrate:
+    <<: *app
+    restart: "no"
+    command: ["node_modules/.bin/tsx", "src/db/migrate.ts"]
+    depends_on:
+      db: { condition: service_healthy }
+      gateway: { condition: service_started }
+
+  seed:
+    <<: *app
+    restart: "no"
+    # Reference data, the default rubric, the bucket and one user per role.
+    # New sign-in details are written to .scratch/seed-users.txt on the host.
+    command: ["node_modules/.bin/tsx", "src/seed.ts"]
+    volumes:
+      - ./.scratch:/app/.scratch
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  api:
+    <<: *app
+    command: ["node_modules/.bin/tsx", "src/server.ts"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+
+  worker:
+    <<: *app
+    command: ["node_modules/.bin/tsx", "src/worker.ts"]
+    depends_on:
+      seed: { condition: service_completed_successfully }
+
+volumes:
+  db-data:
+  storage-data:

@@ -13,18 +13,20 @@ const header = (t: number, b = body) =>
     .digest("hex")}`;
 
 describe("verifyWebhookSignature", () => {
-  it("accepts a delivery Latte signed a moment ago", () => {
-    expect(verifyWebhookSignature({ secret, header: header(1_700_000_000), body, now })).toBe(true);
+  it("accepts a delivery Latte signed a moment ago", async () => {
+    expect(await verifyWebhookSignature({ secret, header: header(1_700_000_000), body, now })).toBe(
+      true,
+    );
   });
 
-  it("refuses a changed body, an old delivery, another secret and a mangled header", () => {
-    const results = [
+  it("refuses a changed body, an old delivery, another secret and a mangled header", async () => {
+    const results = await Promise.all([
       verifyWebhookSignature({ secret, header: header(1_700_000_000), body: `${body} `, now }),
       verifyWebhookSignature({ secret, header: header(1_699_999_000), body, now }),
       verifyWebhookSignature({ secret: "whsec_other", header: header(1_700_000_000), body, now }),
       verifyWebhookSignature({ secret, header: "t=abc,v1=xyz", body, now }),
       verifyWebhookSignature({ secret, header: undefined, body, now }),
-    ];
+    ]);
 
     expect(results).toEqual([false, false, false, false, false]);
   });

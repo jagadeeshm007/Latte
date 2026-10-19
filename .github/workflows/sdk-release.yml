@@ -1,0 +1,38 @@
+# Publishes @latte/sdk as a GitHub release, so any project can install it
+# without a registry (packages/sdk/README.md). Push a tag sdk-v<version>
+# matching packages/sdk/package.json; the release gets two assets:
+#   latte-sdk-<version>.tgz  pinned, for package.json
+#   latte-sdk.tgz            the same file, for releases/latest/download
+name: sdk-release
+
+on:
+  push:
+    tags: ["sdk-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: tag matches the package version
+        run: |
+          version=$(node -p "require('./packages/sdk/package.json').version")
+          [ "$GITHUB_REF_NAME" = "sdk-v$version" ] || { echo "tag $GITHUB_REF_NAME, package $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: make sdk-pack
+      - name: create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "packages/sdk/latte-sdk-$VERSION.tgz" packages/sdk/latte-sdk.tgz
+          gh release create "$GITHUB_REF_NAME" \
+            "packages/sdk/latte-sdk-$VERSION.tgz" packages/sdk/latte-sdk.tgz \
+            --title "@latte/sdk $VERSION" \
+            --notes "npm install https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/latte-sdk-$VERSION.tgz"

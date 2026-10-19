@@ -1,24 +1,49 @@
 {
   "name": "@latte/sdk",
-  "private": true,
   "version": "0.1.0",
-  "description": "TypeScript client for the Latte API: calls, batches, exports and analytics",
+  "license": "MIT",
+  "description": "Zero-dependency TypeScript client for the Latte API: calls, batches, exports, analytics and webhooks",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
+    "build": "node scripts/build.ts",
+    "gen:types": "node scripts/gen-types.ts",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/gen-types.ts --check",
     "test": "vitest run --coverage"
   },
-  "dependencies": {
-    "@scc/shared": "workspace:*",
-    "zod": "4.6.5"
-  },
   "devDependencies": {
+    "@scc/shared": "workspace:*",
     "@types/node": "24.13.4",
     "@vitest/coverage-v8": "4.1.11",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "zod": "4.6.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jagadeeshm007/Latte.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/jagadeeshm007/Latte/tree/main/packages/sdk#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "types": "./dist/index.d.ts",
+    "main": "./dist/index.js"
   }
 }

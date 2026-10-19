@@ -62,7 +62,7 @@ describe("LatteClient", () => {
     expect(() => new LatteClient({ apiKey: "sk_live_x", baseUrl: BASE })).toThrow(/latte_/);
   });
 
-  it("sends the key, a request id and the query, and validates the reply", async () => {
+  it("sends the key, a request id and the query, and returns the reply", async () => {
     const { latte, sent } = client([json({ items: [], nextCursor: null, total: 0 })]);
 
     const list = await latte.calls.list({ status: "failed", limit: 10, q: "" });
@@ -106,13 +106,15 @@ describe("LatteClient", () => {
     expect(write.sent).toHaveLength(1);
   });
 
-  it("names a response that does not match the API's schema", async () => {
-    const { latte } = client([json({ id: 1 })]);
+  it("reads an error body without the API's code as a plain HTTP error", async () => {
+    const { latte } = client([
+      new Response(JSON.stringify({ error: { message: "odd" } }), { status: 418 }),
+    ]);
 
     const error = await latte.me().catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ApiError);
-    expect(error).toMatchObject({ code: "invalid_response" });
+    expect(error).toMatchObject({ status: 418, code: "http", message: "HTTP 418" });
   });
 
   it("uploads one file: sign, PUT straight to storage without the key, then confirm", async () => {

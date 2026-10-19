@@ -3,7 +3,12 @@
 For developers connecting a CRM, dialler or data pipeline to Latte. The same
 content is in the app under Developers > Docs. The machine-readable reference
 is `GET /api/openapi.json`; the TypeScript client is `@latte/sdk`
-([packages/sdk/README.md](../../packages/sdk/README.md)).
+([packages/sdk/README.md](../../packages/sdk/README.md)), installed straight from a
+GitHub release:
+
+```bash
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz
+```
 
 ## Authentication
 
@@ -124,7 +129,7 @@ Checking a signature with the SDK:
 ```ts
 import { verifyWebhookSignature } from "@latte/sdk";
 
-const ok = verifyWebhookSignature({ secret, header: req.header("Latte-Signature"), body: rawBody });
+const ok = await verifyWebhookSignature({ secret, header: req.header("Latte-Signature"), body: rawBody });
 ```
 
 Without the SDK: split the header on `,`, read `t` and `v1`, compute

@@ -3,4 +3,5 @@ export { LatteClient, SDK_VERSION } from "./client.ts";
 export type { BatchUploadResult, LatteClientOptions, UploadFile, WriteOptions } from "./client.ts";
 export { ApiError, RateLimitError } from "./errors.ts";
 export { verifyWebhookSignature } from "./webhook.ts";
+export type * from "./types.ts";
 export type { VerifyOptions } from "./webhook.ts";

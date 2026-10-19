@@ -27,3 +27,6 @@ coverage/
 # Rendered seed audio is large; transcripts in evals/fixtures are committed instead
 evals/audio/
 .vercel/
+# Copied from the root LICENSE when the SDK is built
+packages/sdk/LICENSE
+packages/sdk/*.tgz
