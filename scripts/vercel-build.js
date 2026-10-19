@@ -3,8 +3,8 @@
 //   .vercel/output/functions/api.func the API as one bundled Node function
 //   .vercel/output/config.json       routes, SPA fallback and the cron schedule
 // Run it with `make vercel-build`; Vercel runs it as the project's build command.
-// VERCEL_CRON_PLAN=hobby writes daily crons only (Hobby's limit); the GitHub
-// Actions workflow in .github/workflows/cron.yml then drives the queue instead.
+// VERCEL_CRON_PLAN=hobby writes daily crons only (Hobby's limit); Supabase
+// pg_cron then calls the same routes every minute (make supabase-cron, ADR-0029).
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";

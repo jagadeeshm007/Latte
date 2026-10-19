@@ -1,6 +1,6 @@
 # ADR-0020: Deploy everything on Vercel, with Vercel Cron draining the job queue
 
-- Status: Accepted
+- Status: Accepted; scheduling amended by ADR-0029 (processing on upload, Supabase pg_cron)
 - Date: 2026-10-18
 - Task: SCC-1
 - Deciders: engineering, with the product owner (chose "all on Vercel + Cron")

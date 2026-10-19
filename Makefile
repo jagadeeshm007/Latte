@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack up down logs setup-deploy e2e-check clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack up down logs setup-deploy supabase-cron e2e-check clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -106,6 +106,9 @@ vercel-build: ## Build .vercel/output: static web app, bundled API function, rou
 
 vercel-smoke: db vercel-build ## Load the built function locally and check it answers (needs Docker)
 	node scripts/vercel-smoke.js
+
+supabase-cron: ## Schedule /api/cron/* every minute from the hosted Supabase (LATTE_URL=...; you run it, it changes production)
+	node scripts/supabase-cron.js
 
 e2e-check: sdk-build ## Sign in, upload one sample call and wait for its score (LATTE_URL=...; writes data, costs a few cents)
 	node scripts/e2e-check.js
