@@ -44,7 +44,7 @@ typecheck: ## tsc --noEmit, every package; the SDK's generated types must match 
 	@node packages/sdk/scripts/gen-types.ts --check
 
 test: db ## Unit and integration tests with coverage floors (starts Postgres)
-	@set -o pipefail; for p in $(ALL_PACKAGES); do echo "== test $$p"; (cd $$p && $(PNPM) exec vitest run --coverage 2>&1 | grep -E 'Test Files|Tests |ERROR|FAIL|×' ) || exit 1; done
+	@set -o pipefail; for p in $(ALL_PACKAGES); do echo "== test $$p"; (cd $$p && $(PNPM) exec vitest run --coverage 2>&1 | grep -E 'Test Files|Tests |ERROR|FAIL|×|AssertionError|Expected|Received' ) || exit 1; done
 
 eval: ## The judge eval from recorded responses: fails on any missed planted prohibited statement
 	$(PNPM) --filter @scc/evals run eval
