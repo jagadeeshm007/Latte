@@ -6,14 +6,23 @@ import { pinoHttp } from "pino-http";
 import { apiKeyGate } from "./api-access.ts";
 import { authenticate, currentUser } from "./auth.ts";
 import { errorHandler, notFoundHandler } from "./errors.ts";
+import { idempotency } from "./idempotency.ts";
 import { openApiDocument } from "./openapi.ts";
 import { findKeyByToken } from "./repo/api-keys.ts";
 import { getProfile } from "./repo/reference.ts";
+import { alertsRouter } from "./routes/alerts.ts";
 import { apiKeysRouter } from "./routes/api-keys.ts";
 import { batchesRouter, exportLinksRouter } from "./routes/batches.ts";
+import { billingRouter } from "./routes/billing.ts";
 import { callsRouter } from "./routes/calls.ts";
+import { cronRouter } from "./routes/cron.ts";
 import type { AppDeps } from "./routes/deps.ts";
+import { inboxRouter } from "./routes/inbox.ts";
+import { membersRouter } from "./routes/members.ts";
 import { reviewRouter } from "./routes/review.ts";
+import { publicStatusRouter, statusNoticesRouter } from "./routes/status.ts";
+import { teamsRouter } from "./routes/teams.ts";
+import { webhooksRouter } from "./routes/webhooks.ts";
 
 /** buildApp wires middleware and routes; server.ts only starts it. */
 export function buildApp(deps: AppDeps): Express {
@@ -48,8 +57,11 @@ export function buildApp(deps: AppDeps): Express {
     if (req.headers.origin === deps.config.WEB_ORIGIN) {
       res.setHeader("Access-Control-Allow-Origin", deps.config.WEB_ORIGIN);
       res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Authorization, Content-Type, X-Request-Id, Idempotency-Key",
+      );
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
       res.setHeader("Access-Control-Max-Age", "600");
     }
     if (req.method === "OPTIONS") {
@@ -73,11 +85,17 @@ export function buildApp(deps: AppDeps): Express {
     }
   });
 
+  // The status page is public: customers check it when they cannot sign in.
+  app.use("/api", publicStatusRouter(deps));
+
   // The API's description is public, like any API reference.
   const openApi = openApiDocument();
   app.get("/api/openapi.json", (_req, res) => {
     res.json(openApi);
   });
+
+  // The scheduler proves itself with CRON_SECRET, not a user's token.
+  if (deps.cron) app.use("/api", cronRouter(deps.config.CRON_SECRET, deps.cron));
 
   // Signed export links carry their own proof, so they are served before the bearer check.
   const exportSecret = deps.config.EXPORT_LINK_SECRET
@@ -94,6 +112,7 @@ export function buildApp(deps: AppDeps): Express {
     ),
   );
   api.use(apiKeyGate(deps.pool));
+  api.use(idempotency(deps.pool));
   api.get("/me", (req, res) => {
     res.json(currentUser(req));
   });
@@ -101,6 +120,13 @@ export function buildApp(deps: AppDeps): Express {
   api.use(reviewRouter(deps));
   api.use(batchesRouter(deps, exportSecret));
   api.use(apiKeysRouter(deps));
+  api.use(webhooksRouter(deps));
+  api.use(inboxRouter(deps));
+  api.use(alertsRouter(deps));
+  api.use(teamsRouter(deps));
+  api.use(membersRouter(deps));
+  api.use(billingRouter(deps));
+  api.use(statusNoticesRouter(deps));
   app.use("/api", api);
 
   app.use(notFoundHandler);

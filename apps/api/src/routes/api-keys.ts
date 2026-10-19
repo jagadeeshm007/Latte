@@ -2,6 +2,7 @@ import {
   apiKeyLogsQuerySchema,
   apiKeyMetricsQuerySchema,
   createApiKeyRequestSchema,
+  revokeAllKeysRequestSchema,
   updateApiKeyRequestSchema,
 } from "@scc/shared";
 import { Router } from "express";
@@ -45,6 +46,31 @@ export function apiKeysRouter(deps: AppDeps): Router {
       return made;
     });
     res.status(201).json({ key: await keyOr404(created.id), secret: created.token });
+  });
+
+  // Before /api-keys/:id, so "revoke-all" is never read as an id.
+  router.post("/api-keys/revoke-all", manager, async (req, res) => {
+    revokeAllKeysRequestSchema.parse(req.body);
+    const user = currentUser(req);
+    const revoked = await inTransaction(pool, async (client) => {
+      const ids = await keys.revokeAllKeys(client);
+      await audit(client, user.id, "api_keys_revoked_all", null);
+      return ids;
+    });
+    res.json({ revoked: revoked.length });
+  });
+
+  router.post("/api-keys/:id/rotate", manager, async (req, res) => {
+    const { id } = idParam.parse(req.params);
+    await keyOr404(id);
+    const user = currentUser(req);
+    const fresh = await inTransaction(pool, async (client) => {
+      const made = await keys.rotateKey(client, id, user.id);
+      if (!made) throw new ConflictError("only a live key can be rotated");
+      await audit(client, user.id, "api_key_rotated", null, null, id);
+      return made;
+    });
+    res.status(201).json({ key: await keyOr404(fresh.id), secret: fresh.token });
   });
 
   router.get("/api-keys/:id", manager, async (req, res) => {

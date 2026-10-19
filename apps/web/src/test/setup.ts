@@ -1,10 +1,13 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
 
 import { resetPlayer } from "@/features/player/player-store";
 
 import { server } from "./msw";
+
+// findBy and waitFor wait up to 3 s: a lazily loaded page under coverage can take longer than the default 1 s.
+configure({ asyncUtilTimeout: 3000 });
 
 // jsdom has no layout; the router's scroll restoration calls this on navigation.
 Object.defineProperty(window, "scrollTo", { value: () => undefined, writable: true });

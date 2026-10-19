@@ -121,6 +121,7 @@ export function batchesRouter(deps: AppDeps, exportSecret: Buffer): Router {
       );
       queued++;
     }
+    if (queued > 0) await batches.reopenBatch(pool, { batchId: id });
     await audit(pool, currentUser(req).id, "batch_retried", null, id);
     res.status(202).json({ queued });
   });

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EllipsisIcon, PencilIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 
+import { OptionSelect } from "@/components/OptionSelect";
 import { ErrorState, Loading, PageHeader } from "@/components/states";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -21,7 +22,7 @@ import { Group, GroupText } from "@/components/ui/group";
 import { Input } from "@/components/ui/input";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { toastManager } from "@/components/ui/toast";
-import { api, meQuery, rubricQuery, rubricsQuery } from "@/lib/endpoints";
+import { api, meQuery, referenceQuery, rubricForQuery, rubricVersionsQuery } from "@/lib/endpoints";
 
 import { TYPE_LABEL } from "./rubric-items";
 import { RubricItemDialog } from "./RubricItemDialog";
@@ -38,27 +39,94 @@ const TYPE_TONE: Record<ItemType, "info" | "error" | "secondary"> = {
 };
 
 export function RubricPage() {
+  const reference = useQuery(referenceQuery);
+  const [productId, setProductId] = useState<string | null>(null);
+  const products = reference.data?.products ?? [];
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Rubric"
+        description="What the judge scores each call against. Each product can have its own; the rest use the default."
+        actions={
+          <OptionSelect
+            size="sm"
+            label="Rubric for"
+            className="w-56"
+            value={productId ?? DEFAULT}
+            options={[
+              { value: DEFAULT, label: "Default rubric" },
+              ...products.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            onChange={(v) => {
+              setProductId(v === DEFAULT ? null : v);
+            }}
+          />
+        }
+      />
+      {/* Keyed, so another product starts from its own versions and an empty draft. */}
+      <RubricScope
+        key={productId ?? DEFAULT}
+        productId={productId}
+        productName={products.find((p) => p.id === productId)?.name ?? null}
+      />
+    </div>
+  );
+}
+
+const DEFAULT = "default";
+
+/** RubricScope: the rubric, versions and editor for the default or for one product. */
+function RubricScope({
+  productId,
+  productName,
+}: {
+  productId: string | null;
+  productName: string | null;
+}) {
   const me = useQuery(meQuery);
-  const active = useQuery(rubricQuery);
-  const history = useQuery(rubricsQuery);
+  const active = useQuery(rubricForQuery(productId));
+  const history = useQuery(rubricVersionsQuery(productId));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingFrom, setEditingFrom] = useState<string | null>(null);
   if (active.isPending || me.isPending) return <Loading label="Loading the rubric" />;
   if (active.isError) return <ErrorState error={active.error} />;
 
-  const versions = history.data?.items ?? [active.data];
+  // A product without its own rubric is scored by the default one.
+  const inherited = productId !== null && active.data.productId === null;
+  const own = history.data?.items ?? (inherited ? [] : [active.data]);
+  const versions = own.length > 0 ? own : [active.data];
   const viewing = versions.find((r) => r.id === selectedId) ?? active.data;
   const isManager = me.data?.role === "manager";
   const nextVersion = Math.max(...versions.map((r) => r.version)) + 1;
-  const editing = isManager && (viewing.id === active.data.id || editingFrom === viewing.id);
+  const editing =
+    isManager && ((viewing.id === active.data.id && !inherited) || editingFrom === viewing.id);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Rubric"
-        description={`Version ${String(active.data.version)} is active: ${active.data.name}. New calls are scored with it.`}
-      />
-      {viewing.id !== active.data.id ? (
+      <p className="text-sm text-muted-foreground">
+        {inherited
+          ? `${productName ?? "This product"} has no rubric of its own: it is scored with the default, v${String(active.data.version)}.`
+          : `Version ${String(active.data.version)} is active: ${active.data.name}. New ${productName ? `${productName} ` : ""}calls are scored with it.`}
+      </p>
+      {inherited && isManager && editingFrom === null ? (
+        <Alert variant="info">
+          <AlertTitle>Give {productName ?? "this product"} its own rubric</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            Start from the default and change what differs for this product.
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => {
+                setEditingFrom(active.data.id);
+              }}
+            >
+              <PlusIcon aria-hidden="true" />
+              Create a rubric for {productName ?? "this product"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {viewing.id !== active.data.id && !inherited ? (
         <Alert variant="info">
           <AlertTitle>
             Viewing v{viewing.version}
@@ -82,14 +150,19 @@ export function RubricPage() {
         </Alert>
       ) : null}
       {editing ? (
-        <RubricEditor key={viewing.id} rubric={viewing} nextVersion={nextVersion} />
+        <RubricEditor
+          key={viewing.id}
+          rubric={viewing}
+          nextVersion={nextVersion}
+          productId={productId}
+        />
       ) : (
         <Frame>
           <RubricItemsTable items={viewing.items} />
         </Frame>
       )}
       {history.isError ? <ErrorState error={history.error} title="Versions not loaded" /> : null}
-      {history.data ? (
+      {history.data && history.data.items.length > 0 ? (
         <RubricVersions
           versions={history.data.items}
           selectedId={viewing.id}
@@ -188,14 +261,26 @@ function RubricItemsTable({
  * RubricEditor holds a draft of `rubric`: items are added, edited and deleted
  * in dialogs, and the draft is saved as the next version, which becomes active.
  */
-export function RubricEditor({ rubric, nextVersion }: { rubric: Rubric; nextVersion: number }) {
+export function RubricEditor({
+  rubric,
+  nextVersion,
+  productId = null,
+}: {
+  rubric: Rubric;
+  nextVersion: number;
+  /** Save as this product's rubric; null saves the default. */
+  productId?: string | null;
+}) {
   const [name, setName] = useState(rubric.name);
   const [items, setItems] = useState<RubricItem[]>(rubric.items);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
   const queryClient = useQueryClient();
+  // Copying another scope's rubric (the default, into a product) is worth saving unchanged.
   const changed =
-    name.trim() !== rubric.name || JSON.stringify(items) !== JSON.stringify(rubric.items);
+    rubric.productId !== productId ||
+    name.trim() !== rubric.name ||
+    JSON.stringify(items) !== JSON.stringify(rubric.items);
   const parsed = rubricItemsSchema.safeParse(items);
   const problem = !name.trim()
     ? "Give the rubric a name"
@@ -207,7 +292,7 @@ export function RubricEditor({ rubric, nextVersion }: { rubric: Rubric; nextVers
   const keys = items.map((i) => i.key);
 
   const save = useMutation({
-    mutationFn: () => api.saveRubric(name.trim(), items),
+    mutationFn: () => api.saveRubric(name.trim(), items, productId),
     onSuccess: async (saved) => {
       toastManager.add({
         type: "success",

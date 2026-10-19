@@ -1,35 +1,41 @@
-import {
-  audioUrlSchema,
-  batchDetailSchema,
-  type batchListQuerySchema,
-  batchListSchema,
-  batchRetryResponseSchema,
-  callDetailSchema,
-  type callListQuerySchema,
-  callListSchema,
-  type dashboardQuerySchema,
-  dashboardSchema,
-  type highlightsQuerySchema,
-  highlightsSchema,
-  type leaderboardQuerySchema,
-  leaderboardSchema,
-  meSchema,
-  referenceSchema,
-  uploadConfirmResponseSchema,
-  uploadSignResponseSchema,
-  type BatchDetail,
-  type BatchExportPart,
-  type BatchUpdateRequest,
-  type Language,
-} from "@scc/shared";
-import { z } from "zod";
-
 import { ApiError, RateLimitError } from "./errors.ts";
+import type {
+  AudioUrl,
+  BatchDetail,
+  BatchExportPart,
+  BatchList,
+  BatchListQuery,
+  BatchRetryResponse,
+  BatchUpdateRequest,
+  CallDetail,
+  CallList,
+  CallListQuery,
+  CreatedWebhook,
+  CreateWebhookRequest,
+  Dashboard,
+  DashboardQuery,
+  Highlights,
+  HighlightsQuery,
+  Language,
+  Leaderboard,
+  LeaderboardQuery,
+  Me,
+  Reference,
+  UpdateWebhookRequest,
+  UploadConfirmResponse,
+  UploadSignResponse,
+  WebhookDeliveryList,
+  WebhookDeliveryQuery,
+  WebhookEndpoint,
+  WebhookEndpointList,
+} from "./types.ts";
 
 // LatteClient: the Latte API for machine clients, with an API key. It retries
 // what is safe to retry (rate limits, and server errors on reads), honours
-// Retry-After, validates every response against the API's own schemas, and
-// uploads batches in chunks the way the web app does.
+// Retry-After, and uploads batches in chunks the way the web app does. It has
+// no dependencies: fetch and Web Crypto only, so it runs on Node 18+, Bun,
+// Deno, edge runtimes and browsers. Response types are generated from the
+// API's own schemas (scripts/gen-types.ts).
 
 export const SDK_VERSION = "0.1.0";
 
@@ -47,11 +53,20 @@ export interface LatteClientOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-type Query = Record<string, unknown>;
+/** Any of the query types; only string, number and boolean values are sent. */
+type Query = object;
 
 interface RequestOptions {
   query?: Query | undefined;
   body?: unknown;
+  /** Sent as Idempotency-Key; a write with one may be retried safely (ADR-0022). */
+  idempotencyKey?: string | undefined;
+}
+
+/** Options for a create call. */
+export interface WriteOptions {
+  /** The same key replays the first response for 24 hours instead of creating twice. */
+  idempotencyKey?: string;
 }
 
 /** One recording to upload, with what it is about. */
@@ -74,16 +89,37 @@ export interface BatchUploadResult {
   failed: { filename: string; error: string }[];
 }
 
-const noContent = z.undefined();
 /** The API's error body; details carries what a 429 or a validation error adds. */
-const envelopeSchema = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-    requestId: z.string().optional(),
-    details: z.unknown().optional(),
-  }),
-});
+interface Envelope {
+  error: { code: string; message: string; requestId?: string; details?: unknown };
+}
+
+function envelopeOf(text: string): Envelope | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    if (typeof value !== "object" || value === null || !("error" in value)) return null;
+    const error: unknown = value.error;
+    if (typeof error !== "object" || error === null) return null;
+    const { code, message, requestId, details } = error as Record<string, unknown>;
+    if (typeof code !== "string" || typeof message !== "string") return null;
+    return {
+      error: {
+        code,
+        message,
+        ...(typeof requestId === "string" ? { requestId } : {}),
+        ...(details === undefined ? {} : { details }),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Hex SHA-256 through Web Crypto, available on every runtime the SDK supports. */
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 const MAX_BACKOFF_MS = 30_000;
 
 const mimeOf = (f: UploadFile) =>
@@ -115,24 +151,22 @@ export class LatteClient {
 
   /** The manager the key acts as. */
   me() {
-    return this.request("GET", "/api/me", meSchema);
+    return this.request<Me>("GET", "/api/me");
   }
 
   /** Agents, teams and products to upload against. */
   reference() {
-    return this.request("GET", "/api/reference", referenceSchema);
+    return this.request<Reference>("GET", "/api/reference");
   }
 
   readonly calls = {
-    list: (query: z.input<typeof callListQuerySchema> = {}) =>
-      this.request("GET", "/api/calls", callListSchema, { query }),
-    get: (id: string) => this.request("GET", `/api/calls/${id}`, callDetailSchema),
+    list: (query: CallListQuery = {}) => this.request<CallList>("GET", "/api/calls", { query }),
+    get: (id: string) => this.request<CallDetail>("GET", `/api/calls/${id}`),
     audioUrl: (id: string, download = false) =>
-      this.request("POST", `/api/calls/${id}/audio-url`, audioUrlSchema, { body: { download } }),
-    retry: (id: string) =>
-      this.request("POST", `/api/calls/${id}/retry`, z.object({ status: z.string() })),
-    archive: (id: string) => this.request("POST", `/api/calls/${id}/archive`, noContent),
-    unarchive: (id: string) => this.request("POST", `/api/calls/${id}/unarchive`, noContent),
+      this.request<AudioUrl>("POST", `/api/calls/${id}/audio-url`, { body: { download } }),
+    retry: (id: string) => this.request<{ status: string }>("POST", `/api/calls/${id}/retry`),
+    archive: (id: string) => this.request<undefined>("POST", `/api/calls/${id}/archive`),
+    unarchive: (id: string) => this.request<undefined>("POST", `/api/calls/${id}/unarchive`),
     /** Uploads one recording into a new batch (or batchId) and returns its call id. */
     upload: async (file: UploadFile, batch: { batchId?: string; batchName?: string } = {}) => {
       const result = await this.uploadChunk([file], batch);
@@ -141,13 +175,14 @@ export class LatteClient {
   };
 
   readonly batches = {
-    list: (query: z.input<typeof batchListQuerySchema> = {}) =>
-      this.request("GET", "/api/batches", batchListSchema, { query }),
-    get: (id: string) => this.request("GET", `/api/batches/${id}`, batchDetailSchema),
+    list: (query: BatchListQuery = {}) => this.request<BatchList>("GET", "/api/batches", { query }),
+    get: (id: string) => this.request<BatchDetail>("GET", `/api/batches/${id}`),
     update: (id: string, patch: BatchUpdateRequest) =>
-      this.request("PATCH", `/api/batches/${id}`, batchDetailSchema, { body: patch }),
-    retryFailed: (id: string) =>
-      this.request("POST", `/api/batches/${id}/retry-failed`, batchRetryResponseSchema),
+      this.request<BatchDetail>("PATCH", `/api/batches/${id}`, { body: patch }),
+    retryFailed: (id: string, opts: WriteOptions = {}) =>
+      this.request<BatchRetryResponse>("POST", `/api/batches/${id}/retry-failed`, {
+        idempotencyKey: opts.idempotencyKey,
+      }),
     /**
      * Uploads many recordings as one batch: chunks of chunkSize files, the
      * first creating the batch, then `concurrency` chunks at a time. A failed
@@ -190,13 +225,36 @@ export class LatteClient {
     },
   };
 
+  readonly webhooks = {
+    list: () => this.request<WebhookEndpointList>("GET", "/api/webhooks"),
+    get: (id: string) => this.request<WebhookEndpoint>("GET", `/api/webhooks/${id}`),
+    /** Registers an endpoint; keep the returned secret to check signatures. */
+    create: (body: CreateWebhookRequest, opts: WriteOptions = {}) =>
+      this.request<CreatedWebhook>("POST", "/api/webhooks", {
+        body,
+        idempotencyKey: opts.idempotencyKey,
+      }),
+    update: (id: string, patch: UpdateWebhookRequest) =>
+      this.request<WebhookEndpoint>("PATCH", `/api/webhooks/${id}`, { body: patch }),
+    delete: (id: string) => this.request<undefined>("DELETE", `/api/webhooks/${id}`),
+    /** Sends a ping event to the endpoint. */
+    test: (id: string) => this.request<{ queued: number }>("POST", `/api/webhooks/${id}/test`),
+    deliveries: (id: string, query: WebhookDeliveryQuery = {}) =>
+      this.request<WebhookDeliveryList>("GET", `/api/webhooks/${id}/deliveries`, { query }),
+    redeliver: (id: string, deliveryId: string) =>
+      this.request<{ queued: number }>(
+        "POST",
+        `/api/webhooks/${id}/deliveries/${deliveryId}/redeliver`,
+      ),
+  };
+
   readonly analytics = {
-    dashboard: (query: z.input<typeof dashboardQuerySchema> = {}) =>
-      this.request("GET", "/api/dashboard", dashboardSchema, { query }),
-    highlights: (query: z.input<typeof highlightsQuerySchema> = {}) =>
-      this.request("GET", "/api/dashboard/highlights", highlightsSchema, { query }),
-    leaderboard: (query: z.input<typeof leaderboardQuerySchema> = {}) =>
-      this.request("GET", "/api/dashboard/leaderboard", leaderboardSchema, { query }),
+    dashboard: (query: DashboardQuery = {}) =>
+      this.request<Dashboard>("GET", "/api/dashboard", { query }),
+    highlights: (query: HighlightsQuery = {}) =>
+      this.request<Highlights>("GET", "/api/dashboard/highlights", { query }),
+    leaderboard: (query: LeaderboardQuery = {}) =>
+      this.request<Leaderboard>("GET", "/api/dashboard/leaderboard", { query }),
   };
 
   private async createBatch(
@@ -251,7 +309,7 @@ export class LatteClient {
 
   /** sign, PUT each file straight to storage, then confirm the chunk into a batch. */
   private async uploadChunk(files: UploadFile[], batch: { batchId?: string; batchName?: string }) {
-    const signed = await this.request("POST", "/api/uploads/sign", uploadSignResponseSchema, {
+    const signed = await this.request<UploadSignResponse>("POST", "/api/uploads/sign", {
       body: {
         files: files.map((f) => ({ name: f.filename, type: mimeOf(f), size: sizeOf(f.data) })),
       },
@@ -277,7 +335,10 @@ export class LatteClient {
         }
       }),
     );
-    return this.request("POST", "/api/uploads/confirm", uploadConfirmResponseSchema, {
+    // Keyed by the signed paths, so a retried confirm never creates the calls twice.
+    const idempotencyKey = `confirm-${(await sha256Hex(signed.uploads.map((u) => u.path).join("|"))).slice(0, 40)}`;
+    return this.request<UploadConfirmResponse>("POST", "/api/uploads/confirm", {
+      idempotencyKey,
       body: {
         ...batch,
         files: files.map((f, i) => ({
@@ -295,37 +356,24 @@ export class LatteClient {
     });
   }
 
-  private async request<T>(
-    method: string,
-    path: string,
-    schema: z.ZodType<T>,
-    opts: RequestOptions = {},
-  ): Promise<T> {
+  /** request sends and returns the JSON reply, typed as the API documents it. */
+  private async request<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
     const res = await this.raw(method, path, opts);
-    const requestId = res.headers.get("x-request-id");
-    const body: unknown = res.status === 204 ? undefined : await res.json();
-    const parsed = schema.safeParse(body);
-    if (!parsed.success) {
-      throw new ApiError(
-        `${method} ${path}: the response did not match the API's schema`,
-        res.status,
-        "invalid_response",
-        requestId,
-        parsed.error.issues,
-      );
-    }
-    return parsed.data;
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
   }
 
   /** raw sends with retries and returns the successful response, or throws the API's error. */
   private async raw(method: string, path: string, opts: RequestOptions = {}): Promise<Response> {
     const url = new URL(`${this.baseUrl}${path}`);
-    for (const [k, v] of Object.entries(opts.query ?? {})) {
+    for (const [k, v] of Object.entries((opts.query ?? {}) as Record<string, unknown>)) {
       if ((typeof v === "string" && v !== "") || typeof v === "number" || typeof v === "boolean") {
         url.searchParams.set(k, String(v));
       }
     }
     const requestId = crypto.randomUUID();
+    // A read, or a write with an idempotency key, can be sent again without doing it twice.
+    const safe = method === "GET" || opts.idempotencyKey !== undefined;
     for (let attempt = 0; ; attempt++) {
       let res: Response;
       try {
@@ -337,13 +385,13 @@ export class LatteClient {
             "X-Request-Id": requestId,
             "User-Agent": `latte-sdk/${SDK_VERSION}`,
             ...(opts.body === undefined ? {} : { "Content-Type": "application/json" }),
+            ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {}),
           },
           ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
           signal: AbortSignal.timeout(this.timeoutMs),
         });
       } catch (cause) {
-        // A read that never reached the server is safe to send again; a write may have landed.
-        if (method === "GET" && attempt < this.maxRetries) {
+        if (safe && attempt < this.maxRetries) {
           await this.sleep(this.backoff(attempt));
           continue;
         }
@@ -356,8 +404,8 @@ export class LatteClient {
       }
       if (res.ok) return res;
       const error = await this.errorOf(res, requestId);
-      // 429 is refused before any work, so any method may retry; a 5xx only on reads.
-      const retryable = error instanceof RateLimitError || (res.status >= 500 && method === "GET");
+      // 429 is refused before any work, so any method may retry; a 5xx only when safe.
+      const retryable = error instanceof RateLimitError || (res.status >= 500 && safe);
       if (!retryable || attempt >= this.maxRetries) throw error;
       await this.sleep(
         error instanceof RateLimitError ? error.retryAfterSeconds * 1000 : this.backoff(attempt),
@@ -370,14 +418,7 @@ export class LatteClient {
   }
 
   private async errorOf(res: Response, requestId: string): Promise<ApiError> {
-    const text = await res.text();
-    let envelope: z.infer<typeof envelopeSchema> | null = null;
-    try {
-      const parsed = envelopeSchema.safeParse(JSON.parse(text));
-      envelope = parsed.success ? parsed.data : null;
-    } catch {
-      envelope = null;
-    }
+    const envelope = envelopeOf(await res.text());
     const message = envelope?.error.message ?? `HTTP ${String(res.status)}`;
     const id = envelope?.error.requestId ?? res.headers.get("x-request-id") ?? requestId;
     if (res.status === 429) {

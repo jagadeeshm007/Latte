@@ -8,11 +8,11 @@ import {
   type CreatedApiKey,
 } from "@scc/shared";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckIcon, CopyIcon, KeyRoundIcon, PlusIcon, TriangleAlertIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
 import { OptionSelect } from "@/components/OptionSelect";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckboxGroup } from "@/components/ui/checkbox-group";
@@ -29,10 +29,10 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldItem, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { api } from "@/lib/endpoints";
 
 import { BUCKET_LABEL, SCOPE_LABEL } from "./key-labels";
+import { SecretReveal } from "./SecretReveal";
 
 const EXPIRY = [
   { value: "never", label: "Never (until revoked)" },
@@ -53,7 +53,6 @@ export function CreateKeyDialog() {
   const [expiry, setExpiry] = useState("never");
   const [limits, setLimits] = useState<BucketLimits>({});
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
-  const [copied, setCopied] = useState(false);
   const create = useMutation({
     mutationFn: () =>
       api.createApiKey({
@@ -73,17 +72,11 @@ export function CreateKeyDialog() {
     if (next) return;
     // The secret leaves memory with the dialog.
     setCreated(null);
-    setCopied(false);
     setName("");
     setScopes(["calls:read"]);
     setExpiry("never");
     setLimits({});
     create.reset();
-  }
-
-  async function copy(secret: string) {
-    await navigator.clipboard.writeText(secret);
-    setCopied(true);
   }
 
   return (
@@ -94,46 +87,13 @@ export function CreateKeyDialog() {
       </DialogTrigger>
       <DialogPopup>
         {created ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Copy your API key</DialogTitle>
-              <DialogDescription>
-                {created.key.name}: store it in your secret manager now.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogPanel className="flex flex-col gap-3">
-              <Alert variant="warning">
-                <TriangleAlertIcon aria-hidden="true" />
-                <AlertTitle>Shown once</AlertTitle>
-                <AlertDescription>
-                  Latte keeps only a hash. If the key is lost, revoke it and create another.
-                </AlertDescription>
-              </Alert>
-              <InputGroup>
-                <InputGroupAddon>
-                  <KeyRoundIcon aria-hidden="true" />
-                </InputGroupAddon>
-                <InputGroupInput
-                  readOnly
-                  aria-label="New API key"
-                  value={created.secret}
-                  className="font-mono text-xs"
-                  onFocus={(e) => {
-                    e.currentTarget.select();
-                  }}
-                />
-                <InputGroupAddon align="inline-end">
-                  <Button size="xs" variant="ghost" onClick={() => void copy(created.secret)}>
-                    {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                </InputGroupAddon>
-              </InputGroup>
-            </DialogPanel>
-            <DialogFooter>
-              <DialogClose render={<Button />}>Done</DialogClose>
-            </DialogFooter>
-          </>
+          <SecretReveal
+            title="Copy your API key"
+            description={`${created.key.name}: store it in your secret manager now.`}
+            label="New API key"
+            secret={created.secret}
+            keepNote="Latte keeps only a hash. If the key is lost, revoke it and create another."
+          />
         ) : (
           <form
             onSubmit={(e) => {

@@ -31,6 +31,7 @@ export const summary = (over: Partial<CallSummary> = {}): CallSummary => ({
 export const detail = (over: Partial<CallDetail> = {}): CallDetail => ({
   call: summary(),
   audioAvailable: true,
+  redactions: 0,
   score: {
     id: "s1",
     rubricVersion: 2,

@@ -20,6 +20,7 @@ export interface CallRow {
   duration_ms: number | null;
   audio_purged_at: Date | null;
   language: Language;
+  product_id: string;
 }
 
 /** The flag a call shows: needs a look, scored clean, or still in the pipeline. */
@@ -234,7 +235,7 @@ export async function getCallRow(db: Queryable, scope: Scope, id: string): Promi
     extra = " AND agent_id = $2";
   }
   const { rows } = await db.query<CallRow>(
-    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
+    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
     params,
   );
   return rows[0] ?? null;
@@ -259,7 +260,8 @@ export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename,
                         mime_type, size_bytes, storage_path, retention_until, language)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, current_date + $11::int, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+             current_date + coalesce((SELECT audio_retention_days FROM teams WHERE id = $2), $11::int), $12)
      RETURNING id`,
     [
       c.agentId,
@@ -298,7 +300,7 @@ export async function claimCall(
     `UPDATE calls SET status = $3, error = NULL, updated_at = now()
       WHERE id = $1
         AND (status = $2 OR (status = $3 AND updated_at < now() - make_interval(secs => $4)))
-      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language`,
+      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id`,
     [id, from, to, staleSeconds],
   );
   return rows[0] ?? null;

@@ -9,6 +9,19 @@ const envSchema = z.object({
     .transform((url) => url.replace(/\/+$/, "")),
   VITE_SUPABASE_URL: z.string().default("http://supabase.test"),
   VITE_SUPABASE_PUBLISHABLE_KEY: z.string().default("missing-publishable-key"),
+  /**
+   * Sign-in options to offer besides email and password, comma separated:
+   * google, azure (Microsoft), saml. Each must be set up in Supabase Auth first.
+   */
+  VITE_AUTH_PROVIDERS: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((p) => p.trim())
+        .filter((p): p is "google" | "azure" | "saml" => ["google", "azure", "saml"].includes(p)),
+    ),
 });
 
 export type Env = z.infer<typeof envSchema>;

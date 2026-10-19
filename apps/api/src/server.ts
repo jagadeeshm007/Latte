@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { buildApp } from "./app.ts";
+import { createAuthAdmin } from "./auth-admin.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
 import { databaseUrl, jwksUrl, loadConfig, sslOptions } from "./config.ts";
 import { createPool } from "./db/pool.ts";
@@ -26,6 +27,7 @@ const app = buildApp({
   enqueue: bossEnqueue(boss),
   verify: createVerifier(remoteKeys(jwksUrl(config)), config.SUPABASE_URL),
   log,
+  authAdmin: createAuthAdmin(config),
 });
 
 const server = app.listen(config.PORT, config.HOST, () => {

@@ -13,9 +13,10 @@ import { OptionSelect } from "@/components/OptionSelect";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Toggle } from "@/components/ui/toggle";
+import { SavedViewsMenu } from "@/features/views/SavedViewsMenu";
 import { STATUS_LABEL } from "@/lib/format";
 
-import { type CallsSearch, FLAG_LABEL, hasFilters } from "./calls-search";
+import { type CallsSearch, callsSearchSchema, FLAG_LABEL, hasFilters } from "./calls-search";
 
 const ALL = "all";
 const SEARCH_DELAY_MS = 300;
@@ -220,6 +221,19 @@ export function CallsToolbar({
           <XIcon aria-hidden="true" />
           Clear filters
         </Button>
+      ) : null}
+      {!local ? (
+        <div className="sm:ms-auto">
+          <SavedViewsMenu
+            page="calls"
+            current={{ ...search, page: undefined }}
+            onApply={(view) => {
+              const next = callsSearchSchema.parse(view);
+              setText(next.q ?? "");
+              onChange({ ...next, page: undefined });
+            }}
+          />
+        </div>
       ) : null}
     </div>
   );

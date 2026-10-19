@@ -23,6 +23,13 @@ import {
   uploadConfirmResponseSchema,
   uploadSignRequestSchema,
   uploadSignResponseSchema,
+  createdWebhookSchema,
+  createWebhookRequestSchema,
+  updateWebhookRequestSchema,
+  webhookDeliveryListSchema,
+  webhookDeliveryQuerySchema,
+  webhookEndpointListSchema,
+  webhookEndpointSchema,
 } from "@scc/shared";
 import { z } from "zod";
 
@@ -109,6 +116,26 @@ const DOCS: Record<string, Doc> = {
     query: leaderboardQuerySchema,
     response: leaderboardSchema,
   },
+  "GET /webhooks": { summary: "List webhook endpoints", response: webhookEndpointListSchema },
+  "POST /webhooks": {
+    summary: "Register an https endpoint; the signing secret is returned once",
+    body: createWebhookRequestSchema,
+    response: createdWebhookSchema,
+  },
+  "GET /webhooks/:id": { summary: "One webhook endpoint", response: webhookEndpointSchema },
+  "PATCH /webhooks/:id": {
+    summary: "Change the URL, events or description, or turn it off and on",
+    body: updateWebhookRequestSchema,
+    response: webhookEndpointSchema,
+  },
+  "DELETE /webhooks/:id": { summary: "Delete an endpoint and its deliveries" },
+  "POST /webhooks/:id/test": { summary: "Send a ping event to this endpoint" },
+  "GET /webhooks/:id/deliveries": {
+    summary: "Deliveries to this endpoint, newest first",
+    query: webhookDeliveryQuerySchema,
+    response: webhookDeliveryListSchema,
+  },
+  "POST /webhooks/:id/deliveries/:deliveryId/redeliver": { summary: "Send a delivery again now" },
 };
 
 const json = (schema: z.ZodType) => z.toJSONSchema(schema, { io: "input", unrepresentable: "any" });
@@ -172,7 +199,7 @@ export function openApiDocument() {
       title: "Latte API",
       version: "1.0.0",
       description:
-        "Sales call compliance and coaching. Authenticate with `Authorization: Bearer latte_…`. Every response carries RateLimit-Limit, RateLimit-Remaining and RateLimit-Reset headers.",
+        'Sales call compliance and coaching. Authenticate with `Authorization: Bearer latte_…`. Every response carries RateLimit-Limit, RateLimit-Remaining and RateLimit-Reset headers. Create requests accept an `Idempotency-Key` header. Webhooks are signed with `Latte-Signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`.',
     },
     servers: [{ url: "/" }],
     components: {

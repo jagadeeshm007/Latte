@@ -62,7 +62,7 @@ describe("LatteClient", () => {
     expect(() => new LatteClient({ apiKey: "sk_live_x", baseUrl: BASE })).toThrow(/latte_/);
   });
 
-  it("sends the key, a request id and the query, and validates the reply", async () => {
+  it("sends the key, a request id and the query, and returns the reply", async () => {
     const { latte, sent } = client([json({ items: [], nextCursor: null, total: 0 })]);
 
     const list = await latte.calls.list({ status: "failed", limit: 10, q: "" });
@@ -106,13 +106,15 @@ describe("LatteClient", () => {
     expect(write.sent).toHaveLength(1);
   });
 
-  it("names a response that does not match the API's schema", async () => {
-    const { latte } = client([json({ id: 1 })]);
+  it("reads an error body without the API's code as a plain HTTP error", async () => {
+    const { latte } = client([
+      new Response(JSON.stringify({ error: { message: "odd" } }), { status: 418 }),
+    ]);
 
     const error = await latte.me().catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(ApiError);
-    expect(error).toMatchObject({ code: "invalid_response" });
+    expect(error).toMatchObject({ status: 418, code: "http", message: "HTTP 418" });
   });
 
   it("uploads one file: sign, PUT straight to storage without the key, then confirm", async () => {
@@ -338,6 +340,70 @@ describe("LatteClient", () => {
     const error = await latte.batches.wait("b1", { timeoutMs: -1 }).catch((e: unknown) => e);
 
     expect(error).toMatchObject({ code: "timeout" });
+  });
+
+  it("retries a confirm after a server error, safely, under its idempotency key", async () => {
+    const { latte, sent } = client([
+      json({ uploads: [{ path: "u/1.wav", signedUrl: "https://s/1", token: "t" }] }),
+      new Response(null, { status: 200 }),
+      apiError(503, "down", "busy"),
+      json({ batchId: "b1", callIds: ["c1"] }, 201),
+    ]);
+
+    await latte.calls.upload({
+      data: new Uint8Array(4),
+      filename: "a.wav",
+      agentId: "a",
+      teamId: "t",
+      productId: "p",
+      callDate: "2026-10-01",
+    });
+
+    const confirms = sent.filter((s) => s.url.endsWith("/confirm"));
+    expect(confirms).toHaveLength(2);
+    expect(confirms[0]!.headers["Idempotency-Key"]).toMatch(/^confirm-[0-9a-f]{40}$/);
+    expect(confirms[1]!.headers["Idempotency-Key"]).toBe(confirms[0]!.headers["Idempotency-Key"]);
+  });
+
+  it("maps the webhook methods to their routes", async () => {
+    const notFound = () => apiError(404, "not_found", "not found");
+    const { latte, sent } = client([
+      json({ items: [] }),
+      notFound(),
+      notFound(),
+      notFound(),
+      new Response(null, { status: 204 }),
+      json({ queued: 1 }, 202),
+      json({ items: [], total: 0 }),
+      json({ queued: 1 }, 202),
+    ]);
+    const settle = (p: Promise<unknown>) => p.catch((e: unknown) => e);
+
+    await latte.webhooks.list();
+    await settle(latte.webhooks.get("w1"));
+    await settle(
+      latte.webhooks.create(
+        { url: "https://h/x", events: ["call.scored"] },
+        { idempotencyKey: "k1" },
+      ),
+    );
+    await settle(latte.webhooks.update("w1", { enabled: false }));
+    await latte.webhooks.delete("w1");
+    await latte.webhooks.test("w1");
+    await latte.webhooks.deliveries("w1", { status: "failed" });
+    await latte.webhooks.redeliver("w1", "d1");
+
+    expect(sent.map((s) => `${s.method} ${s.url.replace(BASE, "")}`)).toEqual([
+      "GET /api/webhooks",
+      "GET /api/webhooks/w1",
+      "POST /api/webhooks",
+      "PATCH /api/webhooks/w1",
+      "DELETE /api/webhooks/w1",
+      "POST /api/webhooks/w1/test",
+      "GET /api/webhooks/w1/deliveries?status=failed",
+      "POST /api/webhooks/w1/deliveries/d1/redeliver",
+    ]);
+    expect(sent[2]!.headers["Idempotency-Key"]).toBe("k1");
   });
 
   it("waits for a batch to finish, and reads its CSV and ZIP", async () => {

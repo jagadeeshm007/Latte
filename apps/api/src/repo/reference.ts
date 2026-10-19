@@ -13,7 +13,11 @@ export async function getProfile(db: Queryable, id: string): Promise<Me | null> 
     display_name: string;
     role: Me["role"];
     agent_id: string | null;
-  }>("SELECT id, email, display_name, role, agent_id FROM profiles WHERE id = $1", [id]);
+  }>(
+    // An account a manager turned off counts as having no profile: refused everywhere (ADR-0024).
+    "SELECT id, email, display_name, role, agent_id FROM profiles WHERE id = $1 AND disabled_at IS NULL",
+    [id],
+  );
   const r = rows[0];
   return r
     ? { id: r.id, email: r.email, displayName: r.display_name, role: r.role, agentId: r.agent_id }
@@ -63,7 +67,10 @@ interface RubricRow {
   items: RubricItem[];
   is_active: boolean;
   created_at: Date;
+  product_id: string | null;
 }
+
+const RUBRIC_COLUMNS = "id, version, name, items, is_active, created_at, product_id";
 
 const toRubric = (r: RubricRow): Rubric => ({
   id: r.id,
@@ -72,18 +79,38 @@ const toRubric = (r: RubricRow): Rubric => ({
   items: r.items,
   isActive: r.is_active,
   createdAt: r.created_at.toISOString(),
+  productId: r.product_id,
 });
 
+/** activeRubric is the default rubric: the one that scores products without their own. */
 export async function activeRubric(db: Queryable): Promise<Rubric | null> {
   const { rows } = await db.query<RubricRow>(
-    "SELECT id, version, name, items, is_active, created_at FROM rubrics WHERE is_active",
+    `SELECT ${RUBRIC_COLUMNS} FROM rubrics WHERE is_active AND product_id IS NULL`,
   );
   return rows[0] ? toRubric(rows[0]) : null;
 }
 
-export async function listRubrics(db: Queryable): Promise<Rubric[]> {
+/** rubricFor is the rubric that scores a product: its own active one, or the default. */
+export async function rubricFor(db: Queryable, productId: string | null): Promise<Rubric | null> {
   const { rows } = await db.query<RubricRow>(
-    "SELECT id, version, name, items, is_active, created_at FROM rubrics ORDER BY version DESC",
+    `SELECT ${RUBRIC_COLUMNS} FROM rubrics
+      WHERE is_active AND (product_id = $1 OR product_id IS NULL)
+      ORDER BY product_id NULLS LAST LIMIT 1`,
+    [productId],
+  );
+  return rows[0] ? toRubric(rows[0]) : null;
+}
+
+/**
+ * listRubrics lists versions newest first: every version when product is
+ * undefined, the default's when null, or one product's.
+ */
+export async function listRubrics(db: Queryable, product?: string | null): Promise<Rubric[]> {
+  const { rows } = await db.query<RubricRow>(
+    product === undefined
+      ? `SELECT ${RUBRIC_COLUMNS} FROM rubrics ORDER BY version DESC`
+      : `SELECT ${RUBRIC_COLUMNS} FROM rubrics WHERE product_id IS NOT DISTINCT FROM $1 ORDER BY version DESC`,
+    product === undefined ? [] : [product],
   );
   return rows.map(toRubric);
 }
@@ -91,16 +118,20 @@ export async function listRubrics(db: Queryable): Promise<Rubric[]> {
 /** saveRubricVersion adds the next version and makes it the only active one. Run in a transaction. */
 export async function saveRubricVersion(
   db: Queryable,
-  input: { name: string; items: RubricItem[]; createdBy: string | null },
+  input: { name: string; items: RubricItem[]; createdBy: string | null; productId?: string | null },
 ): Promise<Rubric> {
+  const productId = input.productId ?? null;
   // Serialise concurrent saves so two managers cannot take the same version number.
   await db.query("LOCK TABLE rubrics IN SHARE ROW EXCLUSIVE MODE");
-  await db.query("UPDATE rubrics SET is_active = false WHERE is_active");
+  await db.query(
+    "UPDATE rubrics SET is_active = false WHERE is_active AND product_id IS NOT DISTINCT FROM $1",
+    [productId],
+  );
   const { rows } = await db.query<RubricRow>(
-    `INSERT INTO rubrics (version, name, items, is_active, created_by)
-     SELECT COALESCE(max(version), 0) + 1, $1, $2::jsonb, true, $3 FROM rubrics
-     RETURNING id, version, name, items, is_active, created_at`,
-    [input.name, JSON.stringify(input.items), input.createdBy],
+    `INSERT INTO rubrics (version, name, items, is_active, created_by, product_id)
+     SELECT COALESCE(max(version), 0) + 1, $1, $2::jsonb, true, $3, $4 FROM rubrics
+     RETURNING ${RUBRIC_COLUMNS}`,
+    [input.name, JSON.stringify(input.items), input.createdBy, productId],
   );
   const row = rows[0];
   if (!row) throw new Error("insert into rubrics returned no row");

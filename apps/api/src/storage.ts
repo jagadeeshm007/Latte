@@ -46,6 +46,8 @@ export function createStorage(
     },
     async exists(path) {
       const { data, error } = await bucket().exists(path);
+      // supabase-js reports "not there" as data false with an error attached.
+      if (!data) return false;
       if (error) throw fail("exists", error);
       return data;
     },

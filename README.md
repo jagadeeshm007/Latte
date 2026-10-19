@@ -9,6 +9,7 @@ Audits every recorded sales or service call instead of a sample. Stereo recordin
 | `apps/api`         | Express 5 API (`src/server.ts`) and the pg-boss worker (`src/worker.ts`): uploads, transcription, scoring, review, scorecards, dashboard |
 | `apps/web`         | React 19 + Vite + TanStack Router/Query + coss ui                                                                                        |
 | `packages/gateway` | The only code that calls a model: budget, `max_tokens` cap of 1000, cost log, rate limits, record and replay                             |
+| `packages/sdk`     | `@latte/sdk`: the zero-dependency TypeScript client, installed from a GitHub release                                                     |
 | `packages/shared`  | Zod schemas shared by the API and the web app, the default rubric and the judge output schema                                            |
 | `evals`            | 20 labelled synthetic calls with planted breaches, the judge eval and its gate, the seed audio renderer                                  |
 | `docs`             | PRD, backlog, ADRs, HLD, data model, threat model, GenAI design, UX flows, LLD, runbook                                                  |
@@ -20,7 +21,22 @@ Audits every recorded sales or service call instead of a sample. Stereo recordin
 3. Phrase rules for prohibited statements run on the transcript, talk ratio is computed in code, then one Groq `openai/gpt-oss-120b` call with a strict JSON schema judges every rubric item. The model cites transcript lines; quotes and timestamps are copied from those lines in code.
 4. A call with any breach, missed mandatory item, ungrounded citation or failed judge goes to the QA queue. Reviewers play each finding from its timestamp, agree or disagree, and can add a finding the judge missed.
 
-## Run it
+## Run it locally with Docker
+
+Everything runs on your machine: Postgres, Supabase Auth and Storage, the API, the worker and the web app. Only Docker and a model key are needed.
+
+```bash
+GROQ_API_KEY=gsk_your_key make up
+```
+
+- Open http://localhost:8000 and sign in with a user from `.scratch/seed-users.txt` (one per role).
+- Invitation emails land in http://localhost:8025 (Mailpit).
+- `SARVAM_API_KEY=...` adds Indian-language calls. Keys can also go in `.env.docker` (generated on the first run with every other secret, git-ignored).
+- `make logs` follows the API and worker, and `make down` stops the stack while keeping the data. `docker compose --env-file .env.docker down -v` wipes it.
+
+How it fits together is in ADR-0028.
+
+## Develop against hosted Supabase
 
 Prerequisites: Node 24 or later, pnpm, Docker (for the test database), a Supabase project and a Groq API key.
 
@@ -55,6 +71,16 @@ make status                # recent calls with status, score and findings, plus 
 make eval-record
 ```
 
+## Deploy
+
+Everything deploys as one Vercel project: the web app as static files, the API as one Node 24 function, and the job queue drained by Vercel Cron (ADR-0020). `make vercel-build` writes `.vercel/output`; `make vercel-smoke` loads the built function locally and checks it. Setup, variables, plan limits and rollback are in `docs/runbooks/deploy-vercel.md`. Locally, `make dev` still runs the API and worker as long-lived processes from the same code.
+
+The API guide for integrators is `docs/api/guide.md`, also in the app under Developers > Docs. The SDK installs into any project straight from GitHub:
+
+```bash
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz
+```
+
 ## Configuration
 
 Every variable is listed with a placeholder in `.env.example`. The ones that change behaviour most:
@@ -71,3 +97,7 @@ Every variable is listed with a placeholder in `.env.example`. The ones that cha
 ## Limits to know
 
 At Groq's free limits the system scores about 50 calls a day; the 20,000 calls a month in the brief need a paid Groq plan (HLD section 8). Open product questions are in `docs/product/questions.md`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -55,3 +55,25 @@ export async function signIn(email: string, password: string): Promise<string | 
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
+
+/** signInWithProvider hands the browser to Google or Microsoft, which returns it here signed in. */
+export async function signInWithProvider(provider: "google" | "azure"): Promise<string | null> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: window.location.origin },
+  });
+  return error ? error.message : null;
+}
+
+/** signInWithSso finds the company's SAML provider from the email's domain and goes there. */
+export async function signInWithSso(email: string): Promise<string | null> {
+  const domain = email.trim().split("@")[1];
+  if (!domain) return "Enter your work email to find your company's sign-in.";
+  const { data, error } = await supabase.auth.signInWithSSO({
+    domain,
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) return error.message;
+  window.location.assign(data.url);
+  return null;
+}

@@ -1300,6 +1300,20 @@ describe("API keys (ADR-0018)", () => {
     );
   });
 
+  // SCC-1: refused requests were not counted, so a key could send unlimited 403s, each one logged.
+  it("counts refused requests against the limit too", async () => {
+    const key = await createKey({ scopes: ["calls:read"], limits: { read: 2 } });
+    const headers = bearer(key.secret);
+
+    const statuses = [
+      (await request(ctx.app).get("/api/usage").set(headers)).status,
+      (await request(ctx.app).get("/api/rubrics/active").set(headers)).status,
+      (await request(ctx.app).get("/api/usage").set(headers)).status,
+    ];
+
+    expect(statuses).toEqual([403, 403, 429]);
+  });
+
   it("logs each request by route template and sums it up as metrics", async () => {
     const key = await createKey({ scopes: ["calls:read"] });
     const callId = await uploadCall();
@@ -1430,6 +1444,88 @@ describe("API keys (ADR-0018)", () => {
     const removed = await purgeApiTraffic(pool);
 
     expect(removed).toBe(1);
+  });
+});
+
+describe("product rubrics and redaction in the pipeline (ADR-0023)", () => {
+  it("scores a call with its product's own rubric", async () => {
+    const saved = await request(ctx.app)
+      .post("/api/rubrics")
+      .set(await auth(fx.users.manager))
+      .send({ name: "ULIP rubric", items: DEFAULT_RUBRIC, productId: fx.productId })
+      .expect(201);
+    const callId = await uploadCall();
+
+    await processCall(callId, "Hello there.", {});
+    const score = await pool.query<{ rubric_id: string }>(
+      "SELECT rubric_id FROM scores WHERE call_id = $1",
+      [callId],
+    );
+
+    expect(score.rows[0]!.rubric_id).toBe((saved.body as { id: string }).id);
+  });
+
+  it("masks a phone number in finding quotes and in the exported transcript", async () => {
+    const callId = await uploadCall();
+    await processCall(callId, "call me on 98765 43210 for guaranteed returns", {
+      guaranteed_returns: ["breach", [0]],
+    });
+    const qa = await auth(fx.users.qa);
+
+    const detail = await request(ctx.app).get(`/api/calls/${callId}`).set(qa).expect(200);
+    const { rows } = await pool.query<{ batch_id: string }>(
+      "SELECT batch_id FROM calls WHERE id = $1",
+      [callId],
+    );
+    const zip = await request(ctx.app)
+      .get(`/api/batches/${rows[0]!.batch_id}/export.zip?include=transcripts`)
+      .set(qa)
+      .buffer(true)
+      .parse((r, done) => {
+        const parts: Buffer[] = [];
+        r.on("data", (c: Buffer) => parts.push(c));
+        r.on("end", () => {
+          done(null, Buffer.concat(parts));
+        });
+      })
+      .expect(200);
+
+    const quotes = (detail.body as { findings: { quote: string | null }[] }).findings.map(
+      (f) => f.quote ?? "",
+    );
+    const files = unzipSync(new Uint8Array(zip.body as Buffer));
+    const txt = new TextDecoder().decode(
+      Object.entries(files).find(([n]) => n.endsWith(".txt"))![1],
+    );
+    expect(quotes.join(" ")).toContain("[phone ••••3210]");
+    expect(quotes.join(" ")).not.toContain("98765");
+    expect(txt).toContain("[phone ••••3210]");
+    expect(txt).not.toContain("98765 43210");
+  });
+});
+
+describe("pipeline webhook events (ADR-0021)", () => {
+  it("announces a scored call, then the batch once its last call is done", async () => {
+    await request(ctx.app)
+      .post("/api/webhooks")
+      .set(await auth(fx.users.manager))
+      .send({ url: "https://hooks.example.com/x", events: ["call.scored", "batch.completed"] })
+      .expect(201);
+    const callId = await uploadCall();
+
+    await processCall(callId, "guaranteed returns", { guaranteed_returns: ["breach", [0]] });
+    const { rows } = await pool.query<{
+      event_type: string;
+      payload: { data: Record<string, unknown> };
+    }>("SELECT event_type, payload FROM webhook_deliveries ORDER BY created_at, event_type");
+
+    expect(rows.map((r) => r.event_type).sort()).toEqual(["batch.completed", "call.scored"]);
+    expect(rows.find((r) => r.event_type === "call.scored")!.payload.data).toMatchObject({
+      callId,
+      breaches: 1,
+      needsReview: true,
+    });
+    expect(JSON.stringify(rows)).not.toContain("guaranteed returns");
   });
 });
 

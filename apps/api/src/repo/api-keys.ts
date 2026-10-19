@@ -173,6 +173,60 @@ export async function updateKey(
   return rowCount === 1;
 }
 
+/** Hours the old key keeps working after a rotation, so deploys can swap keys without downtime. */
+export const ROTATION_GRACE_HOURS = 24;
+
+/**
+ * rotateKey makes a successor with the same name, scopes, limits and expiry,
+ * and lets the old key run out after the grace period. The old row is locked,
+ * so two rotations at once cannot both succeed. Null when the key is not live.
+ */
+export async function rotateKey(
+  db: Queryable,
+  id: string,
+  rotatedBy: string,
+): Promise<{ id: string; token: string } | null> {
+  const { rows } = await db.query<KeyRow>(
+    `SELECT ${KEY_COLUMNS} FROM api_keys k
+      WHERE k.id = $1 AND k.revoked_at IS NULL AND (k.expires_at IS NULL OR k.expires_at > now())
+        FOR UPDATE`,
+    [id],
+  );
+  const old = rows[0];
+  if (!old) return null;
+  const fresh = newKey();
+  const inserted = await db.query<{ id: string }>(
+    `INSERT INTO api_keys (name, prefix, secret_hash, scopes, limits, created_by, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [
+      old.name,
+      fresh.prefix,
+      fresh.hash,
+      old.scopes,
+      JSON.stringify(old.limits),
+      rotatedBy,
+      old.expires_at,
+    ],
+  );
+  await db.query(
+    `UPDATE api_keys
+        SET expires_at = least(coalesce(expires_at, 'infinity'), now() + make_interval(hours => $2))
+      WHERE id = $1`,
+    [id, ROTATION_GRACE_HOURS],
+  );
+  const row = inserted.rows[0];
+  if (!row) throw new Error("insert into api_keys returned no row");
+  return { id: row.id, token: fresh.token };
+}
+
+/** revokeAllKeys stops every live key at once and returns how many it stopped. */
+export async function revokeAllKeys(db: Queryable): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    "UPDATE api_keys SET revoked_at = now() WHERE revoked_at IS NULL RETURNING id",
+  );
+  return rows.map((r) => r.id);
+}
+
 /** revokeKey stops a key for good; revoking twice changes nothing. */
 export async function revokeKey(db: Queryable, id: string): Promise<boolean> {
   const { rowCount } = await db.query(
@@ -231,7 +285,7 @@ const ms = (n: number | null) => (n === null ? null : Math.round(n));
 export async function keyMetrics(db: Queryable, key: ApiKey, days: number): Promise<ApiKeyMetrics> {
   const since = [key.id, days];
   const range = `api_key_id = $1 AND created_at > now() - make_interval(days => $2::int)`;
-  const [perDay, totals, buckets, windows, routes] = await Promise.all([
+  const [perDay, totals, buckets, windows, routes, usage] = await Promise.all([
     db.query<{
       day: string;
       ok: number;
@@ -280,6 +334,19 @@ export async function keyMetrics(db: Queryable, key: ApiKey, days: number): Prom
         GROUP BY 1, 2 ORDER BY 3 DESC, 2 LIMIT 20`,
       since,
     ),
+    db.query<{ uploaded: number; scored: number; cost_usd: number }>(
+      `SELECT count(c.id)::int AS uploaded,
+              (count(c.id) FILTER (WHERE c.status = 'scored'))::int AS scored,
+              coalesce((SELECT sum(m.cost_usd) FROM model_calls m
+                          JOIN calls mc ON mc.id = m.call_id
+                          JOIN batches mb ON mb.id = mc.batch_id
+                         WHERE mb.api_key_id = $1
+                           AND m.created_at > now() - make_interval(days => $2::int)), 0) AS cost_usd
+         FROM calls c JOIN batches b ON b.id = c.batch_id
+        WHERE b.api_key_id = $1 AND c.deleted_at IS NULL
+          AND c.created_at > now() - make_interval(days => $2::int)`,
+      since,
+    ),
   ]);
   const t = totals.rows[0] ?? { requests: 0, errors: 0, p50: null, p95: null };
   const now = Date.now() / 1000;
@@ -311,6 +378,11 @@ export async function keyMetrics(db: Queryable, key: ApiKey, days: number): Prom
         used: latest?.window_start === start ? latest.count : 0,
       };
     }),
+    usage: {
+      callsUploaded: usage.rows[0]?.uploaded ?? 0,
+      callsScored: usage.rows[0]?.scored ?? 0,
+      costUsd: Math.round((usage.rows[0]?.cost_usd ?? 0) * 10_000) / 10_000,
+    },
     routes: routes.rows.map((r) => ({
       method: r.method,
       route: r.route,
