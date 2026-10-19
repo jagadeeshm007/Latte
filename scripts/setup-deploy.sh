@@ -68,7 +68,12 @@ if [ ! -f .vercel/project.json ]; then
   vercel link --yes --project "$PROJECT" >/dev/null
 fi
 say "connecting the project to github.com/$REPO"
-vercel git connect "https://github.com/$REPO" --yes >/dev/null 2>&1 || say "git already connected (or connect it under Project > Settings > Git)"
+if ! connect_output="$(vercel git connect "https://github.com/$REPO" --yes 2>&1)"; then
+  case "$connect_output" in
+    *"already connected"*) say "git already connected" ;;
+    *) say "could not connect GitHub; connect it under Project > Settings > Git: $(printf '%s' "$connect_output" | grep -m1 -i error)" ;;
+  esac
+fi
 
 # --- 2. secrets generated once ---------------------------------------------
 umask 077

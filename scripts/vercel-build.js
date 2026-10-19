@@ -20,6 +20,8 @@ const funcDir = path.join(out, "functions/api.func");
 
 /** Must match MAX_DURATION_SECONDS in apps/api/src/vercel.ts. */
 const MAX_DURATION_SECONDS = 300;
+/** Next to the database (Supabase ap-south-1): every query is a round trip. */
+const REGION = process.env.VERCEL_FUNCTION_REGION ?? "bom1";
 /** Packages loaded at run time through createRequire, so the bundler cannot inline them. */
 const RUNTIME_PACKAGES = ["wavefile"];
 
@@ -105,6 +107,7 @@ writeFileSync(
       shouldAddHelpers: false,
       shouldAddSourcemapSupport: true,
       maxDuration: MAX_DURATION_SECONDS,
+      regions: [REGION],
       environment,
     },
     null,
