@@ -44,6 +44,19 @@ expect(
   "no index.html",
 );
 
+// A deployment runs against a migrated database (deploy-vercel.md); so does this
+// check, which CI hands a fresh one. The API's TypeScript runs as is on Node 24.
+const { migrate } = await import("../apps/api/src/db/migrate.ts");
+const { createPool } = await import("../apps/api/src/db/pool.ts");
+const migrations = createPool({
+  DATABASE_URL: process.env.DATABASE_URL,
+  DB_POOL_MAX: 1,
+  DB_SSL: false,
+  SUPABASE_POOLER_HOST: "",
+});
+await migrate(migrations);
+await migrations.end();
+
 const handlerUrl = pathToFileURL(path.join(out, "functions/api.func", vc.handler)).href;
 const { default: handler } = await import(handlerUrl);
 const server = createServer(handler);

@@ -1172,7 +1172,13 @@ describe("batches (ADR-0017)", () => {
     const { url, expiresInSeconds } = issued.body as { url: string; expiresInSeconds: number };
 
     const csv = await request(ctx.app).get(url).expect(200);
-    const tampered = await request(ctx.app).get(url.replace(/.$/, (c) => (c === "A" ? "B" : "A")));
+    // SCC-1: changing the last character was flaky; it carries only 4 bits of the
+    // signature, so some swaps decoded to the same bytes. The first carries 6.
+    const sigAt = url.lastIndexOf(".") + 1;
+    const flipped = url[sigAt] === "A" ? "B" : "A";
+    const tampered = await request(ctx.app).get(
+      url.slice(0, sigAt) + flipped + url.slice(sigAt + 1),
+    );
     await pool.query(
       `WITH a AS (INSERT INTO agents (team_id, name, external_code) VALUES ($1, 'Agent C', 'C1') RETURNING id)
        UPDATE profiles SET role = 'agent', agent_id = (SELECT id FROM a) WHERE id = $2`,
@@ -1232,7 +1238,8 @@ describe("API keys (ADR-0018)", () => {
 
     expect(key.secret).toMatch(new RegExp(`^latte_${key.prefix}_[A-Za-z0-9_-]{43}$`));
     expect((me.body as { id: string }).id).toBe(fx.users.manager);
-    expect(JSON.stringify(list.body)).not.toContain(key.secret.split("_").at(-1));
+    // SCC-1: the secret may itself contain "_", so take all 43 characters, not the last fragment.
+    expect(JSON.stringify(list.body)).not.toContain(key.secret.slice(-43));
     expect(stored.rows[0]!.secret_hash).toHaveLength(32);
   });
 

@@ -7,11 +7,11 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
 `make setup-deploy` (`scripts/setup-deploy.sh`) does steps 1 and 5 of the setup below from your `.env`. It creates and links the project, connects GitHub, sets every variable, and sets the GitHub cron fallback. It never pushes, deploys or migrates. Then, in order:
 
-1. Run `make setup-deploy`.
+1. Run `make setup-deploy`. If it reports that GitHub could not be connected, first add GitHub as a login connection: Vercel > Account Settings > Authentication > Connect GitHub. Then give the Vercel GitHub App access to the repository, and run it again or connect under Project > Settings > Git.
 2. Apply the migrations to the hosted database: `pnpm --filter @scc/api migrate`. Then `make seed` once, if the project has no users yet.
 3. Push the branch. Vercel builds a preview deployment of it.
 4. Open the PR and merge it to `main`. Vercel builds production, and the `cron` workflow starts running from `main`.
-5. Read the production URL under Project > Domains. If it is not `https://latte.vercel.app`, run `LATTE_URL=<url> make setup-deploy` and redeploy, so invitations and the cron fallback use it.
+5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy` and redeploy. That sets `WEB_ORIGIN` for invitations and turns on the cron fallback. Until then the fallback skips, because it sends `CRON_SECRET` to that URL and must never guess it.
 6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
 7. Release the SDK: push the tag `sdk-v0.1.0`.
 
@@ -60,6 +60,8 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
 6. **Supabase Auth URLs.** Add the production URL (and the preview pattern) to
    Authentication > URL Configuration, so invitations and SSO return to Latte.
+
+The function runs in `bom1` (Mumbai), next to the Supabase database in `ap-south-1`. `VERCEL_FUNCTION_REGION` at build time changes it.
 
 ## Plan limits
 
