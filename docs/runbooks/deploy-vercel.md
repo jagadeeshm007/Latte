@@ -5,15 +5,16 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
 ## First deploy
 
-`make setup-deploy` (`scripts/setup-deploy.sh`) does steps 1 and 5 of the setup below from your `.env`. It creates and links the project, connects GitHub, sets every variable, and sets the GitHub cron fallback. It never pushes, deploys or migrates. Then, in order:
+`make setup-deploy` (`scripts/setup-deploy.sh`) does steps 1 and 5 of the setup below from your `.env`. It creates and links the project, connects GitHub and sets every variable. It never pushes, deploys or migrates. Then, in order:
 
 1. Run `make setup-deploy`. If it reports that GitHub could not be connected, first add GitHub as a login connection: Vercel > Account Settings > Authentication > Connect GitHub. Then give the Vercel GitHub App access to the repository, and run it again or connect under Project > Settings > Git.
 2. Apply the migrations to the hosted database: `pnpm --filter @scc/api migrate`. Then `make seed` once, if the project has no users yet.
 3. Push the branch. Vercel builds a preview deployment of it.
-4. Open the PR and merge it to `main`. Vercel builds production, and the `cron` workflow starts running from `main`.
-5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy`, then redeploy so the function reads the new value: `vercel redeploy <url> --target production` (this CLI has no `--prod` on `redeploy`). That sets `WEB_ORIGIN` for invitations and turns on the cron fallback. Until then the fallback skips, because it sends `CRON_SECRET` to that URL and must never guess it.
+4. Open the PR and merge it to `main`. Vercel builds production.
+5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy`, then redeploy so the function reads the new `WEB_ORIGIN` for invitations: `vercel redeploy <url> --target production` (this CLI has no `--prod` on `redeploy`).
 6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
-7. Release the SDK: push the tag `sdk-v0.1.0`.
+7. Schedule the backstop in Supabase: `LATTE_URL=<url> make supabase-cron` (see Background work below).
+8. Release the SDK: push the tag `sdk-v0.1.0`.
 
 ## One-time setup
 
@@ -63,17 +64,31 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 
 The function runs in `bom1` (Mumbai), next to the Supabase database in `ap-south-1`. `VERCEL_FUNCTION_REGION` at build time changes it.
 
-## Plan limits
+## Background work
 
-| | Pro | Hobby |
+Calls are processed as soon as they are uploaded (ADR-0029). The request that queues a job keeps its function running after the response (`waitUntil`) and drains the queue until it is empty or about a minute before the function's 300 s limit.
+
+Anything a drain leaves behind (retries after a failure or rate limit, long backlogs, scheduled jobs) is picked up by Supabase `pg_cron`. It calls `/api/cron/*` through `pg_net`, with `CRON_SECRET` read from Supabase Vault:
+
+| Job | Schedule | Task |
 | --- | --- | --- |
-| Crons | every minute (work), 5 minutes (status), hourly (alerts, digests), nightly (purge) | daily only: build with `VERCEL_CRON_PLAN=hobby` |
-| Queue between drains | up to 1 minute | up to 5 minutes, through the `cron` GitHub Actions workflow |
-| Function duration | 300 s used (`maxDuration`) | 300 s with Fluid compute |
+| `latte-work` | every minute | drain the queues, deliver webhooks |
+| `latte-status` | every 5 minutes | record the status page checks |
+| `latte-alerts` | hourly | evaluate alert rules |
+| `latte-digests` | hourly | send due digests |
+| `latte-purge` | 02:15 daily | delete audio past retention |
+| `latte-cron-history` | 03:30 daily | keep a week of `cron.job_run_details` |
 
-For the Hobby fallback, set the repository variable `LATTE_URL` (the
-production URL) and the repository secret `CRON_SECRET` (the same value as in
-Vercel). On Pro, leave `LATTE_URL` unset and the workflow skips.
+`make supabase-cron` sets these up and is safe to run again. Each task answers at once and runs in the background, because `pg_net` stops waiting after 5 seconds. Vercel Cron keeps its own daily schedule as a last resort (`VERCEL_CRON_PLAN=hobby`; on Pro, unset it for minute crons and the Supabase jobs become a second backstop).
+
+Check the jobs in Supabase > SQL editor:
+
+```sql
+SELECT jobname, status, start_time FROM cron.job_run_details
+JOIN cron.job USING (jobid) ORDER BY start_time DESC LIMIT 10;
+```
+
+`SELECT cron.unschedule('latte-work');` stops one.
 
 ## Deploy
 
@@ -91,9 +106,8 @@ vercel deploy --prebuilt --prod
 
 - `GET /api/health` answers `{"status":"ok"}` and `GET /api/ready` answers `ready`.
 - `/status` shows every component as operational.
-- Vercel > Project > Cron Jobs lists five jobs; run `work` once by hand and
-  check its log line `cron task finished` with `stoppedBy`.
-- Upload one call and watch it reach Scored within two drains.
+- `cron.job_run_details` shows `latte-work` succeeding every minute.
+- `LATTE_URL=<url> make e2e-check` passes: an uploaded call is scored within a minute or two.
 
 ## Rollback
 
@@ -106,7 +120,7 @@ cannot work with the new schema.
 
 | Symptom | Check | Action |
 | --- | --- | --- |
-| Calls stay Uploaded | Cron Jobs log for `/api/cron/work`; a 401 means `CRON_SECRET` differs | Set the same secret, redeploy, run `work` by hand |
+| Calls stay Uploaded | Vercel logs for `background drain`; `cron.job_run_details` for `latte-work`; a 401 in `net._http_response` means `CRON_SECRET` differs | `make supabase-cron` again after changing the secret, so Vault matches Vercel |
 | `stoppedBy: "budget"` on every run | the queue is behind | expected under a burst; if it persists, lower upload rate or move the worker to a long-lived host (`make dev-worker` code runs unchanged) |
 | `/api/ready` 503 | the database URL and pooler mode | must be the session pooler; check Supabase status |
 | Webhooks not sent | `DATA_ENCRYPTION_KEY` set; endpoint enabled; delivery log on the endpoint page | redeliver from the log |

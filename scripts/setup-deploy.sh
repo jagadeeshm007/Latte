@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-time setup of the Vercel project and the GitHub repository for Latte
 # (docs/runbooks/deploy-vercel.md, ADR-0020). Run it yourself, signed in to
-# both CLIs (`vercel login`, `gh auth login`):
+# the Vercel CLI (`vercel login`):
 #   make setup-deploy                       # or: bash scripts/setup-deploy.sh
 #   LATTE_URL=https://your.domain make setup-deploy   # once the real URL is known
 # It is safe to run again: every variable is overwritten with the same value.
@@ -12,7 +12,7 @@
 #   3. copies the hosted settings from .env into Vercel (production and
 #      preview), piping each value through stdin so none is printed or lands
 #      in shell history;
-#   4. sets the GitHub Actions variable and secret the Hobby cron fallback uses.
+#   4. points you at make supabase-cron, which schedules the backstop in Supabase.
 # It never pushes, deploys, migrates or prints a secret.
 set -euo pipefail
 
@@ -50,10 +50,8 @@ put() {
 
 # --- preflight -------------------------------------------------------------
 command -v vercel >/dev/null || die "the Vercel CLI is not installed (npm i -g vercel)"
-command -v gh >/dev/null || die "the GitHub CLI is not installed"
 command -v openssl >/dev/null || die "openssl is needed to generate secrets"
 vercel whoami >/dev/null 2>&1 || die "not signed in to Vercel: run vercel login"
-gh auth status >/dev/null 2>&1 || die "not signed in to GitHub: run gh auth login"
 [ -f "$DOTENV" ] || die ".env not found: copy .env.example and fill in the hosted Supabase values"
 for name in DATABASE_URL SUPABASE_URL SUPABASE_SECRET_KEY VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY GROQ_API_KEY; do
   [ -n "$(value_of "$DOTENV" "$name")" ] || die "$name is empty in .env"
@@ -86,7 +84,7 @@ done
 say "app secrets kept in .env.vercel; keep a copy of DATA_ENCRYPTION_KEY outside Vercel"
 
 # --- 3. Vercel environment -------------------------------------------------
-# Only a URL you give: the cron fallback sends CRON_SECRET to it, so never a guess.
+# Only a URL you give: invitations link to it, so never a guess.
 LATTE_URL="${LATTE_URL:-}"
 for name in DATABASE_URL SUPABASE_URL SUPABASE_SECRET_KEY SUPABASE_JWKS_URL SUPABASE_POOLER_HOST GROQ_API_KEY SARVAM_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY; do
   put "$name" "$(value_of "$DOTENV" "$name")"
@@ -102,7 +100,7 @@ done
 put DB_SSL true --no-sensitive
 put DB_POOL_MAX 2 --no-sensitive
 put MODEL_MODE live --no-sensitive
-# Hobby allows daily crons only; the GitHub workflow below drives the queue.
+# Hobby allows daily Vercel crons only; Supabase pg_cron runs the minute-by-minute ones.
 put VERCEL_CRON_PLAN "${VERCEL_CRON_PLAN:-hobby}" --no-sensitive
 # Lets Vercel use the pnpm version named in package.json.
 put ENABLE_EXPERIMENTAL_COREPACK 1 --no-sensitive
@@ -114,14 +112,12 @@ else
   say "skip DB_SSL_CA_PEM (no CA file in .env): TLS to the database will not verify the certificate"
 fi
 
-# --- 4. GitHub Actions -----------------------------------------------------
-value_of "$GENERATED" CRON_SECRET | tr -d '\n' | gh secret set CRON_SECRET --repo "$REPO" >/dev/null
-say "set GitHub secret CRON_SECRET"
+# --- 4. Schedules -----------------------------------------------------------
+# Supabase pg_cron drives /api/cron/* (ADR-0029); it needs the production URL.
 if [ -n "$LATTE_URL" ]; then
-  gh variable set LATTE_URL --repo "$REPO" --body "$LATTE_URL" >/dev/null
-  say "set GitHub variable LATTE_URL ($LATTE_URL); the cron fallback now runs"
+  say "next: LATTE_URL=$LATTE_URL make supabase-cron   (schedules the backstop in Supabase)"
 else
-  say "LATTE_URL not given: WEB_ORIGIN and the cron fallback wait for it. After the first deploy run:"
+  say "LATTE_URL not given: WEB_ORIGIN waits for it. After the first deploy run:"
   say "  LATTE_URL=https://<your production domain> make setup-deploy"
 fi
 

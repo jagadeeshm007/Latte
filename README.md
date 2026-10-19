@@ -73,7 +73,7 @@ make eval-record
 
 ## Deploy
 
-Everything deploys as one Vercel project: the web app as static files, the API as one Node 24 function, and the job queue drained by Vercel Cron (ADR-0020). `make vercel-build` writes `.vercel/output`; `make vercel-smoke` loads the built function locally and checks it. Setup, variables, plan limits and rollback are in `docs/runbooks/deploy-vercel.md`. Locally, `make dev` still runs the API and worker as long-lived processes from the same code.
+Everything deploys as one Vercel project: the web app as static files, the API as one Node 24 function, and the job queue drained right after each upload, with Supabase `pg_cron` as the every-minute backstop (ADR-0020, ADR-0029). `make vercel-build` writes `.vercel/output`; `make vercel-smoke` loads the built function locally and checks it. Setup, variables, plan limits and rollback are in `docs/runbooks/deploy-vercel.md`. Locally, `make dev` still runs the API and worker as long-lived processes from the same code.
 
 The API guide for integrators is `docs/api/guide.md`, also in the app under Developers > Docs. The SDK installs into any project straight from GitHub:
 
