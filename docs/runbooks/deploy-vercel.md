@@ -11,7 +11,7 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 2. Apply the migrations to the hosted database: `pnpm --filter @scc/api migrate`. Then `make seed` once, if the project has no users yet.
 3. Push the branch. Vercel builds a preview deployment of it.
 4. Open the PR and merge it to `main`. Vercel builds production, and the `cron` workflow starts running from `main`.
-5. Read the production URL under Project > Domains. If it is not `https://latte.vercel.app`, run `LATTE_URL=<url> make setup-deploy` and redeploy, so invitations and the cron fallback use it.
+5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy` and redeploy. That sets `WEB_ORIGIN` for invitations and turns on the cron fallback. Until then the fallback skips, because it sends `CRON_SECRET` to that URL and must never guess it.
 6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
 7. Release the SDK: push the tag `sdk-v0.1.0`.
 

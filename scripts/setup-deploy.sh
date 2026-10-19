@@ -3,7 +3,7 @@
 # (docs/runbooks/deploy-vercel.md, ADR-0020). Run it yourself, signed in to
 # both CLIs (`vercel login`, `gh auth login`):
 #   make setup-deploy                       # or: bash scripts/setup-deploy.sh
-#   LATTE_URL=https://your.domain make setup-deploy   # once the URL is known
+#   LATTE_URL=https://your.domain make setup-deploy   # once the real URL is known
 # It is safe to run again: every variable is overwritten with the same value.
 #
 # What it does:
@@ -86,7 +86,8 @@ done
 say "app secrets kept in .env.vercel; keep a copy of DATA_ENCRYPTION_KEY outside Vercel"
 
 # --- 3. Vercel environment -------------------------------------------------
-LATTE_URL="${LATTE_URL:-https://$PROJECT.vercel.app}"
+# Only a URL you give: the cron fallback sends CRON_SECRET to it, so never a guess.
+LATTE_URL="${LATTE_URL:-}"
 for name in DATABASE_URL SUPABASE_URL SUPABASE_SECRET_KEY SUPABASE_JWKS_URL SUPABASE_POOLER_HOST GROQ_API_KEY SARVAM_API_KEY OPENROUTER_API_KEY GEMINI_API_KEY; do
   put "$name" "$(value_of "$DOTENV" "$name")"
 done
@@ -97,7 +98,7 @@ done
 for name in VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VITE_AUTH_PROVIDERS LLM_BUDGET_USD AUDIO_RETENTION_DAYS; do
   put "$name" "$(value_of "$DOTENV" "$name")" --no-sensitive
 done
-put WEB_ORIGIN "$LATTE_URL" --no-sensitive
+[ -n "$LATTE_URL" ] && put WEB_ORIGIN "$LATTE_URL" --no-sensitive
 put DB_SSL true --no-sensitive
 put DB_POOL_MAX 2 --no-sensitive
 put MODEL_MODE live --no-sensitive
@@ -114,8 +115,14 @@ else
 fi
 
 # --- 4. GitHub Actions -----------------------------------------------------
-gh variable set LATTE_URL --repo "$REPO" --body "$LATTE_URL" >/dev/null
 value_of "$GENERATED" CRON_SECRET | tr -d '\n' | gh secret set CRON_SECRET --repo "$REPO" >/dev/null
-say "set GitHub variable LATTE_URL ($LATTE_URL) and secret CRON_SECRET"
+say "set GitHub secret CRON_SECRET"
+if [ -n "$LATTE_URL" ]; then
+  gh variable set LATTE_URL --repo "$REPO" --body "$LATTE_URL" >/dev/null
+  say "set GitHub variable LATTE_URL ($LATTE_URL); the cron fallback now runs"
+else
+  say "LATTE_URL not given: WEB_ORIGIN and the cron fallback wait for it. After the first deploy run:"
+  say "  LATTE_URL=https://<your production domain> make setup-deploy"
+fi
 
 say "done. Next steps are in docs/runbooks/deploy-vercel.md, section 'First deploy'."
