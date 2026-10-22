@@ -26,6 +26,7 @@ import {
   QueuePage,
   RubricPage,
   ScorecardPage,
+  SettingsPage,
   StatusPage,
   TeamsPage,
   UploadPage,
@@ -36,6 +37,7 @@ import { RouteError } from "@/app/RouteError";
 import { Loading } from "@/components/states";
 import { callsSearchSchema } from "@/features/calls/calls-search";
 import { performanceSearchSchema } from "@/features/manager/performance-search";
+import { settingsSearchSchema } from "@/features/settings/settings-search";
 
 // Code-based routes. Access is enforced by the API on every request; the
 // menu in RootLayout only hides what a role cannot use.
@@ -163,6 +165,23 @@ const teamsRoute = createRoute({ ...child, path: "/teams", component: () => <Tea
 const membersRoute = createRoute({ ...child, path: "/members", component: () => <MembersPage /> });
 const billingRoute = createRoute({ ...child, path: "/billing", component: () => <BillingPage /> });
 // Public: RootLayout serves it without a sign-in (ADR-0026).
+const settingsRoute = createRoute({
+  ...child,
+  path: "/settings",
+  validateSearch: settingsSearchSchema,
+  component: function SettingsRoute() {
+    const { tab } = settingsRoute.useSearch();
+    const navigate = settingsRoute.useNavigate();
+    return (
+      <SettingsPage
+        tab={tab}
+        onTab={(next) => {
+          void navigate({ search: { tab: next }, replace: true });
+        }}
+      />
+    );
+  },
+});
 const statusRoute = createRoute({ ...child, path: "/status", component: () => <StatusPage /> });
 const rubricRoute = createRoute({ ...child, path: "/rubric", component: () => <RubricPage /> });
 
@@ -198,6 +217,7 @@ export const routeTree = rootRoute.addChildren([
   batchRoute,
   developersRoute,
   apiKeyRoute,
+  settingsRoute,
   oldDocsRoute,
   docsIndexRoute,
   docsPageRoute,
