@@ -200,11 +200,14 @@ export async function measure(db: Queryable, rule: AlertRule, to: string): Promi
 }
 
 /** breaches: the groups whose change is bad and at least the threshold, with enough calls. */
-export function breaches(rule: AlertRule, measured: Measured[]): Measured[] {
+/** A group that moved past the threshold: both sides were measured. */
+export type Breach = Measured & { value: number; baseline: number };
+
+export function breaches(rule: AlertRule, measured: Measured[]): Breach[] {
   // A score that falls is bad news; a flag or fail rate that rises is.
   const worse = rule.metric === "avg_score" ? -1 : 1;
   return measured.filter(
-    (m) =>
+    (m): m is Breach =>
       m.calls >= rule.minCalls &&
       m.value !== null &&
       m.baseline !== null &&
