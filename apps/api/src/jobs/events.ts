@@ -81,7 +81,9 @@ export async function completeBatchIfDone(db: Queryable, callId: string): Promis
       body:
         b.failed > 0
           ? `${String(b.scored)} of ${String(b.total)} calls scored; ${String(b.failed)} failed and can be retried.`
-          : `All ${String(b.total)} calls scored.`,
+          : b.total === 1
+            ? "Its call was scored."
+            : `All ${String(b.total)} calls scored.`,
       link: `/batches/${b.id}`,
       data: { batchId: b.id, total: b.total, scored: b.scored, failed: b.failed },
     });

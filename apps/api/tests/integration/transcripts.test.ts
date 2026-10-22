@@ -200,7 +200,7 @@ describe("transcript uploads", () => {
       expect.objectContaining({
         kind: "batch",
         title: 'Batch "Imported" finished',
-        body: "All 1 calls scored.",
+        body: "Its call was scored.",
         link: `/batches/${batchId}`,
       }),
     ]);

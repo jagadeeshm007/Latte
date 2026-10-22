@@ -48,7 +48,7 @@ export function NotificationsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Notifications"
-        description="Alerts when a team or agent slips, and your digests."
+        description="Finished batches, alerts when a team or agent slips, and your digests."
         actions={
           <Button
             variant="outline"

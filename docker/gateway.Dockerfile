@@ -14,6 +14,8 @@ COPY evals/package.json evals/
 RUN pnpm install --frozen-lockfile --filter @scc/web...
 COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
+# The web app reads transcripts with the SDK's parser (@latte/sdk/transcript).
+COPY packages/sdk packages/sdk
 COPY apps/web apps/web
 # Public values only: VITE_ variables are inlined into the bundle.
 ARG VITE_SUPABASE_URL=http://localhost:8000
