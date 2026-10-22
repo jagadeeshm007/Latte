@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
-import { LatteClient } from "./client.ts";
+import { LatteClient, SDK_VERSION } from "./client.ts";
 import { ApiError, RateLimitError } from "./errors.ts";
 
 const KEY = `latte_abcd1234_${"x".repeat(43)}`;
@@ -57,6 +59,16 @@ function client(answers: Parameters<typeof fakeFetch>[0], maxRetries = 3) {
   return { latte, sent: f.sent, waits };
 }
 
+describe("SDK_VERSION", () => {
+  it("matches the package version, which the release tag must match", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+
+    expect(SDK_VERSION).toBe(pkg.version);
+  });
+});
+
 describe("LatteClient", () => {
   it("refuses anything but a Latte API key", () => {
     expect(() => new LatteClient({ apiKey: "sk_live_x", baseUrl: BASE })).toThrow(/latte_/);
@@ -71,7 +83,7 @@ describe("LatteClient", () => {
     expect(sent[0]!.url).toBe(`${BASE}/api/calls?status=failed&limit=10`);
     expect(sent[0]!.headers.Authorization).toBe(`Bearer ${KEY}`);
     expect(sent[0]!.headers["X-Request-Id"]).toMatch(/^[0-9a-f-]{36}$/);
-    expect(sent[0]!.headers["User-Agent"]).toBe("latte-sdk/0.1.0");
+    expect(sent[0]!.headers["User-Agent"]).toBe(`latte-sdk/${SDK_VERSION}`);
   });
 
   it("waits out a 429 for as long as Retry-After says, then succeeds", async () => {

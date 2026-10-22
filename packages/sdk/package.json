@@ -1,6 +1,6 @@
 {
   "name": "@latte/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "Zero-dependency TypeScript client for the Latte API: calls, batches, exports, analytics and webhooks",
   "type": "module",

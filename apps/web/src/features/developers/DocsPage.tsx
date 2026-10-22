@@ -25,7 +25,7 @@ import { BUCKET_LABEL, EVENT_LABEL, SCOPE_LABEL } from "./key-labels";
 
 /** The pinned SDK release; sdk-release.yml attaches it to the GitHub release for its tag. */
 const SDK_TARBALL =
-  "https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz";
+  "https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz";
 
 // The Latte API and SDK documentation, in the app so it always matches the
 // running version: scopes, limits and events come from the shared contract.

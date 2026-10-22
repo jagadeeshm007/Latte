@@ -7,7 +7,7 @@ is `GET /api/openapi.json`; the TypeScript client is `@latte/sdk`
 GitHub release:
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
 ```
 
 ## Authentication
