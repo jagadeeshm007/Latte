@@ -75,6 +75,19 @@ function receiver(statuses: number[]) {
 }
 const send = (post: Post) => deliverDue({ pool, log, encryptionKey: TEST_ENCRYPTION_KEY, post });
 
+/** A call.scored payload in the documented shape (webhook-events.ts). */
+const scored = (callId: string) => ({
+  callId,
+  batchId: "b1",
+  agentId: "a1",
+  teamId: "t1",
+  productId: "p1",
+  overallScore: 90,
+  needsReview: false,
+  judgeStatus: "ok",
+  breaches: 0,
+});
+
 describe("key rotation and revoke-all", () => {
   it("rotates a key: the successor works now, the old key runs out after its grace", async () => {
     const old = await createKey({ scopes: ["calls:read"], limits: { read: 900 } });
@@ -184,7 +197,7 @@ describe("webhooks (ADR-0021)", () => {
   it("delivers only to subscribed endpoints, retries a failure later, and logs each attempt", async () => {
     const subscribed = await createWebhook(["call.scored"]);
     await createWebhook(["batch.completed"]);
-    await emitEvent(pool, "call.scored", { callId: "c1" });
+    await emitEvent(pool, "call.scored", scored("c1"));
     const { post, got } = receiver([500]);
 
     const first = await send(post);
@@ -205,7 +218,7 @@ describe("webhooks (ADR-0021)", () => {
 
   it("gives up after the last retry, and redelivers on request", async () => {
     const { endpoint } = await createWebhook();
-    await emitEvent(pool, "call.scored", { callId: "c1" });
+    await emitEvent(pool, "call.scored", scored("c1"));
     // Eight retries after the first attempt: the ninth attempt is the last.
     await pool.query("UPDATE webhook_deliveries SET attempts = 8");
 
@@ -228,7 +241,7 @@ describe("webhooks (ADR-0021)", () => {
     await pool.query("UPDATE webhook_endpoints SET consecutive_failures = 49 WHERE id = $1", [
       endpoint.id,
     ]);
-    await emitEvent(pool, "call.scored", { callId: "c1" });
+    await emitEvent(pool, "call.scored", scored("c1"));
 
     await send(receiver([503]).post);
     const off = await request(ctx.app)
@@ -260,7 +273,7 @@ describe("webhooks (ADR-0021)", () => {
 
   it("deletes an endpoint with its deliveries, and audits it", async () => {
     const { endpoint } = await createWebhook();
-    await emitEvent(pool, "call.scored", { callId: "c1" });
+    await emitEvent(pool, "call.scored", scored("c1"));
 
     await request(ctx.app)
       .delete(`/api/webhooks/${endpoint.id}`)
