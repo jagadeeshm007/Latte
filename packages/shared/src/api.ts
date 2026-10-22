@@ -148,6 +148,69 @@ export const uploadConfirmResponseSchema = z.object({
 });
 export type UploadConfirmResponse = z.infer<typeof uploadConfirmResponseSchema>;
 
+/** Where a call's transcript came from: speech-to-text on audio, or lines the uploader sent (ADR-0030). */
+export const CALL_INPUTS = ["audio", "transcript"] as const;
+export type CallInput = (typeof CALL_INPUTS)[number];
+export const SPEAKERS = ["agent", "customer"] as const;
+export const MAX_TRANSCRIPT_LINES = 3000;
+/** A transcript is stored as its lines; this caps one call's lines as sent, in bytes of JSON. */
+export const MAX_TRANSCRIPT_BYTES = 1024 * 1024;
+
+export const transcriptLineSchema = z
+  .object({
+    speaker: z.enum(SPEAKERS, { message: "speaker must be agent or customer" }),
+    text: z.string().trim().min(1).max(5000),
+    /** Milliseconds from the start of the call; give both times on every line, or on none. */
+    startMs: z.number().int().min(0).optional(),
+    endMs: z.number().int().min(0).optional(),
+  })
+  .refine((l) => (l.startMs === undefined) === (l.endMs === undefined), {
+    message: "give startMs and endMs together",
+  })
+  .refine((l) => l.startMs === undefined || l.endMs === undefined || l.endMs >= l.startMs, {
+    message: "endMs must not be before startMs",
+  });
+export type TranscriptLine = z.infer<typeof transcriptLineSchema>;
+
+export const transcriptUploadRequestSchema = z.object({
+  transcripts: z
+    .array(
+      z.object({
+        /** A name people recognise, like the source file's. */
+        originalFilename: z.string().min(1).max(255),
+        agentId: z.uuid(),
+        teamId: z.uuid(),
+        productId: z.uuid(),
+        callDate: isoDate,
+        /** The transcript's language; auto-detection needs audio. */
+        language: languageSchema
+          .default(ENGLISH)
+          .refine((l) => l !== "auto", { message: "name the transcript's language" }),
+        lines: z
+          .array(transcriptLineSchema)
+          .min(1, { message: "a transcript needs at least one line" })
+          .max(MAX_TRANSCRIPT_LINES, {
+            message: `at most ${String(MAX_TRANSCRIPT_LINES)} lines per transcript`,
+          })
+          .refine(
+            (lines) =>
+              lines.every((l) => l.startMs !== undefined) ||
+              lines.every((l) => l.startMs === undefined),
+            { message: "give times on every line, or on none" },
+          ),
+      }),
+    )
+    .min(1)
+    .max(MAX_UPLOAD_FILES, {
+      message: `at most ${String(MAX_UPLOAD_FILES)} transcripts per upload`,
+    }),
+  /** Add to a batch this caller started; otherwise a new batch. */
+  batchId: z.uuid().optional(),
+  /** Name for a new batch; ignored when adding to one. */
+  batchName: z.string().trim().min(1).max(120).optional(),
+});
+export type TranscriptUploadRequest = z.input<typeof transcriptUploadRequestSchema>;
+
 export const callSummarySchema = z.object({
   id: z.string(),
   agentId: z.string(),
@@ -173,6 +236,10 @@ export const callSummarySchema = z.object({
   archivedAt: timestamp.nullable(),
   batchId: z.string(),
   batchName: z.string(),
+  /** transcript: uploaded as lines, with no audio (ADR-0030). */
+  input: z.enum(CALL_INPUTS).default("audio"),
+  /** false when an uploaded transcript had no times: show line numbers, not times. */
+  timed: z.boolean().default(true),
 });
 export type CallSummary = z.infer<typeof callSummarySchema>;
 
@@ -880,7 +947,7 @@ export type UpdateViewRequest = z.infer<typeof updateViewRequestSchema>;
 
 export const notificationSchema = z.object({
   id: z.string(),
-  kind: z.enum(["alert", "digest"]),
+  kind: z.enum(["alert", "digest", "batch"]),
   title: z.string(),
   body: z.string(),
   link: z.string().nullable(),

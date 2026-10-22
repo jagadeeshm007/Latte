@@ -208,12 +208,12 @@ function batchExporter({ pool, storage }: Pick<AppDeps, "pool" | "storage">) {
             {
               name: `transcripts/${stem}.txt`,
               compress: true,
-              load: async () => text(transcriptText(await listSegments(pool, r.id))),
+              load: async () => text(transcriptText(await listSegments(pool, r.id), r.timed)),
             },
             {
               name: `transcripts/${stem}.json`,
               compress: true,
-              load: async () => text(transcriptJson(await listSegments(pool, r.id))),
+              load: async () => text(transcriptJson(await listSegments(pool, r.id), r.timed)),
             },
           );
         }

@@ -1,5 +1,6 @@
 import { inTransaction, type Pool, type Queryable } from "../db/pool.ts";
 import * as calls from "../repo/calls.ts";
+import { notify } from "../repo/inbox.ts";
 import { emitEvent } from "../repo/webhooks.ts";
 
 // The pipeline's webhook events (ADR-0021), written in the same transaction
@@ -48,6 +49,7 @@ export async function completeBatchIfDone(db: Queryable, callId: string): Promis
   const { rows } = await db.query<{
     id: string;
     name: string;
+    created_by: string;
     total: number;
     scored: number;
     failed: number;
@@ -57,7 +59,7 @@ export async function completeBatchIfDone(db: Queryable, callId: string): Promis
         AND b.completed_at IS NULL
         AND NOT EXISTS (SELECT 1 FROM calls c WHERE c.batch_id = b.id AND c.deleted_at IS NULL
                           AND c.status NOT IN ('scored', 'failed'))
-     RETURNING b.id, b.name,
+     RETURNING b.id, b.name, b.created_by,
        (SELECT count(*)::int FROM calls c WHERE c.batch_id = b.id AND c.deleted_at IS NULL) AS total,
        (SELECT count(*)::int FROM calls c WHERE c.batch_id = b.id AND c.deleted_at IS NULL AND c.status = 'scored') AS scored,
        (SELECT count(*)::int FROM calls c WHERE c.batch_id = b.id AND c.deleted_at IS NULL AND c.status = 'failed') AS failed`,
@@ -71,6 +73,17 @@ export async function completeBatchIfDone(db: Queryable, callId: string): Promis
       total: b.total,
       scored: b.scored,
       failed: b.failed,
+    });
+    // The person who started it (for an API batch, the key's manager) hears it is done.
+    await notify(db, [b.created_by], {
+      kind: "batch",
+      title: `Batch "${b.name}" finished`,
+      body:
+        b.failed > 0
+          ? `${String(b.scored)} of ${String(b.total)} calls scored; ${String(b.failed)} failed and can be retried.`
+          : `All ${String(b.total)} calls scored.`,
+      link: `/batches/${b.id}`,
+      data: { batchId: b.id, total: b.total, scored: b.scored, failed: b.failed },
     });
   }
 }

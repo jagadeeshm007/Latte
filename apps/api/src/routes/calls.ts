@@ -10,6 +10,8 @@ import {
   MAX_BATCH_FILES,
   MAX_UPLOAD_FILES,
   uploadConfirmRequestSchema,
+  MAX_TRANSCRIPT_BYTES,
+  transcriptUploadRequestSchema,
   uploadSignRequestSchema,
   type CallDetail,
 } from "@scc/shared";
@@ -33,6 +35,7 @@ import {
   referenceExists,
 } from "../repo/reference.ts";
 import { getScore, listFindings } from "../repo/scores.ts";
+import { toSegments } from "../transcripts.ts";
 
 const idParam = z.object({ id: z.uuid() });
 /** A confirm with more files than this is bulk work, queued behind one-off uploads. */
@@ -45,14 +48,15 @@ const BULK_FROM_FILES = 10;
 async function batchForUpload(
   db: Client,
   userId: string,
-  body: { files: unknown[]; batchId?: string | undefined; batchName?: string | undefined },
+  body: { batchId?: string | undefined; batchName?: string | undefined },
+  adding: number,
   apiKeyId: string | null,
 ): Promise<string> {
   if (body.batchId) {
     const batch = await batches.lockBatchForUpload(db, body.batchId);
     if (batch?.createdBy !== userId) throw new NotFoundError("batch not found");
     if (batch.archived) throw new ConflictError("this batch is archived");
-    if (batch.calls + body.files.length > MAX_BATCH_FILES) {
+    if (batch.calls + adding > MAX_BATCH_FILES) {
       throw new ConflictError(`a batch holds at most ${String(MAX_BATCH_FILES)} calls`);
     }
     return body.batchId;
@@ -115,7 +119,13 @@ export function callsRouter(deps: AppDeps): Router {
       throw new ConflictError("the same file is listed twice");
     }
     const { batchId, callIds } = await inTransaction(pool, async (client) => {
-      const batchId = await batchForUpload(client, user.id, body, req.apiKey?.id ?? null);
+      const batchId = await batchForUpload(
+        client,
+        user.id,
+        body,
+        body.files.length,
+        req.apiKey?.id ?? null,
+      );
       const ids: string[] = [];
       for (const f of body.files) {
         const id = await calls.insertCall(client, {
@@ -158,6 +168,72 @@ export function callsRouter(deps: AppDeps): Router {
       );
     }
     req.log.info({ batchId, files: callIds.length, max: MAX_UPLOAD_FILES }, "upload confirmed");
+    res.status(201).json({ batchId, callIds });
+  });
+
+  // Calls uploaded as transcripts, with no audio (ADR-0030). Each goes through
+  // the transcribe job like an audio call, which skips speech-to-text, so
+  // translation, scoring, retries and batch completion stay one path.
+  router.post("/uploads/transcripts", uploaders, confirmLimit, async (req, res) => {
+    const body = transcriptUploadRequestSchema.parse(req.body);
+    const user = currentUser(req);
+    for (const t of body.transcripts) {
+      if (!(await referenceExists(pool, t.agentId, t.teamId, t.productId))) {
+        throw new AppError("unknown agent, team or product", 400, "validation_error");
+      }
+      if (Buffer.byteLength(JSON.stringify(t.lines)) > MAX_TRANSCRIPT_BYTES) {
+        throw new AppError(
+          `transcript ${t.originalFilename} is over 1 MB`,
+          400,
+          "validation_error",
+        );
+      }
+    }
+    const { batchId, callIds } = await inTransaction(pool, async (client) => {
+      const batchId = await batchForUpload(
+        client,
+        user.id,
+        body,
+        body.transcripts.length,
+        req.apiKey?.id ?? null,
+      );
+      const ids: string[] = [];
+      for (const t of body.transcripts) {
+        const shaped = toSegments(t.lines, t.language);
+        const id = await calls.insertCall(client, {
+          agentId: t.agentId,
+          teamId: t.teamId,
+          productId: t.productId,
+          callDate: t.callDate,
+          batchId,
+          uploadedBy: user.id,
+          originalFilename: t.originalFilename,
+          mimeType: t.originalFilename.toLowerCase().endsWith(".json")
+            ? "application/json"
+            : "text/plain",
+          sizeBytes: Buffer.byteLength(JSON.stringify(t.lines)),
+          storagePath: null,
+          retentionDays: config.AUDIO_RETENTION_DAYS,
+          language: t.language,
+          input: "transcript",
+          timed: shaped.timed,
+        });
+        await calls.replaceSegments(client, id, shaped.segments);
+        if (shaped.durationMs !== null) await calls.setDuration(client, id, shaped.durationMs);
+        await audit(client, user.id, "call_uploaded", id);
+        ids.push(id);
+      }
+      return { batchId, callIds: ids };
+    });
+    const bulk = body.batchId !== undefined || body.transcripts.length > BULK_FROM_FILES;
+    for (const callId of callIds) {
+      await enqueue(
+        QUEUES.transcribe,
+        { callId },
+        { priority: bulk ? PRIORITY.bulk : PRIORITY.interactive },
+      );
+    }
+    req.log.info({ batchId, transcripts: callIds.length }, "transcripts uploaded");
     res.status(201).json({ batchId, callIds });
   });
 

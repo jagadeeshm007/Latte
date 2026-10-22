@@ -11,25 +11,32 @@ function clock(ms: number): string {
   return `${mm}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** transcriptText: one line per utterance, "[01:05] Agent: ...", the English under a regional line. */
-export function transcriptText(segments: SegmentRow[]): string {
+/**
+ * transcriptText: one line per utterance, "[01:05] Agent: ...", the English
+ * under a regional line. An untimed transcript upload says "[line 3]" instead,
+ * since its stored times are only an order (ADR-0030).
+ */
+export function transcriptText(segments: SegmentRow[], timed = true): string {
   return segments
     .map((s) => {
       const who = s.channel === "agent" ? "Agent" : "Customer";
-      const line = `[${clock(s.start_ms)}] ${who}: ${redactText(s.text)}`;
+      const at = timed ? clock(s.start_ms) : `line ${String(s.seq + 1)}`;
+      const line = `[${at}] ${who}: ${redactText(s.text)}`;
       return s.text_en ? `${line}\n        (English) ${redactText(s.text_en)}` : line;
     })
     .join("\n")
     .concat("\n");
 }
 
-export function transcriptJson(segments: SegmentRow[]): string {
+/** transcriptJson: the lines with times, or null times and a line number for an untimed upload. */
+export function transcriptJson(segments: SegmentRow[], timed = true): string {
   return JSON.stringify(
     segments.map((s) => ({
       seq: s.seq,
+      line: s.seq + 1,
       speaker: s.channel,
-      startMs: s.start_ms,
-      endMs: s.end_ms,
+      startMs: timed ? s.start_ms : null,
+      endMs: timed ? s.end_ms : null,
       text: redactText(s.text),
       english: s.text_en === null ? null : redactText(s.text_en),
       language: s.language,

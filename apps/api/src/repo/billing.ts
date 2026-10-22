@@ -61,7 +61,7 @@ async function breakdown(db: Queryable, nameSql: string, join: string, range: un
   // One score per call, so each call counts once; its model spend is summed per call first.
   const { rows } = await db.query<Row>(
     `SELECT ${nameSql} AS name, count(*)::int AS calls,
-            coalesce(sum(c.duration_ms), 0)::bigint AS ms,
+            coalesce(sum(c.duration_ms) FILTER (WHERE c.input = 'audio'), 0)::bigint AS ms,
             coalesce(sum(mc.cost), 0) AS cost
        FROM calls c JOIN scores s ON s.call_id = c.id ${join}
        LEFT JOIN LATERAL (
@@ -86,7 +86,7 @@ export async function statement(db: Queryable, month: string): Promise<Statement
   const prices = await getPrices(db);
   const [usage, spend, byTeam, byProduct, byApiKey] = await Promise.all([
     db.query<{ calls: number; ms: number }>(
-      `SELECT count(*)::int AS calls, coalesce(sum(c.duration_ms), 0)::bigint AS ms
+      `SELECT count(*)::int AS calls, coalesce(sum(c.duration_ms) FILTER (WHERE c.input = 'audio'), 0)::bigint AS ms
          FROM calls c JOIN scores s ON s.call_id = c.id
         WHERE s.created_at >= $1::date AND s.created_at < $2::date`,
       range,

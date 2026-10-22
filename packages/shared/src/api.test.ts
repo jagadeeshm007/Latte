@@ -16,6 +16,8 @@ import {
   updateWebhookRequestSchema,
   updateApiKeyRequestSchema,
   batchUpdateRequestSchema,
+  callSummarySchema,
+  transcriptUploadRequestSchema,
 } from "./api.ts";
 import { DEFAULT_RUBRIC } from "./rubric.ts";
 
@@ -188,5 +190,52 @@ describe("saved views and alert rules (ADR-0025)", () => {
       alertRuleRequestSchema.safeParse({ ...base, metric: "item_fail_rate", itemKey: "consent" })
         .success,
     ]).toEqual([true, false, false, true]);
+  });
+});
+
+describe("transcript uploads (ADR-0030)", () => {
+  const base = {
+    originalFilename: "call.txt",
+    agentId: "00000000-0000-4000-8000-000000000001",
+    teamId: "00000000-0000-4000-8000-000000000002",
+    productId: "00000000-0000-4000-8000-000000000003",
+    callDate: "2026-10-22",
+  };
+  const upload = (over: Record<string, unknown>) =>
+    transcriptUploadRequestSchema.safeParse({ transcripts: [{ ...base, ...over }] });
+
+  it("accepts lines all with times or all without, defaulting to English", () => {
+    const timed = upload({
+      lines: [{ speaker: "agent", text: "Hi", startMs: 0, endMs: 900 }],
+    });
+    const untimed = upload({ lines: [{ speaker: "customer", text: " Hello " }] });
+
+    expect(timed.success && untimed.success).toBe(true);
+    expect(untimed.data?.transcripts[0]).toMatchObject({
+      language: "en-IN",
+      lines: [{ text: "Hello" }],
+    });
+  });
+
+  it("refuses mixed times, half a time, an end before its start and an unnamed language", () => {
+    const results = [
+      upload({
+        lines: [
+          { speaker: "agent", text: "Hi", startMs: 0, endMs: 900 },
+          { speaker: "customer", text: "Hello" },
+        ],
+      }),
+      upload({ lines: [{ speaker: "agent", text: "Hi", startMs: 0 }] }),
+      upload({ lines: [{ speaker: "agent", text: "Hi", startMs: 900, endMs: 100 }] }),
+      upload({ language: "auto", lines: [{ speaker: "agent", text: "Hi" }] }),
+      upload({ lines: [] }),
+    ];
+
+    expect(results.map((r) => r.success)).toEqual([false, false, false, false, false]);
+  });
+
+  it("gives calls an input and timing, as audio with times when older data has none", () => {
+    expect(callSummarySchema.shape.input.parse(undefined)).toBe("audio");
+    expect(callSummarySchema.shape.timed.parse(undefined)).toBe(true);
   });
 });

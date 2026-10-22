@@ -87,6 +87,10 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
     log.info({ callId: job.callId }, "transcribe: call not in a transcribable state, skipped");
     return;
   }
+  if (call.input === "transcript") {
+    await prepareUploadedTranscript(deps, job, call);
+    return;
+  }
   if (!call.storage_path) {
     await failCall(pool, call.id, "Recording audio is no longer stored");
     return;
@@ -155,6 +159,45 @@ export async function handleTranscribe(deps: JobDeps, job: JobInfo): Promise<voi
     });
     await deps.enqueue(QUEUES.score, { callId: call.id });
     log.info({ callId: call.id, segments: transcript.segments.length }, "transcribed");
+  } catch (error) {
+    await handleFailure(deps, job, error, QUEUES.transcribe, "uploaded");
+  }
+}
+
+/**
+ * prepareUploadedTranscript readies a transcript upload (ADR-0030): its lines
+ * are already stored, so only regional lines need translating before scoring.
+ */
+async function prepareUploadedTranscript(
+  deps: JobDeps,
+  job: JobInfo,
+  call: calls.CallRow,
+): Promise<void> {
+  const { pool, log } = deps;
+  try {
+    const segments = await calls.listSegments(pool, call.id);
+    const translations = isRegional(call.language)
+      ? await translateLines(
+          segments.map((seg) => seg.text),
+          async (text) =>
+            (
+              await deps.gateway.callModel(
+                { kind: "translate", text, source: call.language, target: ENGLISH },
+                { purpose: "translate", callId: call.id },
+              )
+            ).text,
+        )
+      : [];
+    await inTransaction(pool, async (client) => {
+      await calls.setTranslations(
+        client,
+        call.id,
+        translations.map((textEn, i) => ({ seq: segments[i]?.seq ?? i, textEn })),
+      );
+      await calls.setStatus(client, call.id, "transcribed");
+    });
+    await deps.enqueue(QUEUES.score, { callId: call.id });
+    log.info({ callId: call.id, lines: segments.length }, "uploaded transcript ready");
   } catch (error) {
     await handleFailure(deps, job, error, QUEUES.transcribe, "uploaded");
   }
