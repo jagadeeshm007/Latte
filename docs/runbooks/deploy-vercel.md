@@ -14,7 +14,7 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy`, then redeploy so the function reads the new `WEB_ORIGIN` for invitations: `vercel redeploy <url> --target production` (this CLI has no `--prod` on `redeploy`).
 6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
 7. Schedule the backstop in Supabase: `LATTE_URL=<url> make supabase-cron` (see Background work below).
-8. Release the SDK: push the tag `sdk-v0.1.0`.
+8. Release the SDK: push the tag `sdk-v<version>` matching `packages/sdk/package.json` (see the SDK README).
 
 ## One-time setup
 

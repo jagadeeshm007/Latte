@@ -11,7 +11,7 @@ Developers > Docs, and in [docs/api/guide.md](../../docs/api/guide.md).
 Each release is a tarball on GitHub; no registry or token is needed.
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
 ```
 
 The same URL works with `pnpm add` and `yarn add`, and is what lands in your

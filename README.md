@@ -78,7 +78,7 @@ Everything deploys as one Vercel project: the web app as static files, the API a
 The API guide for integrators is `docs/api/guide.md`, also in the app under Developers > Docs. The SDK installs into any project straight from GitHub:
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.1.0/latte-sdk-0.1.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
 ```
 
 ## Configuration
