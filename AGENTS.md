@@ -32,6 +32,14 @@ Breaking one gets the change rejected, whatever else it does.
 
 - Every change has a task id and a branch: `start-task` creates
   `feature|bugfix|chore|docs/<ID>-<PascalName>`. One task per session.
+- Work is split into Intents, Units and Bolts. An Intent is the epic
+  (`SCC-2`, branch `feature/SCC-2-<Name>` from `main`). A Unit is a task in
+  it (`SCC-2-1`, branch `<type>/SCC-2-1-<Name>` cut from the Intent branch
+  with `start-task`). A Bolt is one sub-task and one commit on its Unit
+  branch, with its id in the subject (`[SCC-2-1-3]`). A Unit merges into its
+  Intent branch by pull request after `branch-review`, `definition-of-done`
+  and `merge-request`; an Intent merges into `main` by one pull request.
+  Progress lives in `docs/progress/<Intent>.md`.
 - Every command is a Makefile target; `make help` lists them and `make check`
   is the gate CI runs.
 - Search before reading, open only what you located, and copy the shape,
