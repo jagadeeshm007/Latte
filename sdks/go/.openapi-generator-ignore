@@ -1,0 +1,8 @@
+# Not generated: CI and publishing files we do not use, generated test stubs,
+# and the hand-written webhook check with its test.
+git_push.sh
+.travis.yml
+test/**
+webhook.go
+webhook_test.go
+README.md

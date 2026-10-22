@@ -1,0 +1,8 @@
+# OpenAPI Generator settings for sdks/python (sdks/README.md).
+generatorName: python
+packageName: latte_sdk
+projectName: latte-sdk
+packageUrl: https://github.com/jagadeeshm007/Latte
+gitHost: github.com
+gitUserId: jagadeeshm007
+gitRepoId: Latte

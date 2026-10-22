@@ -30,6 +30,12 @@ evals/audio/
 # Copied from the root LICENSE when the SDK is built
 packages/sdk/LICENSE
 packages/sdk/*.tgz
+# Build output of the generated SDKs (sdks/README.md)
+sdks/java/target/
+sdks/python/build/
+sdks/python/dist/
+sdks/python/*.egg-info/
+__pycache__/
 # Written by apps/web/scripts/build-docs.ts from docs/public
 apps/web/public/docs/
 apps/web/public/llms.txt

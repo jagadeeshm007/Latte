@@ -1,0 +1,15 @@
+# Not generated: Gradle and sbt builds (Maven is the build), CI and publishing
+# files we do not use, generated test stubs, and the hand-written webhook check.
+git_push.sh
+.travis.yml
+.github/**
+build.gradle
+build.sbt
+settings.gradle
+gradle.properties
+gradle/**
+gradlew
+gradlew.bat
+src/test/**
+src/main/java/io/github/jagadeeshm007/latte/Webhook.java
+README.md

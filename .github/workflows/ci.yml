@@ -119,3 +119,21 @@ jobs:
         with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: make vercel-smoke
+
+  # The Python, Go and Java SDKs: committed output matches a fresh generation,
+  # and each builds and passes its tests in its official image (ADR-0031).
+  sdks:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: make sdks
+      - name: the committed SDKs match the API
+        run: |
+          changed=$(git status --porcelain -- sdks)
+          if [ -n "$changed" ]; then echo "$changed"; echo "run make sdks and commit the result"; exit 1; fi
+      - run: make sdks-test
