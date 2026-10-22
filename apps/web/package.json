@@ -9,8 +9,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite --port 5173 --strictPort",
-    "build": "vite build",
+    "dev": "node scripts/build-docs.ts && vite --port 5173 --strictPort",
+    "build": "node scripts/build-docs.ts && vite build",
+    "docs": "node scripts/build-docs.ts",
     "preview": "vite preview --port 4173 --strictPort",
     "check": "make check",
     "fix": "make fix",
@@ -39,6 +40,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "lucide-react": "1.47.0",
+    "marked": "18.1.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-is": "19.3.0",
