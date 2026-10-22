@@ -147,6 +147,8 @@ Every variable is listed with a placeholder in [`.env.example`](.env.example). T
 | `packages/shared`  | Shared Zod schemas for every request and response, and the default rubric              |
 | `packages/gateway` | All model provider calls: budget, token caps, cost log, rate limits, record and replay |
 | `packages/sdk`     | `@latte/sdk`, the TypeScript client                                                    |
+| `sdks`             | Python, Go and Java SDKs, generated from the OpenAPI document                          |
+| `examples`         | Runnable SDK examples: uploads, transcript import, webhook receiver, CRM sync          |
 | `evals`            | 20 labelled sample calls and the judge evaluation                                      |
 | `docs`             | Requirements, design, architecture decisions, API guide and runbooks                   |
 
