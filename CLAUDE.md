@@ -24,6 +24,8 @@ the branch state and the user's last requests after compaction.
 Permissions are in `.claude/settings.json`; `.claude/settings.local.json` may
 add to them but must not loosen the deny list.
 
+Intents (epic branch from main) hold Units (start-task branch from the Intent)
+made of Bolts (one commit, `[SCC-n-u-b]`); Units merge into Intents, Intents into main.
 Plan mode for anything over three files or touching a schema, contract or
 auth. On a third failed approach, stop and say so. Bound shell output with
 `| tail -40`.
