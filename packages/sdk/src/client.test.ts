@@ -446,3 +446,72 @@ describe("LatteClient", () => {
     expect(sent.at(-1)!.url).toBe(`${BASE}/api/batches/b1/export.zip?include=audio%2Ctranscripts`);
   });
 });
+
+describe("transcript uploads (ADR-0030)", () => {
+  const meta = {
+    agentId: "a1",
+    teamId: "t1",
+    productId: "p1",
+    callDate: "2026-10-22",
+  };
+
+  it("sends a transcript given as text, read into lines, under an idempotency key", async () => {
+    const { latte, sent } = client([json({ batchId: "b1", callIds: ["c1"] }, 201)]);
+
+    const out = await latte.calls.uploadTranscript(
+      { ...meta, originalFilename: "call.txt", text: "Agent: Hello.\nCustomer: Hi." },
+      { batchName: "From the dialler" },
+    );
+
+    expect(out).toEqual({ batchId: "b1", callId: "c1" });
+    expect(sent[0]!.url).toBe(`${BASE}/api/uploads/transcripts`);
+    expect(sent[0]!.headers["Idempotency-Key"]).toMatch(/^transcripts-[0-9a-f]{40}$/);
+    expect(sent[0]!.body).toEqual({
+      batchName: "From the dialler",
+      transcripts: [
+        {
+          ...meta,
+          originalFilename: "call.txt",
+          lines: [
+            { speaker: "agent", text: "Hello." },
+            { speaker: "customer", text: "Hi." },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("uploads many transcripts as one batch in chunks, the first making the batch", async () => {
+    const one = (n: number) => ({
+      ...meta,
+      originalFilename: `call-${String(n)}.json`,
+      lines: [{ speaker: "agent" as const, text: `line ${String(n)}` }],
+    });
+    const { latte, sent } = client([
+      json({ batchId: "b9", callIds: ["c1", "c2"] }, 201),
+      json({ batchId: "b9", callIds: ["c3"] }, 201),
+    ]);
+
+    const out = await latte.batches.createFromTranscripts([one(1), one(2), one(3)], {
+      name: "Imported",
+      chunkSize: 2,
+    });
+
+    expect(out).toEqual({ batchId: "b9", callIds: ["c1", "c2", "c3"], failed: [] });
+    expect((sent[0]!.body as { batchName: string }).batchName).toBe("Imported");
+    expect((sent[1]!.body as { batchId: string }).batchId).toBe("b9");
+  });
+
+  it("reports a transcript it cannot read without sending anything", async () => {
+    const { latte, sent } = client([]);
+
+    const out = await latte.batches.createFromTranscripts([
+      { ...meta, originalFilename: "bad.txt", text: "no label here" },
+    ]);
+
+    expect(out.batchId).toBeNull();
+    expect(out.failed[0]).toMatchObject({ filename: "bad.txt" });
+    expect(out.failed[0]!.error).toMatch(/speaker label/);
+    expect(sent).toHaveLength(0);
+  });
+});

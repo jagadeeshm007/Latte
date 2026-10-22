@@ -27,6 +27,8 @@ const TYPES: Record<string, ["output" | "input", string]> = {
   AudioUrl: ["output", "audioUrlSchema"],
   UploadSignResponse: ["output", "uploadSignResponseSchema"],
   UploadConfirmResponse: ["output", "uploadConfirmResponseSchema"],
+  TranscriptUploadRequest: ["input", "transcriptUploadRequestSchema"],
+  TranscriptLine: ["input", "transcriptLineSchema"],
   BatchList: ["output", "batchListSchema"],
   BatchListQuery: ["input", "batchListQuerySchema"],
   BatchDetail: ["output", "batchDetailSchema"],

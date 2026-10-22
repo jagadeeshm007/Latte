@@ -13,10 +13,16 @@ const BUDGET_BYTES = 20 * 1024;
 
 rmSync(dist, { recursive: true, force: true });
 execFileSync("node", [path.join(sdkDir, "scripts/gen-types.ts"), "--check"], { stdio: "inherit" });
-execFileSync("pnpm", ["exec", "tsc", "-p", "tsconfig.build.json"], {
-  cwd: sdkDir,
-  stdio: "inherit",
-});
+// Declarations keep their doc comments, where editors show them; the
+// JavaScript drops them, since nothing reads comments at run time.
+const tsc = (...args: string[]) => {
+  execFileSync("pnpm", ["exec", "tsc", "-p", "tsconfig.build.json", ...args], {
+    cwd: sdkDir,
+    stdio: "inherit",
+  });
+};
+tsc("--emitDeclarationOnly");
+tsc("--declaration", "false", "--removeComments");
 copyFileSync(path.join(sdkDir, "../../LICENSE"), path.join(sdkDir, "LICENSE"));
 
 const js = readdirSync(dist)
