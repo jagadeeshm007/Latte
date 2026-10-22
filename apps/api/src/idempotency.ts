@@ -16,6 +16,7 @@ const KEY = /^[\w.:-]{1,255}$/;
 /** The create routes that honour the header, as method and path pattern. */
 const ROUTES: [string, RegExp][] = [
   ["POST", /^\/uploads\/confirm$/],
+  ["POST", /^\/uploads\/transcripts$/],
   ["POST", /^\/api-keys$/],
   ["POST", /^\/webhooks$/],
   ["POST", /^\/batches\/[0-9a-fA-F-]{36}\/retry-failed$/],

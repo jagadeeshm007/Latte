@@ -20,6 +20,7 @@ import {
   meSchema,
   referenceSchema,
   uploadConfirmRequestSchema,
+  transcriptUploadRequestSchema,
   uploadConfirmResponseSchema,
   uploadSignRequestSchema,
   uploadSignResponseSchema,
@@ -72,6 +73,11 @@ const DOCS: Record<string, Doc> = {
   "POST /uploads/confirm": {
     summary: "Create calls from uploaded files, into a new or existing batch",
     body: uploadConfirmRequestSchema,
+    response: uploadConfirmResponseSchema,
+  },
+  "POST /uploads/transcripts": {
+    summary: "Create calls from transcripts, with no audio, into a new or existing batch",
+    body: transcriptUploadRequestSchema,
     response: uploadConfirmResponseSchema,
   },
   "POST /calls/:id/retry": { summary: "Queue a failed or stuck call again" },

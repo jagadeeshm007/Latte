@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatClock } from "@/lib/format";
+import { formatAt, formatClock } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SPEAKER = {
@@ -59,11 +59,14 @@ export function FullTranscript({
   nowMs,
   canPlay,
   onPlay,
+  timed = true,
 }: {
   segments: Segment[];
   nowMs: number;
   canPlay: boolean;
   onPlay: (ms: number) => void;
+  /** false for a transcript uploaded without times: lines show their number. */
+  timed?: boolean;
 }) {
   const list = useRef<HTMLOListElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -109,7 +112,7 @@ export function FullTranscript({
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <p className="tabular-nums">
-          {lines.length} lines · {formatClock(lastMs)} ·{" "}
+          {lines.length} lines · {timed ? `${formatClock(lastMs)} · ` : ""}
           {lines.filter((s) => s.channel === "agent").length} agent,{" "}
           {lines.filter((s) => s.channel === "customer").length} customer
         </p>
@@ -196,7 +199,7 @@ export function FullTranscript({
       >
         {shown.map((s) => {
           const speaker = SPEAKER[s.channel];
-          const stamp = formatClock(s.startMs);
+          const stamp = formatAt(s.startMs, s.seq, timed);
           const active = s.seq === activeSeq;
           const heard = !active && s.endMs <= nowMs;
           return (

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { csvCell, toCsv } from "./csv.ts";
 import { signExportLink, verifyExportLink } from "./links.ts";
+import { transcriptJson, transcriptText } from "./transcript.ts";
 import { safeName } from "./zip.ts";
+import type { SegmentRow } from "../repo/calls.ts";
 
 const secret = Buffer.alloc(32, 7);
 const link = {
@@ -49,5 +51,32 @@ describe("export files", () => {
       "a_b_c_.wav",
       "file",
     ]);
+  });
+});
+
+describe("transcript exports (ADR-0030)", () => {
+  const segments: SegmentRow[] = [
+    {
+      seq: 0,
+      channel: "agent",
+      start_ms: 65_000,
+      end_ms: 66_000,
+      text: "Hello.",
+      language: "en-IN",
+      avg_logprob: null,
+      words: [],
+      text_en: null,
+    },
+  ];
+
+  it("labels lines by time for audio and by line number for an untimed transcript", () => {
+    expect(transcriptText(segments)).toBe("[01:05] Agent: Hello.\n");
+    expect(transcriptText(segments, false)).toBe("[line 1] Agent: Hello.\n");
+  });
+
+  it("drops the order-only times from an untimed transcript's JSON", () => {
+    const [line] = JSON.parse(transcriptJson(segments, false)) as Record<string, unknown>[];
+
+    expect(line).toMatchObject({ line: 1, startMs: null, endMs: null, text: "Hello." });
   });
 });

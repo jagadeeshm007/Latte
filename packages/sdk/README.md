@@ -49,6 +49,29 @@ Create a key under Developers in the app, with only the scopes the integration n
 | `analytics` | `dashboard`, `highlights`, `leaderboard`                                            | `analytics:read`                                                      |
 | `webhooks`  | `list`, `get`, `create`, `update`, `delete`, `test`, `deliveries`, `redeliver`      | `webhooks:write`                                                      |
 
+## Transcripts without audio
+
+```ts
+import { parseTranscript } from "@latte/sdk";
+
+// One call from labelled text (or pass lines: [{ speaker, text, startMs?, endMs? }]).
+await latte.calls.uploadTranscript({
+  originalFilename: "call-0042.txt",
+  agentId,
+  teamId,
+  productId,
+  callDate: "2026-10-22",
+  text: "Agent: Good morning, this is Ravi.\nCustomer: Hi.",
+});
+
+// Many, as one batch in chunks; names other than Agent/Customer via speakers.
+await latte.batches.createFromTranscripts(transcripts, { name: "Dialler export" });
+
+parseTranscript("[00:00] Agent: Hello.\n[00:04] Customer: Hi."); // lines with times
+```
+
+Text takes one turn per line, `Agent:` or `Customer:` (also Rep, Advisor, Client, Caller), with an optional time like `[00:41]`; a line without a label continues the turn above. JSON takes a list of lines, or `{ "lines": [...] }`. `parseTranscript` throws `TranscriptParseError` naming the line it could not read.
+
 ## Behaviour
 
 - **Retries.** A 429 is retried after `Retry-After` (three times by default, `maxRetries`). Server errors and dropped connections are retried on reads always, and on writes only when the write carries an idempotency key.

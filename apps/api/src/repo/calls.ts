@@ -1,4 +1,4 @@
-import type { CallGroup, CallStatus, CallSummary, Flag, Language } from "@scc/shared";
+import type { CallGroup, CallInput, CallStatus, CallSummary, Flag, Language } from "@scc/shared";
 
 import { likePattern } from "./sql.ts";
 import type { Queryable } from "../db/pool.ts";
@@ -21,6 +21,7 @@ export interface CallRow {
   audio_purged_at: Date | null;
   language: Language;
   product_id: string;
+  input: CallInput;
 }
 
 /** The flag a call shows: needs a look, scored clean, or still in the pipeline. */
@@ -34,7 +35,7 @@ const SUMMARY_SELECT = `
          c.created_at::text AS created_at_text,
          s.overall_score, s.judge_status, s.needs_review, s.review_status,
          COALESCE(f.breaches, 0) AS breaches, COALESCE(f.missed, 0) AS missed,
-         ${FLAG_SQL} AS flag, c.archived_at, c.batch_id, b.name AS batch_name
+         ${FLAG_SQL} AS flag, c.archived_at, c.batch_id, b.name AS batch_name, c.input, c.timed
     FROM calls c
     JOIN batches b ON b.id = c.batch_id
     JOIN agents a ON a.id = c.agent_id
@@ -73,6 +74,8 @@ interface SummaryRow {
   archived_at: Date | null;
   batch_id: string;
   batch_name: string;
+  input: CallInput;
+  timed: boolean;
 }
 
 export function toSummary(r: SummaryRow): CallSummary {
@@ -99,6 +102,8 @@ export function toSummary(r: SummaryRow): CallSummary {
     archivedAt: r.archived_at?.toISOString() ?? null,
     batchId: r.batch_id,
     batchName: r.batch_name,
+    input: r.input,
+    timed: r.timed,
   };
 }
 
@@ -235,7 +240,7 @@ export async function getCallRow(db: Queryable, scope: Scope, id: string): Promi
     extra = " AND agent_id = $2";
   }
   const { rows } = await db.query<CallRow>(
-    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
+    `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id, input FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
     params,
   );
   return rows[0] ?? null;
@@ -251,17 +256,21 @@ export interface NewCall {
   originalFilename: string;
   mimeType: string;
   sizeBytes: number;
-  storagePath: string;
+  /** Null for a transcript upload, which has no audio. */
+  storagePath: string | null;
   retentionDays: number;
   language: Language;
+  /** Defaults to audio with real times. */
+  input?: CallInput;
+  timed?: boolean;
 }
 
 export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename,
-                        mime_type, size_bytes, storage_path, retention_until, language)
+                        mime_type, size_bytes, storage_path, retention_until, language, input, timed)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-             current_date + coalesce((SELECT audio_retention_days FROM teams WHERE id = $2), $11::int), $12)
+             current_date + coalesce((SELECT audio_retention_days FROM teams WHERE id = $2), $11::int), $12, $13, $14)
      RETURNING id`,
     [
       c.agentId,
@@ -276,6 +285,8 @@ export async function insertCall(db: Queryable, c: NewCall): Promise<string> {
       c.storagePath,
       c.retentionDays,
       c.language,
+      c.input ?? "audio",
+      c.timed ?? true,
     ],
   );
   const row = rows[0];
@@ -300,7 +311,7 @@ export async function claimCall(
     `UPDATE calls SET status = $3, error = NULL, updated_at = now()
       WHERE id = $1
         AND (status = $2 OR (status = $3 AND updated_at < now() - make_interval(secs => $4)))
-      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id`,
+      RETURNING id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id, input`,
     [id, from, to, staleSeconds],
   );
   return rows[0] ?? null;
@@ -320,7 +331,9 @@ export async function failStuckCalls(db: Queryable, olderThanSeconds: number): P
 /**
  * requeueForRetry atomically moves a failed call, an unscored call whose review
  * is not done, or a call stuck in flight, back to the step it needs, and says
- * which step. Two reviewers pressing Retry together queue it once.
+ * which step. Two reviewers pressing Retry together queue it once. A
+ * transcript upload has its lines from the start, so it always goes back to
+ * the prepare step, where a failed translation is done again (ADR-0030).
  */
 export async function requeueForRetry(
   db: Queryable,
@@ -329,7 +342,8 @@ export async function requeueForRetry(
 ): Promise<"transcribe" | "score" | null> {
   const { rows } = await db.query<{ status: CallStatus }>(
     `UPDATE calls c
-        SET status = CASE WHEN EXISTS (SELECT 1 FROM transcript_segments t WHERE t.call_id = c.id)
+        SET status = CASE WHEN c.input = 'audio'
+                               AND EXISTS (SELECT 1 FROM transcript_segments t WHERE t.call_id = c.id)
                           THEN 'transcribed'::call_status ELSE 'uploaded'::call_status END,
             error = NULL, updated_at = now()
       WHERE c.id = $1

@@ -91,7 +91,7 @@ export async function deleteView(db: Queryable, me: string, id: string): Promise
 
 interface NotificationRow {
   id: string;
-  kind: "alert" | "digest";
+  kind: "alert" | "digest" | "batch";
   title: string;
   body: string;
   link: string | null;
@@ -115,7 +115,7 @@ export async function notify(
   db: Queryable,
   recipients: string[],
   n: {
-    kind: "alert" | "digest";
+    kind: "alert" | "digest" | "batch";
     title: string;
     body: string;
     link: string | null;

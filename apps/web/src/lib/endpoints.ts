@@ -67,6 +67,7 @@ import {
   type LeaderboardSort,
   type RubricItem,
   type UploadConfirmRequest,
+  type TranscriptUploadRequest,
   type UploadSignRequest,
 } from "@scc/shared";
 import { queryOptions } from "@tanstack/react-query";
@@ -377,6 +378,9 @@ export const api = {
     apiSend("/api/uploads/sign", uploadSignResponseSchema, "POST", body),
   confirmUploads: (body: UploadConfirmRequest) =>
     apiSend("/api/uploads/confirm", uploadConfirmResponseSchema, "POST", body),
+  /** Calls from transcripts, with no audio (ADR-0030). */
+  uploadTranscripts: (body: TranscriptUploadRequest) =>
+    apiSend("/api/uploads/transcripts", uploadConfirmResponseSchema, "POST", body),
   audioUrl: (callId: string) => apiSend(`/api/calls/${callId}/audio-url`, audioUrlSchema, "POST"),
   /** A link that saves the recording under its original name. */
   audioDownloadUrl: (callId: string) =>

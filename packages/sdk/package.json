@@ -5,7 +5,8 @@
   "description": "Zero-dependency TypeScript client for the Latte API: calls, batches, exports, analytics and webhooks",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./transcript": "./src/transcript.ts"
   },
   "scripts": {
     "build": "node scripts/build.ts",
@@ -41,6 +42,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./transcript": {
+        "types": "./dist/transcript.d.ts",
+        "default": "./dist/transcript.js"
       }
     },
     "types": "./dist/index.d.ts",

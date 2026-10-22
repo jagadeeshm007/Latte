@@ -49,6 +49,8 @@ export interface CallList {
     archivedAt: string | null;
     batchId: string;
     batchName: string;
+    input: "audio" | "transcript";
+    timed: boolean;
   }[];
   nextCursor: string | null;
   total: number;
@@ -119,6 +121,8 @@ export interface CallDetail {
     archivedAt: string | null;
     batchId: string;
     batchName: string;
+    input: "audio" | "transcript";
+    timed: boolean;
   };
   audioAvailable: boolean;
   score: {
@@ -179,6 +183,43 @@ export interface UploadSignResponse {
 export interface UploadConfirmResponse {
   batchId: string;
   callIds: string[];
+}
+export interface TranscriptUploadRequest {
+  transcripts: {
+    originalFilename: string;
+    agentId: string;
+    teamId: string;
+    productId: string;
+    callDate: string;
+    lines: {
+      speaker: "agent" | "customer";
+      text: string;
+      startMs?: number | undefined;
+      endMs?: number | undefined;
+    }[];
+    language?:
+      | "en-IN"
+      | "hi-IN"
+      | "bn-IN"
+      | "ta-IN"
+      | "te-IN"
+      | "kn-IN"
+      | "ml-IN"
+      | "mr-IN"
+      | "gu-IN"
+      | "od-IN"
+      | "pa-IN"
+      | "auto"
+      | undefined;
+  }[];
+  batchId?: string | undefined;
+  batchName?: string | undefined;
+}
+export interface TranscriptLine {
+  speaker: "agent" | "customer";
+  text: string;
+  startMs?: number | undefined;
+  endMs?: number | undefined;
 }
 export interface BatchList {
   items: {

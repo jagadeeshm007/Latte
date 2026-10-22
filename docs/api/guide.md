@@ -92,6 +92,34 @@ stable while new calls arrive. Batches and the other lists take `page`.
 
 `latte.batches.create(files)` does all three, in chunks of up to 50 files.
 
+## Uploading transcripts
+
+A call can also be uploaded as a transcript, with no audio. `POST /api/uploads/transcripts` takes up to 50 transcripts, each with the same details as a recording and its lines:
+
+```json
+{
+  "batchName": "Dialler export",
+  "transcripts": [
+    {
+      "originalFilename": "call-0042.txt",
+      "agentId": "…", "teamId": "…", "productId": "…",
+      "callDate": "2026-10-22",
+      "language": "en-IN",
+      "lines": [
+        { "speaker": "agent", "text": "Good morning, this is Ravi.", "startMs": 0, "endMs": 2800 },
+        { "speaker": "customer", "text": "Hi.", "startMs": 3000, "endMs": 3400 }
+      ]
+    }
+  ]
+}
+```
+
+- Give times on every line or on none. Without times, the call page and exports show line numbers instead (`timed: false` on the call).
+- The language must be named; it cannot be detected without audio. Regional transcripts are translated before scoring.
+- Calls answer `input: "transcript"` and have no recording. Scoring, findings, webhooks and batch exports work as for audio.
+
+With the SDK, `latte.calls.uploadTranscript({ ...details, text })` and `latte.batches.createFromTranscripts([...])` accept labelled text (`Agent: …` / `Customer: …`, optional `[mm:ss]`) or lines, read with `parseTranscript`.
+
 ## Personal data
 
 Transcripts, finding quotes, exports and webhook payloads mask card numbers

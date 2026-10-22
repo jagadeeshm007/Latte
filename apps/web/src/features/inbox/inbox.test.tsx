@@ -37,6 +37,33 @@ describe("inbox", () => {
     );
   });
 
+  it("lists a finished batch, with its outcome (ADR-0030)", async () => {
+    server.use(
+      http.get("*/api/notifications", () =>
+        HttpResponse.json({
+          items: [
+            note({
+              kind: "batch",
+              title: 'Batch "Week 42" finished',
+              body: "2 of 3 calls scored; 1 failed and can be retried.",
+              link: "/batches/b1",
+            }),
+          ],
+          total: 1,
+          unread: 1,
+        }),
+      ),
+      http.get("*/api/digest", () => HttpResponse.json({ frequency: "off" })),
+    );
+
+    await renderInRouter(<NotificationsPage />);
+
+    const list = within(await screen.findByRole("list", { name: "Notifications" }));
+    expect(list.getByRole("button", { name: /Batch "Week 42" finished/ })).toHaveTextContent(
+      "1 failed and can be retried",
+    );
+  });
+
   it("marks a notification read when opened, marks all read, and sets the digest", async () => {
     const read = vi.fn(() => new HttpResponse(null, { status: 204 }));
     const readAll = vi.fn(() => HttpResponse.json({ read: 1 }));

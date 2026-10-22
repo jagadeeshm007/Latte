@@ -205,6 +205,19 @@ const me = await latte.me(); // the manager the key acts as`}
 const done = await latte.batches.wait(batch.batchId!);
 const csv = await latte.batches.resultsCsv(done.id);`}
               />
+              <p>
+                No recording? Upload the transcript instead: labelled text (<code>Agent:</code> /{" "}
+                <code>Customer:</code>, optional <code>[00:41]</code>) or lines of{" "}
+                <code>{"{ speaker, text, startMs, endMs }"}</code>. It is scored like a recording;
+                without times, findings point to line numbers.
+              </p>
+              <CodeBlock
+                label="Upload transcripts"
+                code={`await latte.batches.createFromTranscripts(
+  exports.map((e) => ({ originalFilename: e.name, agentId, teamId, productId, callDate: e.date, text: e.text })),
+  { name: "Dialler export" },
+);`}
+              />
             </Section>
 
             <Section id="webhooks" title="Webhooks">
@@ -260,6 +273,15 @@ app.post("/latte/webhooks", express.text({ type: "application/json" }), async (r
                       "Calls, and one call with transcript and findings",
                     ],
                     ["latte.calls.upload(file, batch?)", "Upload one recording"],
+                    [
+                      "latte.calls.uploadTranscript(transcript, batch?)",
+                      "Upload one transcript, no audio",
+                    ],
+                    [
+                      "latte.batches.createFromTranscripts(list, opts)",
+                      "Upload many transcripts as a batch",
+                    ],
+                    ["parseTranscript(text)", "Read labelled text or JSON into lines"],
                     [
                       "latte.calls.retry(id) / archive(id)",
                       "Queue a failed call again; hide a call",

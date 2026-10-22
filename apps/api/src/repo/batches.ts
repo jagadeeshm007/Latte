@@ -18,7 +18,7 @@ const SUMMARY = `
          (count(c.id) FILTER (WHERE c.status = 'failed'))::int AS failed,
          (count(s.id) FILTER (WHERE s.needs_review))::int AS flagged,
          avg(s.overall_score) AS avg_score,
-         coalesce(sum(c.duration_ms), 0)::bigint AS audio_ms,
+         coalesce(sum(c.duration_ms) FILTER (WHERE c.input = 'audio'), 0)::bigint AS audio_ms,
          max(c.updated_at) AS last_activity_at
     FROM batches b
     JOIN profiles p ON p.id = b.created_by
@@ -215,6 +215,8 @@ export interface ExportRow {
   review_status: string | null;
   storage_path: string | null;
   error: string | null;
+  /** false for an uploaded transcript without times: exports show line numbers. */
+  timed: boolean;
   /** item key to its outcome on this call: pass, fail or n/a. */
   items: Record<string, "pass" | "fail" | "n/a">;
   breaches: number;
@@ -225,7 +227,7 @@ export async function exportRows(db: Queryable, batchId: string): Promise<Export
   const calls = await db.query<Omit<ExportRow, "items" | "breaches">>(
     `SELECT c.id, c.original_filename, c.call_date, a.name AS agent_name, t.name AS team_name,
             p.name AS product_name, c.language, c.status, c.duration_ms, s.overall_score,
-            s.needs_review, s.review_status, c.storage_path, c.error
+            s.needs_review, s.review_status, c.storage_path, c.error, c.timed
        FROM calls c
        JOIN agents a ON a.id = c.agent_id
        JOIN teams t ON t.id = c.team_id

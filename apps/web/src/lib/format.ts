@@ -10,6 +10,14 @@ export function formatClock(ms: number): string {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+/**
+ * formatAt says where a line sits: its time, or for a transcript uploaded
+ * without times, its line number, since its stored times are only an order (ADR-0030).
+ */
+export function formatAt(ms: number, seq: number, timed: boolean): string {
+  return timed ? formatClock(ms) : `Line ${String(seq + 1)}`;
+}
+
 export function formatPercent(value: number | null, digits = 0): string {
   return value === null ? "No data yet" : `${(value * 100).toFixed(digits)}%`;
 }

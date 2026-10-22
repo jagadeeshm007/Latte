@@ -34,11 +34,15 @@ const rule = (
   path: new RegExp(`^${route.replaceAll(/:\w+/g, ID).replaceAll(".", "\\.")}$`),
 });
 
-/** Uploads of more than ten files, or into an existing batch, are batch work. */
+/** Uploads of more than ten files or transcripts, or into an existing batch, are batch work. */
 function uploadBucket(req: Request): ApiBucket {
   const body: unknown = req.body;
   if (typeof body !== "object" || body === null) return "single";
-  const files = "files" in body && Array.isArray(body.files) ? body.files.length : 0;
+  const listed = (key: "files" | "transcripts") =>
+    key in body && Array.isArray((body as Record<string, unknown>)[key])
+      ? ((body as Record<string, unknown[]>)[key]?.length ?? 0)
+      : 0;
+  const files = listed("files") + listed("transcripts");
   return files > 10 || ("batchId" in body && body.batchId !== undefined) ? "batch" : "single";
 }
 
@@ -50,6 +54,7 @@ export const API_KEY_ROUTES: Rule[] = [
   rule("POST", "/calls/:id/audio-url", "calls:read", "read"),
   rule("POST", "/uploads/sign", "calls:write", uploadBucket),
   rule("POST", "/uploads/confirm", "calls:write", uploadBucket),
+  rule("POST", "/uploads/transcripts", "calls:write", uploadBucket),
   rule("POST", "/calls/:id/retry", "calls:write", "single"),
   rule("POST", "/calls/:id/archive", "calls:write", "single"),
   rule("POST", "/calls/:id/unarchive", "calls:write", "single"),

@@ -1,4 +1,5 @@
 import { ApiError, RateLimitError } from "./errors.ts";
+import { parseTranscript, type ParseOptions } from "./transcript.ts";
 import type {
   AudioUrl,
   BatchDetail,
@@ -21,6 +22,8 @@ import type {
   LeaderboardQuery,
   Me,
   Reference,
+  TranscriptLine,
+  TranscriptUploadRequest,
   UpdateWebhookRequest,
   UploadConfirmResponse,
   UploadSignResponse,
@@ -68,6 +71,16 @@ export interface WriteOptions {
   /** The same key replays the first response for 24 hours instead of creating twice. */
   idempotencyKey?: string;
 }
+
+/**
+ * One call uploaded as a transcript, with no audio (ADR-0030). Give the lines,
+ * or the text a dialler exported (labelled "Agent:"/"Customer:" or JSON),
+ * which is read with parseTranscript.
+ */
+export type TranscriptInput = Omit<TranscriptUploadRequest["transcripts"][number], "lines"> & {
+  /** Speaker labels beyond Agent/Customer, for text. */
+  speakers?: ParseOptions["speakers"];
+} & ({ lines: TranscriptLine[]; text?: never } | { text: string; lines?: never });
 
 /** One recording to upload, with what it is about. */
 export interface UploadFile {
@@ -172,6 +185,14 @@ export class LatteClient {
       const result = await this.uploadChunk([file], batch);
       return { batchId: result.batchId, callId: result.callIds[0] ?? "" };
     },
+    /** Creates one call from a transcript, with no audio, in a new batch (or batchId). */
+    uploadTranscript: async (
+      transcript: TranscriptInput,
+      batch: { batchId?: string; batchName?: string } = {},
+    ) => {
+      const result = await this.sendTranscripts([transcript], batch);
+      return { batchId: result.batchId, callId: result.callIds[0] ?? "" };
+    },
   };
 
   readonly batches = {
@@ -196,7 +217,29 @@ export class LatteClient {
         concurrency?: number;
         onProgress?: (done: number, total: number) => void;
       } = {},
-    ) => this.createBatch(files, opts),
+    ) =>
+      this.createBatch(
+        files,
+        opts,
+        (chunk, batch) => this.uploadChunk(chunk, batch),
+        (f) => f.filename,
+      ),
+    /** Like create, for transcripts with no audio: chunks of up to 50, one batch. */
+    createFromTranscripts: (
+      transcripts: TranscriptInput[],
+      opts: {
+        name?: string;
+        chunkSize?: number;
+        concurrency?: number;
+        onProgress?: (done: number, total: number) => void;
+      } = {},
+    ) =>
+      this.createBatch(
+        transcripts,
+        opts,
+        (chunk, batch) => this.sendTranscripts(chunk, batch),
+        (t) => t.originalFilename,
+      ),
     /** Polls until no call in the batch is queued or running, then returns it. */
     wait: async (
       id: string,
@@ -257,24 +300,29 @@ export class LatteClient {
       this.request<Leaderboard>("GET", "/api/dashboard/leaderboard", { query }),
   };
 
-  private async createBatch(
-    files: UploadFile[],
+  private async createBatch<T>(
+    files: T[],
     opts: {
       name?: string;
       chunkSize?: number;
       concurrency?: number;
       onProgress?: (done: number, total: number) => void;
     },
+    send: (
+      chunk: T[],
+      batch: { batchId?: string; batchName?: string },
+    ) => Promise<UploadConfirmResponse>,
+    nameOf: (item: T) => string,
   ): Promise<BatchUploadResult> {
     const size = Math.min(50, Math.max(1, opts.chunkSize ?? 10));
-    const chunks: UploadFile[][] = [];
+    const chunks: T[][] = [];
     for (let at = 0; at < files.length; at += size) chunks.push(files.slice(at, at + size));
     const out: BatchUploadResult = { batchId: null, callIds: [], failed: [] };
     let done = 0;
 
-    const run = async (chunk: UploadFile[]) => {
+    const run = async (chunk: T[]) => {
       try {
-        const result = await this.uploadChunk(
+        const result = await send(
           chunk,
           out.batchId ? { batchId: out.batchId } : opts.name ? { batchName: opts.name } : {},
         );
@@ -282,7 +330,7 @@ export class LatteClient {
         out.callIds.push(...result.callIds);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        out.failed.push(...chunk.map((f) => ({ filename: f.filename, error: message })));
+        out.failed.push(...chunk.map((f) => ({ filename: nameOf(f), error: message })));
       }
       done += chunk.length;
       opts.onProgress?.(done, files.length);
@@ -293,7 +341,7 @@ export class LatteClient {
     if (first) await run(first);
     if (!out.batchId) {
       out.failed.push(
-        ...chunks.flat().map((f) => ({ filename: f.filename, error: "not tried: no batch" })),
+        ...chunks.flat().map((f) => ({ filename: nameOf(f), error: "not tried: no batch" })),
       );
       return out;
     }
@@ -305,6 +353,26 @@ export class LatteClient {
       Array.from({ length: Math.min(opts.concurrency ?? 3, chunks.length) }, worker),
     );
     return out;
+  }
+
+  /** Sends transcripts in one request, reading any given as text first. */
+  private async sendTranscripts(
+    transcripts: TranscriptInput[],
+    batch: { batchId?: string; batchName?: string },
+  ): Promise<UploadConfirmResponse> {
+    const body: TranscriptUploadRequest = {
+      ...batch,
+      transcripts: transcripts.map(({ text, lines, speakers, ...meta }) => ({
+        ...meta,
+        lines: lines ?? parseTranscript(text, speakers ? { speakers } : {}),
+      })),
+    };
+    // Keyed by the content, so a retried request never creates the calls twice.
+    const idempotencyKey = `transcripts-${(await sha256Hex(JSON.stringify(body))).slice(0, 40)}`;
+    return this.request<UploadConfirmResponse>("POST", "/api/uploads/transcripts", {
+      body,
+      idempotencyKey,
+    });
   }
 
   /** sign, PUT each file straight to storage, then confirm the chunk into a batch. */

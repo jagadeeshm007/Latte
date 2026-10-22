@@ -25,6 +25,8 @@ export const summary = (over: Partial<CallSummary> = {}): CallSummary => ({
   archivedAt: null,
   batchId: "b1111111-1111-4111-8111-111111111111",
   batchName: "October leads",
+  input: "audio",
+  timed: true,
   ...over,
 });
 
