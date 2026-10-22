@@ -56,6 +56,17 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }
 
+/** changePassword sets a new password for the signed-in person; returns Supabase's message on failure. */
+export async function changePassword(password: string): Promise<string | null> {
+  const { error } = await supabase.auth.updateUser({ password });
+  return error ? error.message : null;
+}
+
+/** signOutEverywhere ends every session of this account, on every device, then this one. */
+export async function signOutEverywhere(): Promise<void> {
+  await supabase.auth.signOut({ scope: "global" });
+}
+
 /** signInWithProvider hands the browser to Google or Microsoft, which returns it here signed in. */
 export async function signInWithProvider(provider: "google" | "azure"): Promise<string | null> {
   const { error } = await supabase.auth.signInWithOAuth({

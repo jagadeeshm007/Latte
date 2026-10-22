@@ -10,6 +10,7 @@ import {
   InboxIcon,
   SirenIcon,
   ReceiptIcon,
+  SettingsIcon,
   UsersRoundIcon,
   UserCogIcon,
   KeyRoundIcon,
@@ -34,7 +35,14 @@ import { PlayerHost } from "@/features/player/PlayerHost";
 import { StatusBanner } from "@/features/status/StatusBanner";
 import { meQuery } from "@/lib/endpoints";
 
-const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
+interface NavItem {
+  to: string;
+  label: string;
+  roles: Role[];
+  icon: ReactNode;
+}
+
+const NAV: NavItem[] = [
   {
     to: "/queue",
     label: "Review queue",
@@ -78,6 +86,22 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     icon: <SirenIcon aria-hidden="true" />,
   },
   {
+    to: "/rubric",
+    label: "Rubric",
+    roles: ["qa_reviewer", "manager"],
+    icon: <BookCheckIcon aria-hidden="true" />,
+  },
+];
+
+/** Settings: everyone's own account, then the workspace pages a manager runs. */
+const SETTINGS_NAV: NavItem[] = [
+  {
+    to: "/settings",
+    label: "Account",
+    roles: ["qa_reviewer", "manager", "agent"],
+    icon: <SettingsIcon aria-hidden="true" />,
+  },
+  {
     to: "/members",
     label: "Members",
     roles: ["manager"],
@@ -100,12 +124,6 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     label: "Developers",
     roles: ["manager"],
     icon: <KeyRoundIcon aria-hidden="true" />,
-  },
-  {
-    to: "/rubric",
-    label: "Rubric",
-    roles: ["qa_reviewer", "manager"],
-    icon: <BookCheckIcon aria-hidden="true" />,
   },
 ];
 
@@ -191,17 +209,13 @@ function Frame({ me }: { me: Me }) {
             Workspace
           </span>
           {NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm whitespace-nowrap text-sidebar-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
-              activeProps={{
-                className: "bg-sidebar-accent font-medium text-foreground shadow-xs/5",
-              }}
-            >
-              {n.icon}
-              {n.label}
-            </Link>
+            <NavLink key={n.to} item={n} />
+          ))}
+          <span className="hidden px-2.5 pt-4 pb-1.5 text-xs font-medium text-muted-foreground md:block">
+            Settings
+          </span>
+          {SETTINGS_NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
+            <NavLink key={n.to} item={n} />
           ))}
         </nav>
         <div className="flex flex-col gap-3 border-t px-3 py-3">
@@ -229,6 +243,21 @@ function Frame({ me }: { me: Me }) {
         </div>
       </main>
     </div>
+  );
+}
+
+function NavLink({ item }: { item: NavItem }) {
+  return (
+    <Link
+      to={item.to}
+      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm whitespace-nowrap text-sidebar-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+      activeProps={{
+        className: "bg-sidebar-accent font-medium text-foreground shadow-xs/5",
+      }}
+    >
+      {item.icon}
+      {item.label}
+    </Link>
   );
 }
 
