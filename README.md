@@ -108,7 +108,7 @@ const done = await latte.batches.wait(batch.batchId!);
 const csv = await latte.batches.resultsCsv(done.id);
 ```
 
-- API guide: [`docs/api/guide.md`](docs/api/guide.md), also in the app under Developers > Docs.
+- Docs: public at `/docs` in the app, written in [`docs/public`](docs/public); `/llms.txt` and `/llms-full.txt` for LLMs and tools.
 - SDK reference: [`packages/sdk/README.md`](packages/sdk/README.md).
 - OpenAPI: `GET /api/openapi.json`.
 
