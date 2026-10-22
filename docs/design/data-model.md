@@ -424,7 +424,7 @@ Added in SCC-1 for webhooks, idempotency, views, alerts, digests, governance, bi
 | `webhook_deliveries` | 0009 | The outbox: one row per event per endpoint | endpoint_id, event_id, event_type, payload jsonb, status, attempts, last_status, last_error, next_attempt_at, delivered_at | 30 days once finished |
 | `idempotency_keys` | 0009 | The first response per owner and key (ADR-0022) | PK (owner, key), method, route, request_hash, status, response_status, response_body | 24 hours |
 | `saved_views` | 0010 | Named filters per page (ADR-0025) | owner_id, page, name, search jsonb, shared | until deleted |
-| `notifications` | 0010 | The in-app inbox | recipient_id, kind, title, body, link, data jsonb, read_at | not purged yet |
+| `notifications` | 0010 | The in-app inbox (kinds alert, digest and, since 0014, batch) | recipient_id, kind, title, body, link, data jsonb, read_at | not purged yet |
 | `alert_rules` | 0010 | When to alert on a metric jump | name, metric, scope, item_key, threshold_points, window_days, baseline_days, min_calls, cooldown_hours, enabled, last_evaluated_at | until deleted |
 | `alert_firings` | 0010 | Each time a rule fired, for history and cooldown | rule_id, group_id, group_name, value, baseline, calls, fired_at | with its rule |
 | `digest_subscriptions` | 0010 | Who gets a digest and how often | PK profile_id, frequency, last_sent_at | until turned off |
@@ -432,7 +432,7 @@ Added in SCC-1 for webhooks, idempotency, views, alerts, digests, governance, bi
 | `status_checks` | 0013 | One row per component per check | component, ok, latency_ms, detail, checked_at | 90 days |
 | `status_notices` | 0013 | Incidents shown on /status | title, body, severity, started_at, resolved_at, created_by | kept |
 
-**New columns**: `batches.completed_at` (0009, guards a single `batch.completed` event); `rubrics.product_id` (0011, null is the default rubric, one active rubric per product by partial unique index); `teams.audio_retention_days` (0011, null means `AUDIO_RETENTION_DAYS`); `profiles.disabled_at` (0012, a disabled person is refused).
+**New columns**: `calls.input` and `calls.timed` (0014, ADR-0030: `transcript` calls have no audio, and `timed` false means their stored times are an order only); `batches.completed_at` (0009, guards a single `batch.completed` event); `rubrics.product_id` (0011, null is the default rubric, one active rubric per product by partial unique index); `teams.audio_retention_days` (0011, null means `AUDIO_RETENTION_DAYS`); `profiles.disabled_at` (0012, a disabled person is refused).
 
 ## 5. MongoDB
 
