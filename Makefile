@@ -39,9 +39,10 @@ format-check: ## Fail if any file is unformatted
 lint: ## ESLint, zero warnings, every package
 	@for p in $(ALL_PACKAGES); do (cd $$p && $(PNPM) exec eslint . --max-warnings 0) || exit 1; echo "lint: $$p clean"; done
 
-typecheck: ## tsc --noEmit, every package; the SDK's generated types must match the API's schemas
+typecheck: ## tsc --noEmit, every package; the SDK's types and docs/public's API reference must match the API
 	@for p in $(ALL_PACKAGES); do (cd $$p && $(PNPM) exec tsc --noEmit -p tsconfig.json) || exit 1; echo "typecheck: $$p clean"; done
 	@node packages/sdk/scripts/gen-types.ts --check
+	@cd apps/api && $(PNPM) exec tsx src/gen-docs.ts --check
 
 test: db ## Unit and integration tests with coverage floors (starts Postgres)
 	@set -o pipefail; for p in $(ALL_PACKAGES); do echo "== test $$p"; (cd $$p && $(PNPM) exec vitest run --coverage 2>&1 | grep -E 'Test Files|Tests |ERROR|FAIL|×|AssertionError|Expected|Received' ) || exit 1; done
