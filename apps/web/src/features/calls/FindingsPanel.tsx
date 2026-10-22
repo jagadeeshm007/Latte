@@ -15,7 +15,7 @@ import { Frame, FrameFooter, FrameHeader, FramePanel, FrameTitle } from "@/compo
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AddFindingDialog } from "@/features/review/AddFindingDialog";
 import { CompleteReview, ReviewDecision } from "@/features/review/ReviewControls";
-import { formatClock } from "@/lib/format";
+import { formatAt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const TYPE_LABEL = {
@@ -100,6 +100,7 @@ export function FindingsPanel({
               callId={detail.call.id}
               items={detail.rubricItems}
               segments={detail.segments}
+              timed={detail.call.timed}
             />
           ) : null}
         </div>
@@ -129,6 +130,8 @@ export function FindingsPanel({
                   onPlay={onPlay}
                   callId={detail.call.id}
                   reviewing={reviewing}
+                  timed={detail.call.timed}
+                  playable={detail.audioAvailable}
                 />
               ))}
             </ul>
@@ -150,7 +153,11 @@ function FindingCard({
   onPlay,
   callId,
   reviewing,
+  timed,
+  playable,
 }: {
+  timed: boolean;
+  playable: boolean;
   finding: Finding;
   item: RubricItem | undefined;
   onPlay: (ms: number) => void;
@@ -181,39 +188,27 @@ function FindingCard({
         </div>
         {f.quote ? (
           <div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2">
-            {f.startMs !== null ? (
-              <Button
-                variant="outline"
-                size="xs"
-                className="shrink-0"
-                onClick={() => {
-                  onPlay(f.startMs ?? 0);
-                }}
-                aria-label={`Play from ${formatClock(f.startMs)}`}
-              >
-                <PlayIcon aria-hidden="true" />
-                {formatClock(f.startMs)}
-              </Button>
-            ) : null}
+            <Where
+              finding={f}
+              timed={timed}
+              playable={playable}
+              onPlay={onPlay}
+              className="shrink-0"
+            />
             <blockquote className="text-sm whitespace-pre-line">
               <span className="me-1 text-xs text-muted-foreground uppercase">{f.channel}</span>
               {f.quote}
             </blockquote>
           </div>
-        ) : f.startMs !== null ? (
-          <Button
-            variant="outline"
-            size="xs"
+        ) : (
+          <Where
+            finding={f}
+            timed={timed}
+            playable={playable}
+            onPlay={onPlay}
             className="self-start"
-            onClick={() => {
-              onPlay(f.startMs ?? 0);
-            }}
-            aria-label={`Play from ${formatClock(f.startMs)}`}
-          >
-            <PlayIcon aria-hidden="true" />
-            {formatClock(f.startMs)}
-          </Button>
-        ) : null}
+          />
+        )}
         {f.rationale ? <p className="text-sm text-muted-foreground">{f.rationale}</p> : null}
         {f.review?.note ? (
           <p className="text-sm whitespace-pre-line">Note: {f.review.note}</p>
@@ -221,5 +216,44 @@ function FindingCard({
         {reviewing ? <ReviewDecision callId={callId} finding={f} /> : null}
       </div>
     </li>
+  );
+}
+
+/** Where a finding sits: a play button on a recording, a plain label on a transcript upload. */
+function Where({
+  finding: f,
+  timed,
+  playable,
+  onPlay,
+  className,
+}: {
+  finding: Finding;
+  timed: boolean;
+  playable: boolean;
+  onPlay: (ms: number) => void;
+  className: string;
+}) {
+  if (f.startMs === null || (!timed && f.segmentSeq === null)) return null;
+  const at = formatAt(f.startMs, f.segmentSeq ?? 0, timed);
+  if (!playable) {
+    return (
+      <Badge variant="outline" className={cn("tabular-nums", className)}>
+        {at}
+      </Badge>
+    );
+  }
+  return (
+    <Button
+      variant="outline"
+      size="xs"
+      className={className}
+      onClick={() => {
+        onPlay(f.startMs ?? 0);
+      }}
+      aria-label={`Play from ${at}`}
+    >
+      <PlayIcon aria-hidden="true" />
+      {at}
+    </Button>
   );
 }

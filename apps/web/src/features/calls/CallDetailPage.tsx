@@ -242,6 +242,7 @@ function CallView({
         playing={playing}
         canPlay={detail.audioAvailable}
         onPlay={playFrom}
+        timed={detail.call.timed}
       />
       <FindingsPanel detail={detail} reviewing={reviewing} onPlay={playFrom} />
     </div>

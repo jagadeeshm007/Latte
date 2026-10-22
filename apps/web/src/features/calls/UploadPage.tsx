@@ -2,7 +2,7 @@ import { ENGLISH, LANGUAGES, languageSchema, MAX_BATCH_FILES, type Reference } f
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FilePlusIcon, UploadCloudIcon, UploadIcon, XIcon } from "lucide-react";
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState, type ChangeEvent, type ReactNode } from "react";
 
 import { OptionSelect } from "@/components/OptionSelect";
 import { PageNav } from "@/components/PageNav";
@@ -22,9 +22,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toastManager } from "@/components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api, referenceQuery } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
 
+import { TranscriptUploadForm } from "./TranscriptUploadForm";
 import { uploadInChunks } from "./upload-batch";
 import { mimeOf, type Row, rowProblem } from "./upload-rules";
 
@@ -61,14 +63,43 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** Rows shown per page of the file table; a batch can hold 500. */
 const ROWS_PER_PAGE = 50;
 
+type UploadMode = "audio" | "transcript";
+
 export function UploadPage() {
   const reference = useQuery(referenceQuery);
+  const [mode, setMode] = useState<UploadMode>("audio");
   if (reference.isPending) return <Loading label="Loading the upload form" />;
   if (reference.isError) return <ErrorState error={reference.error} />;
-  return <UploadForm reference={reference.data} />;
+  const switcher = (
+    <ToggleGroup
+      variant="outline"
+      size="sm"
+      aria-label="What to upload"
+      value={[mode]}
+      onValueChange={(v: unknown[]) => {
+        if (v[0] === "audio" || v[0] === "transcript") setMode(v[0]);
+      }}
+    >
+      <ToggleGroupItem value="audio">Recordings</ToggleGroupItem>
+      <ToggleGroupItem value="transcript">Transcripts</ToggleGroupItem>
+    </ToggleGroup>
+  );
+  if (mode === "transcript") {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Upload calls"
+          description="Transcripts from a dialler or CRM, with no audio: .txt or .json files, or pasted text. Each is scored like a recording."
+          actions={switcher}
+        />
+        <TranscriptUploadForm reference={reference.data} />
+      </div>
+    );
+  }
+  return <UploadForm reference={reference.data} actions={switcher} />;
 }
 
-export function UploadForm({ reference }: { reference: Reference }) {
+export function UploadForm({ reference, actions }: { reference: Reference; actions?: ReactNode }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -190,6 +221,7 @@ export function UploadForm({ reference }: { reference: Reference }) {
       <PageHeader
         title="Upload calls"
         description="Stereo WAV or MP3, agent on the left channel and customer on the right. Up to 500 files of 50 MB each, uploaded as one batch."
+        actions={actions}
       />
       {/* The whole frame takes dropped files, empty or not. */}
       <Frame

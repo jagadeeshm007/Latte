@@ -1,7 +1,7 @@
 import { DIGEST_FREQUENCIES, type Notification } from "@scc/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { BellRingIcon, CheckCheckIcon, NewspaperIcon } from "lucide-react";
+import { BellRingIcon, CheckCheckIcon, LayersIcon, NewspaperIcon } from "lucide-react";
 import { useState } from "react";
 
 import { PageNav } from "@/components/PageNav";
@@ -114,6 +114,11 @@ export function NotificationsPage() {
                         <BellRingIcon
                           aria-hidden="true"
                           className="mt-0.5 size-4 shrink-0 text-warning-foreground"
+                        />
+                      ) : n.kind === "batch" ? (
+                        <LayersIcon
+                          aria-hidden="true"
+                          className="mt-0.5 size-4 shrink-0 text-brand"
                         />
                       ) : (
                         <NewspaperIcon

@@ -151,8 +151,9 @@ export function PlayerPanel({
           </>
         ) : (
           <p className="text-sm text-muted-foreground">
-            The recording was deleted after its retention period. The transcript and findings
-            remain.
+            {detail.call.input === "transcript"
+              ? `Uploaded as a transcript, so there is no recording to play.${detail.call.timed ? "" : " Its lines have no times; findings point to line numbers."}`
+              : "The recording was deleted after its retention period. The transcript and findings remain."}
           </p>
         )}
       </FramePanel>

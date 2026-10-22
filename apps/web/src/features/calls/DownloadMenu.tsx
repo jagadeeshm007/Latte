@@ -15,15 +15,16 @@ import { toastManager } from "@/components/ui/toast";
 import { saveFile } from "@/lib/download";
 import { api } from "@/lib/endpoints";
 
-import { EXPORT_FORMATS, type ExportFormat, exportTranscript } from "./transcript-export";
+import { type ExportFormat, exportTranscript, formatsFor } from "./transcript-export";
 
 /** DownloadMenu: the recording, and the transcript in the formats other tools read. */
 export function DownloadMenu({ detail }: { detail: CallDetail }) {
   const base = detail.call.originalFilename.replace(/\.[^.]+$/, "");
   const translated = detail.segments.some((s) => s.translation);
+  const formats = formatsFor(detail.call.timed);
 
   function transcript(format: ExportFormat, english: boolean) {
-    const file = exportTranscript(detail.segments, format, { english });
+    const file = exportTranscript(detail.segments, format, { english, timed: detail.call.timed });
     const url = URL.createObjectURL(new Blob([file.body], { type: `${file.mime};charset=utf-8` }));
     saveFile(url, `${base}${english ? ".en" : ""}.${file.extension}`);
     URL.revokeObjectURL(url);
@@ -49,21 +50,23 @@ export function DownloadMenu({ detail }: { detail: CallDetail }) {
         Download
       </MenuTrigger>
       <MenuPopup align="end" className="min-w-56">
-        <MenuItem
-          disabled={!detail.audioAvailable}
-          onClick={() => {
-            void recording();
-          }}
-        >
-          <FileAudioIcon aria-hidden="true" />
-          Recording ({detail.call.originalFilename.split(".").pop()?.toUpperCase()})
-        </MenuItem>
+        {detail.call.input === "audio" ? (
+          <MenuItem
+            disabled={!detail.audioAvailable}
+            onClick={() => {
+              void recording();
+            }}
+          >
+            <FileAudioIcon aria-hidden="true" />
+            Recording ({detail.call.originalFilename.split(".").pop()?.toUpperCase()})
+          </MenuItem>
+        ) : null}
         {detail.segments.length > 0 ? (
           <>
             <MenuSeparator />
             <MenuGroup>
               <MenuGroupLabel>Transcript</MenuGroupLabel>
-              {EXPORT_FORMATS.map((f) => (
+              {formats.map((f) => (
                 <MenuItem
                   key={f.format}
                   onClick={() => {
@@ -78,17 +81,19 @@ export function DownloadMenu({ detail }: { detail: CallDetail }) {
             {translated ? (
               <MenuGroup>
                 <MenuGroupLabel>English translation</MenuGroupLabel>
-                {EXPORT_FORMATS.filter((f) => f.format !== "json").map((f) => (
-                  <MenuItem
-                    key={f.format}
-                    onClick={() => {
-                      transcript(f.format, true);
-                    }}
-                  >
-                    <FileTextIcon aria-hidden="true" />
-                    {f.label} in English (.{f.extension})
-                  </MenuItem>
-                ))}
+                {formats
+                  .filter((f) => f.format !== "json")
+                  .map((f) => (
+                    <MenuItem
+                      key={f.format}
+                      onClick={() => {
+                        transcript(f.format, true);
+                      }}
+                    >
+                      <FileTextIcon aria-hidden="true" />
+                      {f.label} in English (.{f.extension})
+                    </MenuItem>
+                  ))}
               </MenuGroup>
             ) : null}
           </>

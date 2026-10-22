@@ -1,7 +1,7 @@
 import type { Segment } from "@scc/shared";
 import { describe, expect, it } from "vitest";
 
-import { exportTranscript } from "./transcript-export";
+import { exportTranscript, formatsFor } from "./transcript-export";
 
 const line = (over: Partial<Segment>): Segment => ({
   seq: 0,
@@ -73,5 +73,25 @@ describe("exportTranscript", () => {
       extension: "srt",
       mime: "application/x-subrip",
     });
+  });
+});
+
+describe("untimed transcript exports (ADR-0030)", () => {
+  it("labels lines by number and drops the order-only times", () => {
+    const text = exportTranscript(lines, "txt", { timed: false }).body;
+    const json = JSON.parse(exportTranscript(lines, "json", { timed: false }).body) as Record<
+      string,
+      unknown
+    >[];
+
+    expect(text).toBe(
+      "[line 1] Agent: Good morning, this is Ravi.\n[line 2] Customer: हाँ बोलिए.\n",
+    );
+    expect(json[1]).toMatchObject({ line: 2, startMs: null, endMs: null });
+  });
+
+  it("offers only text and JSON, since the other formats need times", () => {
+    expect(formatsFor(false).map((f) => f.format)).toEqual(["txt", "json"]);
+    expect(formatsFor(true)).toHaveLength(5);
   });
 });

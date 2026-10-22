@@ -13,6 +13,10 @@ export const EXPORT_FORMATS = [
 ] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["format"];
 
+/** Subtitle and lyric formats are built on times, so an untimed transcript gets text and JSON only. */
+export const formatsFor = (timed: boolean) =>
+  EXPORT_FORMATS.filter((f) => timed || f.format === "txt" || f.format === "json");
+
 const SPEAKER = { agent: "Agent", customer: "Customer" } as const;
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
 
@@ -32,7 +36,7 @@ function minutes(ms: number): string {
 export function exportTranscript(
   segments: Segment[],
   format: ExportFormat,
-  options: { english?: boolean } = {},
+  options: { english?: boolean; timed?: boolean } = {},
 ): { body: string; extension: string; mime: string } {
   const meta = EXPORT_FORMATS.find((f) => f.format === format) ?? EXPORT_FORMATS[0];
   const text = (s: Segment) => (options.english ? (s.translation ?? s.text) : s.text);
@@ -40,7 +44,12 @@ export function exportTranscript(
   let body: string;
   switch (format) {
     case "txt":
-      body = segments.map((s) => `[${minutes(s.startMs)}] ${who(s)}: ${text(s)}\n`).join("");
+      body = segments
+        .map(
+          (s) =>
+            `[${options.timed === false ? `line ${String(s.seq + 1)}` : minutes(s.startMs)}] ${who(s)}: ${text(s)}\n`,
+        )
+        .join("");
       break;
     case "srt":
       body = segments
@@ -69,8 +78,9 @@ export function exportTranscript(
     case "json":
       body = `${JSON.stringify(
         segments.map((s) => ({
-          startMs: s.startMs,
-          endMs: s.endMs,
+          line: s.seq + 1,
+          startMs: options.timed === false ? null : s.startMs,
+          endMs: options.timed === false ? null : s.endMs,
           speaker: who(s),
           text: s.text,
           translation: s.translation,

@@ -20,7 +20,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { toastManager } from "@/components/ui/toast";
 import { api, keys } from "@/lib/endpoints";
-import { FINDING_LABEL, formatClock } from "@/lib/format";
+import { FINDING_LABEL, formatAt } from "@/lib/format";
 
 /**
  * A reviewer records what the judge missed (Q-008); it counts as a judge
@@ -30,10 +30,13 @@ export function AddFindingDialog({
   callId,
   items,
   segments,
+  timed = true,
 }: {
   callId: string;
   items: RubricItem[];
   segments: Segment[];
+  /** false for a transcript uploaded without times: lines are picked by number. */
+  timed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [itemKey, setItemKey] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export function AddFindingDialog({
               placeholder="No specific line"
               options={segments.map((s) => ({
                 value: String(s.seq),
-                label: `${formatClock(s.startMs)} ${s.channel}: ${s.text.slice(0, 60)}`,
+                label: `${formatAt(s.startMs, s.seq, timed)} ${s.channel}: ${s.text.slice(0, 60)}`,
               }))}
               onChange={setSeq}
             />

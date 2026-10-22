@@ -46,12 +46,15 @@ export function LyricsTranscript({
   playing,
   canPlay,
   onPlay,
+  timed = true,
 }: {
   segments: Segment[];
   nowMs: number;
   playing: boolean;
   canPlay: boolean;
   onPlay: (ms: number) => void;
+  /** false for a transcript uploaded without times (ADR-0030). */
+  timed?: boolean;
 }) {
   const box = useRef<HTMLOListElement>(null);
   const [view, setView] = useState<View>("original");
@@ -186,7 +189,13 @@ export function LyricsTranscript({
             </DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <FullTranscript segments={segments} nowMs={nowMs} canPlay={canPlay} onPlay={onPlay} />
+            <FullTranscript
+              segments={segments}
+              nowMs={nowMs}
+              canPlay={canPlay}
+              onPlay={onPlay}
+              timed={timed}
+            />
           </DialogPanel>
         </DialogPopup>
       </Dialog>
