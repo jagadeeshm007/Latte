@@ -9,6 +9,8 @@ order: 3
 
 Each pattern below uses only the endpoints and events in the [API reference](api-reference.md).
 
+Runnable TypeScript versions are in [examples/](https://github.com/jagadeeshm007/Latte/tree/main/examples): `crm-sync` for the CRM, `upload-and-wait` and `transcript-import` for the dialler, and `webhook-receiver` for alerts and QA follow-up.
+
 ## Push scores into your CRM
 
 Show each call's score and flags on the customer record.

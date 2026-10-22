@@ -92,3 +92,4 @@ console.log(done.state, done.scored, done.flagged);
 - Recordings instead of transcripts: [Uploads](uploads.md).
 - Get told when calls are scored instead of polling: [Webhooks](webhooks.md).
 - Every endpoint: [API reference](api-reference.md).
+- Runnable programs (upload a folder, import a dialler export, receive webhooks, sync a CRM): [examples on GitHub](https://github.com/jagadeeshm007/Latte/tree/main/examples).
