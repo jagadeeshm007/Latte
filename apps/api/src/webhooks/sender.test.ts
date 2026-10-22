@@ -1,4 +1,6 @@
 import type { LookupAddress } from "node:dns";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -76,5 +78,18 @@ describe("secret encryption", () => {
     expect(() => decryptSecret(tampered, KEY)).toThrow();
     expect(() => encryptSecret("x", undefined)).toThrow(/DATA_ENCRYPTION_KEY/);
     expect(() => decryptSecret("nonsense", KEY)).toThrow(/unreadable/);
+  });
+});
+
+describe("the SDKs' shared webhook test vector", () => {
+  it("is signed exactly as deliveries are", () => {
+    const vector = JSON.parse(
+      readFileSync(
+        path.resolve(import.meta.dirname, "../../../../sdks/webhook-test-vector.json"),
+        "utf8",
+      ),
+    ) as { secret: string; timestamp: number; body: string; header: string };
+
+    expect(signPayload(vector.secret, vector.timestamp, vector.body)).toBe(vector.header);
   });
 });
