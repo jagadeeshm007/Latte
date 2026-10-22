@@ -1,8 +1,10 @@
-# Publishes @latte/sdk as a GitHub release, so any project can install it
-# without a registry (packages/sdk/README.md). Push a tag sdk-v<version>
-# matching packages/sdk/package.json; the release gets two assets:
-#   latte-sdk-<version>.tgz  pinned, for package.json
-#   latte-sdk.tgz            the same file, for releases/latest/download
+# Publishes every SDK as one GitHub release, so any project can install it
+# without a registry (sdks/README.md, ADR-0027, ADR-0031). Push a tag
+# sdk-v<version> matching packages/sdk/package.json; the release gets:
+#   latte-sdk-<version>.tgz, latte-sdk.tgz               TypeScript, pinned and latest
+#   latte_sdk-<version>-py3-none-any.whl                 Python
+#   latte-sdk-<version>.jar/.pom, latte-sdk.jar/.pom     Java, pinned and latest
+# It also tags the Go module sdks/go/v<version> and moves sdk-latest here.
 name: sdk-release
 
 on:
@@ -27,12 +29,31 @@ jobs:
           [ "$GITHUB_REF_NAME" = "sdk-v$version" ] || { echo "tag $GITHUB_REF_NAME, package $version"; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - run: make sdk-pack
+      - name: the generated SDKs match the API and pass their tests
+        run: |
+          make sdks
+          [ -z "$(git status --porcelain -- sdks)" ] || { echo "sdks/ is stale: run make sdks"; exit 1; }
+          make sdks-test
       - name: create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp "packages/sdk/latte-sdk-$VERSION.tgz" packages/sdk/latte-sdk.tgz
+          jar="sdks/java/target/latte-sdk-$VERSION.jar"
+          cp sdks/java/pom.xml "sdks/java/target/latte-sdk-$VERSION.pom"
+          cp "$jar" sdks/java/target/latte-sdk.jar
+          cp sdks/java/pom.xml sdks/java/target/latte-sdk.pom
           gh release create "$GITHUB_REF_NAME" \
             "packages/sdk/latte-sdk-$VERSION.tgz" packages/sdk/latte-sdk.tgz \
-            --title "@latte/sdk $VERSION" \
-            --notes "npm install https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/latte-sdk-$VERSION.tgz"
+            "sdks/python/dist/latte_sdk-$VERSION-py3-none-any.whl" \
+            "$jar" "sdks/java/target/latte-sdk-$VERSION.pom" \
+            sdks/java/target/latte-sdk.jar sdks/java/target/latte-sdk.pom \
+            --title "Latte SDKs $VERSION" \
+            --notes "TypeScript, Python, Go and Java clients $VERSION. Install commands: sdks/README.md."
+      - name: tag the Go module and move sdk-latest
+        run: |
+          git tag "sdks/go/v$VERSION" "$GITHUB_SHA"
+          git push origin "sdks/go/v$VERSION"
+          # sdk-latest is the one tag that moves: installs from git that want the newest release use it.
+          git tag -f sdk-latest "$GITHUB_SHA"
+          git push -f origin sdk-latest
