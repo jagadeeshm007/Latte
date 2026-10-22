@@ -1,5 +1,4 @@
 .gitignore
-README.md
 api/openapi.yaml
 api_account.go
 api_analytics.go
