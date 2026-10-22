@@ -42,7 +42,7 @@ export const WebhookPage = lazy(() =>
   import("@/features/developers/WebhookPage").then((m) => ({ default: m.WebhookPage })),
 );
 export const DocsPage = lazy(() =>
-  import("@/features/developers/DocsPage").then((m) => ({ default: m.DocsPage })),
+  import("@/features/docs/DocsPage").then((m) => ({ default: m.DocsPage })),
 );
 export const NotificationsPage = lazy(() =>
   import("@/features/inbox/NotificationsPage").then((m) => ({ default: m.NotificationsPage })),

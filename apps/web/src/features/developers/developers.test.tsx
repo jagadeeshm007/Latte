@@ -8,7 +8,6 @@ import { renderInRouter } from "@/test/render";
 
 import { ApiKeyPage } from "./ApiKeyPage";
 import { DevelopersPage } from "./DevelopersPage";
-import { DocsPage } from "./DocsPage";
 import { WebhookPage } from "./WebhookPage";
 
 const KEY_ID = "k1111111-1111-4111-8111-111111111111";
@@ -323,17 +322,6 @@ describe("developers: webhook states", () => {
     await renderInRouter(<WebhookPage webhookId={ID} />);
 
     expect(await screen.findByText(/No deliveries yet/)).toBeInTheDocument();
-  });
-});
-
-describe("developers: docs", () => {
-  it("documents every scope and the webhook signature check", async () => {
-    await renderInRouter(<DocsPage />);
-
-    const scopes = within(screen.getByRole("table", { name: "Scopes" }));
-    expect(scopes.getAllByRole("row")).toHaveLength(8);
-    expect(screen.getByText("Check the signature (Express)")).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "On this page" })).toBeInTheDocument();
   });
 });
 

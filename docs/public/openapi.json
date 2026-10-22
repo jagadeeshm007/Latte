@@ -1,0 +1,2684 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Latte API",
+    "version": "0.2.0",
+    "description": "Sales call compliance and coaching. Authenticate with `Authorization: Bearer latte_…`. Every response carries RateLimit-Limit, RateLimit-Remaining and RateLimit-Reset headers. Create requests accept an `Idempotency-Key` header. Webhooks are signed with `Latte-Signature`; see the `webhooks` section.",
+    "license": { "name": "MIT", "identifier": "MIT" }
+  },
+  "servers": [{ "url": "/" }],
+  "tags": [
+    {
+      "name": "Account",
+      "description": "Who the key acts as, and the agents, teams and products to upload against."
+    },
+    { "name": "Calls", "description": "Calls with their transcript, score and findings." },
+    {
+      "name": "Uploads",
+      "description": "Add calls: sign upload URLs for recordings and confirm them, or send transcripts with no audio."
+    },
+    {
+      "name": "Batches",
+      "description": "Calls uploaded together, with their progress and results."
+    },
+    {
+      "name": "Exports",
+      "description": "Batch results as CSV, and transcripts and recordings as a ZIP."
+    },
+    {
+      "name": "Analytics",
+      "description": "Scores and flags grouped by team, product, agent or language."
+    },
+    {
+      "name": "Webhooks",
+      "description": "Endpoints that receive signed events. The events themselves are described under `webhooks`."
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Me": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "displayName": { "type": "string" },
+          "role": { "type": "string", "enum": ["qa_reviewer", "agent", "manager"] },
+          "agentId": { "type": ["string", "null"] }
+        },
+        "required": ["id", "email", "displayName", "role", "agentId"],
+        "additionalProperties": false
+      },
+      "Reference": {
+        "type": "object",
+        "properties": {
+          "agents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "teamId": { "type": "string" },
+                "externalCode": { "type": ["string", "null"] }
+              },
+              "required": ["id", "name", "teamId", "externalCode"],
+              "additionalProperties": false
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "id": { "type": "string" }, "name": { "type": "string" } },
+              "required": ["id", "name"],
+              "additionalProperties": false
+            }
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "id": { "type": "string" }, "name": { "type": "string" } },
+              "required": ["id", "name"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["agents", "teams", "products"],
+        "additionalProperties": false
+      },
+      "CallSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "agentId": { "type": "string" },
+          "agentName": { "type": "string" },
+          "teamName": { "type": "string" },
+          "productName": { "type": "string" },
+          "callDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "originalFilename": { "type": "string" },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en-IN",
+              "hi-IN",
+              "bn-IN",
+              "ta-IN",
+              "te-IN",
+              "kn-IN",
+              "ml-IN",
+              "mr-IN",
+              "gu-IN",
+              "od-IN",
+              "pa-IN",
+              "auto"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["uploaded", "transcribing", "transcribed", "scoring", "scored", "failed"]
+          },
+          "error": { "type": ["string", "null"] },
+          "durationMs": { "type": ["number", "null"] },
+          "createdAt": { "type": "string" },
+          "overallScore": { "type": ["number", "null"] },
+          "judgeStatus": { "type": ["string", "null"] },
+          "needsReview": { "type": ["boolean", "null"] },
+          "reviewStatus": {
+            "anyOf": [
+              { "type": "string", "enum": ["not_required", "pending", "done"] },
+              { "type": "null" }
+            ]
+          },
+          "breaches": { "type": "number" },
+          "missed": { "type": "number" },
+          "flag": { "type": "string", "enum": ["flagged", "passed", "pending"] },
+          "archivedAt": { "type": ["string", "null"] },
+          "batchId": { "type": "string" },
+          "batchName": { "type": "string" },
+          "input": { "default": "audio", "type": "string", "enum": ["audio", "transcript"] },
+          "timed": { "default": true, "type": "boolean" }
+        },
+        "required": [
+          "id",
+          "agentId",
+          "agentName",
+          "teamName",
+          "productName",
+          "callDate",
+          "originalFilename",
+          "language",
+          "status",
+          "error",
+          "durationMs",
+          "createdAt",
+          "overallScore",
+          "judgeStatus",
+          "needsReview",
+          "reviewStatus",
+          "breaches",
+          "missed",
+          "flag",
+          "archivedAt",
+          "batchId",
+          "batchName",
+          "input",
+          "timed"
+        ],
+        "additionalProperties": false
+      },
+      "CallList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CallSummary" } },
+          "nextCursor": { "type": ["string", "null"] },
+          "total": { "type": "number" }
+        },
+        "required": ["items", "nextCursor", "total"],
+        "additionalProperties": false
+      },
+      "Segment": {
+        "type": "object",
+        "properties": {
+          "seq": { "type": "number" },
+          "channel": { "type": "string", "enum": ["agent", "customer"] },
+          "startMs": { "type": "number" },
+          "endMs": { "type": "number" },
+          "text": { "type": "string" },
+          "language": { "type": ["string", "null"] },
+          "avgLogprob": { "type": ["number", "null"] },
+          "words": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": { "type": "string" },
+                "startMs": { "type": "number" },
+                "endMs": { "type": "number" }
+              },
+              "required": ["text", "startMs", "endMs"],
+              "additionalProperties": false
+            }
+          },
+          "translation": { "type": ["string", "null"] }
+        },
+        "required": [
+          "seq",
+          "channel",
+          "startMs",
+          "endMs",
+          "text",
+          "language",
+          "avgLogprob",
+          "words",
+          "translation"
+        ],
+        "additionalProperties": false
+      },
+      "Finding": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "itemKey": { "type": "string" },
+          "itemType": { "type": "string", "enum": ["mandatory", "prohibited", "quality"] },
+          "status": {
+            "type": "string",
+            "enum": ["met", "missed", "partial", "breach", "clear", "not_applicable"]
+          },
+          "source": { "type": "string", "enum": ["llm", "rule", "reviewer"] },
+          "quote": { "type": ["string", "null"] },
+          "segmentSeq": { "type": ["number", "null"] },
+          "startMs": { "type": ["number", "null"] },
+          "endMs": { "type": ["number", "null"] },
+          "channel": {
+            "anyOf": [{ "type": "string", "enum": ["agent", "customer"] }, { "type": "null" }]
+          },
+          "rationale": { "type": ["string", "null"] },
+          "grounded": { "type": "boolean" },
+          "review": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "decision": { "type": "string", "enum": ["agree", "disagree"] },
+                  "note": { "type": ["string", "null"] },
+                  "reviewerName": { "type": "string" },
+                  "updatedAt": { "type": "string" }
+                },
+                "required": ["decision", "note", "reviewerName", "updatedAt"],
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "itemKey",
+          "itemType",
+          "status",
+          "source",
+          "quote",
+          "segmentSeq",
+          "startMs",
+          "endMs",
+          "channel",
+          "rationale",
+          "grounded",
+          "review"
+        ],
+        "additionalProperties": false
+      },
+      "CallDetail": {
+        "type": "object",
+        "properties": {
+          "call": { "$ref": "#/components/schemas/CallSummary" },
+          "audioAvailable": { "type": "boolean" },
+          "score": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "rubricVersion": { "type": "number" },
+                  "talkRatio": { "type": "number" },
+                  "coachingNotes": { "type": "array", "items": { "type": "string" } },
+                  "judgeError": { "type": ["string", "null"] },
+                  "reviewedBy": { "type": ["string", "null"] },
+                  "reviewedAt": { "type": ["string", "null"] }
+                },
+                "required": [
+                  "id",
+                  "rubricVersion",
+                  "talkRatio",
+                  "coachingNotes",
+                  "judgeError",
+                  "reviewedBy",
+                  "reviewedAt"
+                ],
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          },
+          "rubricItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{1,40}$",
+                  "description": "Stable key; findings and agreement group by it"
+                },
+                "type": { "type": "string", "enum": ["mandatory", "prohibited", "quality"] },
+                "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+                "description": { "type": "string", "minLength": 1, "maxLength": 600 }
+              },
+              "required": ["key", "type", "label", "description"],
+              "additionalProperties": false
+            }
+          },
+          "segments": { "type": "array", "items": { "$ref": "#/components/schemas/Segment" } },
+          "findings": { "type": "array", "items": { "$ref": "#/components/schemas/Finding" } },
+          "redactions": { "default": 0, "type": "number" }
+        },
+        "required": [
+          "call",
+          "audioAvailable",
+          "score",
+          "rubricItems",
+          "segments",
+          "findings",
+          "redactions"
+        ],
+        "additionalProperties": false
+      },
+      "AudioUrl": {
+        "type": "object",
+        "properties": { "url": { "type": "string" }, "expiresInSeconds": { "type": "number" } },
+        "required": ["url", "expiresInSeconds"],
+        "additionalProperties": false
+      },
+      "CallRetryResponse": {
+        "type": "object",
+        "properties": { "status": { "type": "string", "const": "queued" } },
+        "required": ["status"],
+        "additionalProperties": false
+      },
+      "UploadSignResponse": {
+        "type": "object",
+        "properties": {
+          "uploads": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "signedUrl": { "type": "string" },
+                "token": { "type": "string" }
+              },
+              "required": ["path", "signedUrl", "token"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["uploads"],
+        "additionalProperties": false
+      },
+      "UploadResult": {
+        "type": "object",
+        "properties": {
+          "batchId": { "type": "string" },
+          "callIds": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["batchId", "callIds"],
+        "additionalProperties": false
+      },
+      "BatchSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "source": { "type": "string", "enum": ["web", "api"] },
+          "createdBy": { "type": "string" },
+          "createdByName": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "archivedAt": { "type": ["string", "null"] },
+          "total": { "type": "number" },
+          "queued": { "type": "number" },
+          "processing": { "type": "number" },
+          "scored": { "type": "number" },
+          "failed": { "type": "number" },
+          "flagged": { "type": "number" },
+          "avgScore": { "type": ["number", "null"] },
+          "state": { "type": "string", "enum": ["processing", "completed", "has_failures"] }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "createdBy",
+          "createdByName",
+          "createdAt",
+          "archivedAt",
+          "total",
+          "queued",
+          "processing",
+          "scored",
+          "failed",
+          "flagged",
+          "avgScore",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "BatchList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/BatchSummary" } },
+          "total": { "type": "number" }
+        },
+        "required": ["items", "total"],
+        "additionalProperties": false
+      },
+      "BatchDetail": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "source": { "type": "string", "enum": ["web", "api"] },
+          "createdBy": { "type": "string" },
+          "createdByName": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "archivedAt": { "type": ["string", "null"] },
+          "total": { "type": "number" },
+          "queued": { "type": "number" },
+          "processing": { "type": "number" },
+          "scored": { "type": "number" },
+          "failed": { "type": "number" },
+          "flagged": { "type": "number" },
+          "avgScore": { "type": ["number", "null"] },
+          "state": { "type": "string", "enum": ["processing", "completed", "has_failures"] },
+          "breaches": { "type": "number" },
+          "audioMs": { "type": "number" },
+          "costUsd": { "type": "number" },
+          "lastActivityAt": { "type": ["string", "null"] }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "createdBy",
+          "createdByName",
+          "createdAt",
+          "archivedAt",
+          "total",
+          "queued",
+          "processing",
+          "scored",
+          "failed",
+          "flagged",
+          "avgScore",
+          "state",
+          "breaches",
+          "audioMs",
+          "costUsd",
+          "lastActivityAt"
+        ],
+        "additionalProperties": false
+      },
+      "BatchRetryResponse": {
+        "type": "object",
+        "properties": { "queued": { "type": "number" } },
+        "required": ["queued"],
+        "additionalProperties": false
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "groupBy": { "type": "string", "enum": ["team", "product", "agent", "language"] },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "callsScored": { "type": "number" },
+                "flagged": { "type": "number" },
+                "flagRate": { "type": ["number", "null"] },
+                "avgOverall": { "type": ["number", "null"] },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "passRate": { "type": ["number", "null"] }
+                    },
+                    "required": ["key", "passRate"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "callsScored",
+                "flagged",
+                "flagRate",
+                "avgOverall",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["groupBy", "groups"],
+        "additionalProperties": false
+      },
+      "Highlights": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "to": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "previousFrom": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "previousTo": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "kpis": {
+            "type": "object",
+            "properties": {
+              "callsScored": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "avgScore": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "flagRate": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "breaches": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "reviewBacklog": { "type": "number" }
+            },
+            "required": ["callsScored", "avgScore", "flagRate", "breaches", "reviewBacklog"],
+            "additionalProperties": false
+          },
+          "topAgents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "callsScored": { "type": "number" },
+                "flagged": { "type": "number" },
+                "flagRate": { "type": ["number", "null"] },
+                "avgOverall": { "type": ["number", "null"] },
+                "breaches": { "type": "number" },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "passRate": { "type": ["number", "null"] }
+                    },
+                    "required": ["key", "passRate"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "callsScored",
+                "flagged",
+                "flagRate",
+                "avgOverall",
+                "breaches",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "bottomAgents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "callsScored": { "type": "number" },
+                "flagged": { "type": "number" },
+                "flagRate": { "type": ["number", "null"] },
+                "avgOverall": { "type": ["number", "null"] },
+                "breaches": { "type": "number" },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "passRate": { "type": ["number", "null"] }
+                    },
+                    "required": ["key", "passRate"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "callsScored",
+                "flagged",
+                "flagRate",
+                "avgOverall",
+                "breaches",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "riskiestTeams": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "callsScored": { "type": "number" },
+                "flagged": { "type": "number" },
+                "flagRate": { "type": ["number", "null"] },
+                "avgOverall": { "type": ["number", "null"] },
+                "breaches": { "type": "number" },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "passRate": { "type": ["number", "null"] }
+                    },
+                    "required": ["key", "passRate"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "callsScored",
+                "flagged",
+                "flagRate",
+                "avgOverall",
+                "breaches",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "failedItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": { "type": "string" },
+                "label": { "type": "string" },
+                "failed": { "type": "number" },
+                "applicable": { "type": "number" },
+                "failRate": { "type": "number" }
+              },
+              "required": ["key", "label", "failed", "applicable", "failRate"],
+              "additionalProperties": false
+            }
+          },
+          "languageMix": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "name": { "type": "string" }, "calls": { "type": "number" } },
+              "required": ["name", "calls"],
+              "additionalProperties": false
+            }
+          },
+          "productMix": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "name": { "type": "string" }, "calls": { "type": "number" } },
+              "required": ["name", "calls"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "previousFrom",
+          "previousTo",
+          "kpis",
+          "topAgents",
+          "bottomAgents",
+          "riskiestTeams",
+          "failedItems",
+          "languageMix",
+          "productMix"
+        ],
+        "additionalProperties": false
+      },
+      "Leaderboard": {
+        "type": "object",
+        "properties": {
+          "groupBy": { "type": "string", "enum": ["team", "product", "agent", "language"] },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "callsScored": { "type": "number" },
+                "flagged": { "type": "number" },
+                "flagRate": { "type": ["number", "null"] },
+                "avgOverall": { "type": ["number", "null"] },
+                "breaches": { "type": "number" },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": { "type": "string" },
+                      "passRate": { "type": ["number", "null"] }
+                    },
+                    "required": ["key", "passRate"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "callsScored",
+                "flagged",
+                "flagRate",
+                "avgOverall",
+                "breaches",
+                "items"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": { "type": "number" }
+        },
+        "required": ["groupBy", "items", "total"],
+        "additionalProperties": false
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "url": { "type": "string" },
+          "description": { "type": "string" },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "call.scored",
+                "call.failed",
+                "batch.completed",
+                "alert.triggered",
+                "digest.ready"
+              ]
+            }
+          },
+          "createdBy": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "disabledAt": { "type": ["string", "null"] },
+          "disabledReason": { "type": ["string", "null"] },
+          "consecutiveFailures": { "type": "number" },
+          "deliveries24h": { "type": "number" },
+          "failures24h": { "type": "number" }
+        },
+        "required": [
+          "id",
+          "url",
+          "description",
+          "events",
+          "createdBy",
+          "createdAt",
+          "disabledAt",
+          "disabledReason",
+          "consecutiveFailures",
+          "deliveries24h",
+          "failures24h"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookEndpointList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookEndpoint" } }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "CreatedWebhook": {
+        "type": "object",
+        "properties": {
+          "endpoint": { "$ref": "#/components/schemas/WebhookEndpoint" },
+          "secret": { "type": "string" }
+        },
+        "required": ["endpoint", "secret"],
+        "additionalProperties": false
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "eventId": { "type": "string" },
+          "eventType": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "succeeded", "failed"] },
+          "attempts": { "type": "number" },
+          "lastStatus": { "type": ["number", "null"] },
+          "lastError": { "type": ["string", "null"] },
+          "nextAttemptAt": { "type": "string" },
+          "deliveredAt": { "type": ["string", "null"] },
+          "createdAt": { "type": "string" },
+          "payload": {}
+        },
+        "required": [
+          "id",
+          "eventId",
+          "eventType",
+          "status",
+          "attempts",
+          "lastStatus",
+          "lastError",
+          "nextAttemptAt",
+          "deliveredAt",
+          "createdAt",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "WebhookDeliveryList": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/WebhookDelivery" } },
+          "total": { "type": "number" }
+        },
+        "required": ["items", "total"],
+        "additionalProperties": false
+      },
+      "Queued": {
+        "type": "object",
+        "properties": {
+          "queued": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+        },
+        "required": ["queued"],
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "requestId": { "type": "string" }
+            },
+            "required": ["code", "message"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["error"],
+        "additionalProperties": false
+      },
+      "CallScoredData": {
+        "type": "object",
+        "properties": {
+          "callId": { "type": "string" },
+          "batchId": { "type": "string" },
+          "agentId": { "type": "string" },
+          "teamId": { "type": "string" },
+          "productId": { "type": "string" },
+          "overallScore": {
+            "description": "0 to 100; null when the judge could not score",
+            "type": ["number", "null"]
+          },
+          "needsReview": {
+            "description": "true when QA should look at the call",
+            "type": ["boolean", "null"]
+          },
+          "judgeStatus": {
+            "description": "ok, or why the judge failed",
+            "type": ["string", "null"]
+          },
+          "breaches": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "prohibited statements found"
+          }
+        },
+        "required": [
+          "callId",
+          "batchId",
+          "agentId",
+          "teamId",
+          "productId",
+          "overallScore",
+          "needsReview",
+          "judgeStatus",
+          "breaches"
+        ],
+        "additionalProperties": false,
+        "description": "A call has its score and findings."
+      },
+      "CallFailedData": {
+        "type": "object",
+        "properties": {
+          "callId": { "type": "string" },
+          "reason": { "type": "string", "description": "why processing gave up, for a person" }
+        },
+        "required": ["callId", "reason"],
+        "additionalProperties": false,
+        "description": "A call could not be processed; retry it once the reason is fixed."
+      },
+      "BatchCompletedData": {
+        "type": "object",
+        "properties": {
+          "batchId": { "type": "string" },
+          "name": { "type": "string" },
+          "total": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+          "scored": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failed": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+        },
+        "required": ["batchId", "name", "total", "scored", "failed"],
+        "additionalProperties": false,
+        "description": "Every call in a batch is scored or failed."
+      },
+      "AlertTriggeredData": {
+        "type": "object",
+        "properties": {
+          "ruleId": { "type": "string" },
+          "ruleName": { "type": "string" },
+          "metric": { "type": "string", "enum": ["flag_rate", "avg_score", "item_fail_rate"] },
+          "scope": { "type": "string", "enum": ["team", "product", "agent"] },
+          "itemKey": {
+            "description": "the rubric item, for an item fail-rate rule",
+            "type": ["string", "null"]
+          },
+          "groupId": { "type": "string" },
+          "groupName": { "type": "string" },
+          "value": { "type": "number", "description": "the metric over the recent window" },
+          "baseline": { "type": "number", "description": "the metric over the baseline window" },
+          "calls": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+        },
+        "required": [
+          "ruleId",
+          "ruleName",
+          "metric",
+          "scope",
+          "itemKey",
+          "groupId",
+          "groupName",
+          "value",
+          "baseline",
+          "calls"
+        ],
+        "additionalProperties": false,
+        "description": "An alert rule fired for a team, product or agent."
+      },
+      "DigestReadyData": {
+        "type": "object",
+        "properties": {
+          "frequency": { "type": "string", "enum": ["daily", "weekly"] },
+          "from": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "to": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "kpis": {
+            "type": "object",
+            "properties": {
+              "callsScored": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "avgScore": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "flagRate": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "breaches": {
+                "type": "object",
+                "properties": {
+                  "value": { "type": ["number", "null"] },
+                  "previous": { "type": ["number", "null"] }
+                },
+                "required": ["value", "previous"],
+                "additionalProperties": false
+              },
+              "reviewBacklog": { "type": "number" }
+            },
+            "required": ["callsScored", "avgScore", "flagRate", "breaches", "reviewBacklog"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["frequency", "from", "to", "kpis"],
+        "additionalProperties": false,
+        "description": "A daily or weekly digest was built."
+      },
+      "PingData": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } },
+        "required": ["message"],
+        "additionalProperties": false,
+        "description": "A test event, sent from the endpoint page or the API."
+      },
+      "CallScoredEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "call.scored" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/CallScoredData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "CallFailedEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "call.failed" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/CallFailedData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "BatchCompletedEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "batch.completed" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/BatchCompletedData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "AlertTriggeredEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "alert.triggered" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/AlertTriggeredData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "DigestReadyEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "digest.ready" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/DigestReadyData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "PingEvent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "the event id; the same on every redelivery" },
+          "type": { "type": "string", "const": "ping" },
+          "createdAt": { "type": "string", "description": "ISO 8601" },
+          "data": { "$ref": "#/components/schemas/PingData" }
+        },
+        "required": ["id", "type", "createdAt", "data"],
+        "additionalProperties": false
+      },
+      "AudioUrlRequest": {
+        "default": {},
+        "type": "object",
+        "properties": { "download": { "type": "boolean" } }
+      },
+      "UploadSignRequest": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "type": { "type": "string", "enum": ["audio/wav", "audio/mpeg"] },
+                "size": { "type": "integer", "exclusiveMinimum": 0, "maximum": 52428800 }
+              },
+              "required": ["name", "type", "size"]
+            }
+          }
+        },
+        "required": ["files"]
+      },
+      "UploadConfirmRequest": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "originalFilename": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "mimeType": { "type": "string", "enum": ["audio/wav", "audio/mpeg"] },
+                "sizeBytes": { "type": "integer", "exclusiveMinimum": 0, "maximum": 52428800 },
+                "agentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "teamId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "productId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "callDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+                "language": {
+                  "default": "en-IN",
+                  "type": "string",
+                  "enum": [
+                    "en-IN",
+                    "hi-IN",
+                    "bn-IN",
+                    "ta-IN",
+                    "te-IN",
+                    "kn-IN",
+                    "ml-IN",
+                    "mr-IN",
+                    "gu-IN",
+                    "od-IN",
+                    "pa-IN",
+                    "auto"
+                  ]
+                }
+              },
+              "required": [
+                "path",
+                "originalFilename",
+                "mimeType",
+                "sizeBytes",
+                "agentId",
+                "teamId",
+                "productId",
+                "callDate"
+              ]
+            }
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "batchName": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "required": ["files"]
+      },
+      "TranscriptLine": {
+        "type": "object",
+        "properties": {
+          "speaker": { "type": "string", "enum": ["agent", "customer"] },
+          "text": { "type": "string", "minLength": 1, "maxLength": 5000 },
+          "startMs": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "endMs": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["speaker", "text"]
+      },
+      "TranscriptUploadRequest": {
+        "type": "object",
+        "properties": {
+          "transcripts": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "originalFilename": { "type": "string", "minLength": 1, "maxLength": 255 },
+                "agentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "teamId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "productId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "callDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+                "language": {
+                  "default": "en-IN",
+                  "type": "string",
+                  "enum": [
+                    "en-IN",
+                    "hi-IN",
+                    "bn-IN",
+                    "ta-IN",
+                    "te-IN",
+                    "kn-IN",
+                    "ml-IN",
+                    "mr-IN",
+                    "gu-IN",
+                    "od-IN",
+                    "pa-IN",
+                    "auto"
+                  ]
+                },
+                "lines": {
+                  "minItems": 1,
+                  "maxItems": 3000,
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TranscriptLine" }
+                }
+              },
+              "required": [
+                "originalFilename",
+                "agentId",
+                "teamId",
+                "productId",
+                "callDate",
+                "lines"
+              ]
+            }
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "batchName": { "type": "string", "minLength": 1, "maxLength": 120 }
+        },
+        "required": ["transcripts"]
+      },
+      "BatchUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "archived": { "type": "boolean" }
+        }
+      },
+      "CreateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "maxLength": 2000 },
+          "description": { "default": "", "type": "string", "maxLength": 200 },
+          "events": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "call.scored",
+                "call.failed",
+                "batch.completed",
+                "alert.triggered",
+                "digest.ready"
+              ]
+            }
+          }
+        },
+        "required": ["url", "events"]
+      },
+      "UpdateWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "maxLength": 2000 },
+          "description": { "type": "string", "maxLength": 200 },
+          "events": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "call.scored",
+                "call.failed",
+                "batch.completed",
+                "alert.triggered",
+                "digest.ready"
+              ]
+            }
+          },
+          "enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKey": { "type": "http", "scheme": "bearer", "bearerFormat": "latte_<prefix>_<secret>" }
+    }
+  },
+  "security": [{ "apiKey": [] }],
+  "paths": {
+    "/api/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": ["Account"],
+        "summary": "The manager the key acts as",
+        "description": "",
+        "x-rate-limit-bucket": "read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Me" } } }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/reference": {
+      "get": {
+        "operationId": "getReference",
+        "tags": ["Account"],
+        "summary": "Agents, teams and products to upload against",
+        "description": "Needs the `calls:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Reference" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls": {
+      "get": {
+        "operationId": "listCalls",
+        "tags": ["Calls"],
+        "summary": "List calls",
+        "description": "Filter by status, flag, agent, team, product, language, batch or text. Paged with `limit` and `page`, or `cursor`. Needs the `calls:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["uploaded", "transcribing", "transcribed", "scoring", "scored", "failed"]
+            }
+          },
+          {
+            "name": "needsReview",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true", "false"] }
+          },
+          {
+            "name": "agentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "teamId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "en-IN",
+                "hi-IN",
+                "bn-IN",
+                "ta-IN",
+                "te-IN",
+                "kn-IN",
+                "ml-IN",
+                "mr-IN",
+                "gu-IN",
+                "od-IN",
+                "pa-IN",
+                "auto"
+              ]
+            }
+          },
+          {
+            "name": "flag",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["flagged", "passed", "pending"] }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "maxLength": 100 }
+          },
+          {
+            "name": "batchId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true", "false"] }
+          },
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["agent", "team", "product", "language", "status", "flag"]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 50, "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 10000 }
+          },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CallList" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}": {
+      "get": {
+        "operationId": "getCall",
+        "tags": ["Calls"],
+        "summary": "One call with its transcript and findings",
+        "description": "Personal data in the transcript and quotes is masked for API keys. Needs the `calls:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CallDetail" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/audio-url": {
+      "post": {
+        "operationId": "getAudioUrl",
+        "tags": ["Calls"],
+        "summary": "A short-lived link to the recording",
+        "description": "Needs the `calls:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AudioUrlRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AudioUrl" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/sign": {
+      "post": {
+        "operationId": "signUploads",
+        "tags": ["Uploads"],
+        "summary": "Signed upload URLs for up to 50 recordings",
+        "description": "PUT each file to its `signedUrl`, then call confirmUploads with the returned paths. Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single or batch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/UploadSignRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UploadSignResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/confirm": {
+      "post": {
+        "operationId": "confirmUploads",
+        "tags": ["Uploads"],
+        "summary": "Create calls from uploaded recordings, into a new or existing batch",
+        "description": "Accepts an `Idempotency-Key` header. Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single or batch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadConfirmRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UploadResult" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/uploads/transcripts": {
+      "post": {
+        "operationId": "uploadTranscripts",
+        "tags": ["Uploads"],
+        "summary": "Create calls from transcripts, with no audio, into a new or existing batch",
+        "description": "Give times on every line or on none; without times, findings point to line numbers. Accepts an `Idempotency-Key` header. Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single or batch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TranscriptUploadRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UploadResult" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/retry": {
+      "post": {
+        "operationId": "retryCall",
+        "tags": ["Calls"],
+        "summary": "Queue a failed or stuck call again",
+        "description": "Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CallRetryResponse" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/archive": {
+      "post": {
+        "operationId": "archiveCall",
+        "tags": ["Calls"],
+        "summary": "Hide a call from lists",
+        "description": "Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Done; no body" },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/calls/{id}/unarchive": {
+      "post": {
+        "operationId": "unarchiveCall",
+        "tags": ["Calls"],
+        "summary": "Bring an archived call back",
+        "description": "Needs the `calls:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Done; no body" },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches": {
+      "get": {
+        "operationId": "listBatches",
+        "tags": ["Batches"],
+        "summary": "List batches",
+        "description": "Needs the `batches:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "maxLength": 100 }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["processing", "completed", "has_failures"] }
+          },
+          {
+            "name": "archived",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true", "false"] }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 1, "type": "integer", "minimum": 1, "maximum": 10000 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 20, "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/BatchList" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}": {
+      "get": {
+        "operationId": "getBatch",
+        "tags": ["Batches"],
+        "summary": "One batch with its progress and results",
+        "description": "Needs the `batches:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/BatchDetail" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateBatch",
+        "tags": ["Batches"],
+        "summary": "Rename or archive a batch",
+        "description": "Needs the `batches:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/BatchUpdateRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/BatchDetail" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}/retry-failed": {
+      "post": {
+        "operationId": "retryFailedCalls",
+        "tags": ["Batches"],
+        "summary": "Queue every failed call in the batch again",
+        "description": "Accepts an `Idempotency-Key` header. Needs the `batches:write` scope.",
+        "x-rate-limit-bucket": "batch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BatchRetryResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}/results.csv": {
+      "get": {
+        "operationId": "getBatchResultsCsv",
+        "tags": ["Exports"],
+        "summary": "Results, one row per call and one column per rubric item",
+        "description": "Needs the `exports:read` scope.",
+        "x-rate-limit-bucket": "bulk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": { "text/csv": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/batches/{id}/export.zip": {
+      "get": {
+        "operationId": "exportBatchZip",
+        "tags": ["Exports"],
+        "summary": "Results, transcripts and recordings as a ZIP (up to 200 calls)",
+        "description": "Needs the `exports:read` scope.",
+        "x-rate-limit-bucket": "bulk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          { "name": "include", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "operationId": "getDashboard",
+        "tags": ["Analytics"],
+        "summary": "Results grouped by team, product, agent or language",
+        "description": "Needs the `analytics:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "team",
+              "type": "string",
+              "enum": ["team", "product", "agent", "language"]
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Dashboard" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/highlights": {
+      "get": {
+        "operationId": "getHighlights",
+        "tags": ["Analytics"],
+        "summary": "The period's headline numbers and highlights",
+        "description": "Needs the `analytics:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Highlights" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/leaderboard": {
+      "get": {
+        "operationId": "getLeaderboard",
+        "tags": ["Analytics"],
+        "summary": "A sorted, paged ranking of any grouping",
+        "description": "Needs the `analytics:read` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "agent",
+              "type": "string",
+              "enum": ["team", "product", "agent", "language"]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "maxLength": 100 }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "avgScore",
+              "type": "string",
+              "enum": ["name", "calls", "avgScore", "flagRate", "breaches"]
+            }
+          },
+          {
+            "name": "dir",
+            "in": "query",
+            "required": false,
+            "schema": { "default": "desc", "type": "string", "enum": ["asc", "desc"] }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 1, "type": "integer", "minimum": 1, "maximum": 10000 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 25, "type": "integer", "minimum": 1, "maximum": 100 }
+          },
+          {
+            "name": "minCalls",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 1, "type": "integer", "minimum": 0, "maximum": 10000 }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Leaderboard" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks": {
+      "get": {
+        "operationId": "listWebhooks",
+        "tags": ["Webhooks"],
+        "summary": "List webhook endpoints",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WebhookEndpointList" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWebhook",
+        "tags": ["Webhooks"],
+        "summary": "Register an https endpoint; the signing secret is returned once",
+        "description": "Accepts an `Idempotency-Key` header. Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateWebhookRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CreatedWebhook" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}": {
+      "get": {
+        "operationId": "getWebhook",
+        "tags": ["Webhooks"],
+        "summary": "One webhook endpoint",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookEndpoint" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateWebhook",
+        "tags": ["Webhooks"],
+        "summary": "Change the URL, events or description, or turn it off and on",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateWebhookRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WebhookEndpoint" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteWebhook",
+        "tags": ["Webhooks"],
+        "summary": "Delete an endpoint and its deliveries",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Done; no body" },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/test": {
+      "post": {
+        "operationId": "testWebhook",
+        "tags": ["Webhooks"],
+        "summary": "Send a ping event to this endpoint",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Queued" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/deliveries": {
+      "get": {
+        "operationId": "listWebhookDeliveries",
+        "tags": ["Webhooks"],
+        "summary": "Deliveries to this endpoint, newest first",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["pending", "succeeded", "failed"] }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 1, "type": "integer", "minimum": 1, "maximum": 10000 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "default": 25, "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WebhookDeliveryList" }
+              }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/webhooks/{id}/deliveries/{deliveryId}/redeliver": {
+      "post": {
+        "operationId": "redeliverWebhookDelivery",
+        "tags": ["Webhooks"],
+        "summary": "Send a delivery again now",
+        "description": "Needs the `webhooks:write` scope.",
+        "x-rate-limit-bucket": "single",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "deliveryId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "OK",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Queued" } }
+            }
+          },
+          "default": {
+            "description": "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Error" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {
+    "call.scored": {
+      "post": {
+        "operationId": "onCallScored",
+        "tags": ["Webhooks"],
+        "summary": "A call has its score and findings.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CallScoredEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "call.failed": {
+      "post": {
+        "operationId": "onCallFailed",
+        "tags": ["Webhooks"],
+        "summary": "A call could not be processed; retry it once the reason is fixed.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CallFailedEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "batch.completed": {
+      "post": {
+        "operationId": "onBatchCompleted",
+        "tags": ["Webhooks"],
+        "summary": "Every call in a batch is scored or failed.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/BatchCompletedEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "alert.triggered": {
+      "post": {
+        "operationId": "onAlertTriggered",
+        "tags": ["Webhooks"],
+        "summary": "An alert rule fired for a team, product or agent.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AlertTriggeredEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "digest.ready": {
+      "post": {
+        "operationId": "onDigestReady",
+        "tags": ["Webhooks"],
+        "summary": "A daily or weekly digest was built.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/DigestReadyEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    },
+    "ping": {
+      "post": {
+        "operationId": "onPing",
+        "tags": ["Webhooks"],
+        "summary": "A test event, sent from the endpoint page or the API.",
+        "description": "Answer 2xx within 10 seconds. Anything else is retried 8 times over about a day; after 50 failures in a row the endpoint is turned off.",
+        "parameters": [
+          {
+            "name": "Latte-Signature",
+            "in": "header",
+            "required": true,
+            "description": "t=<unix seconds>,v1=<hex HMAC-SHA256 of \"<t>.<raw body>\"> under the endpoint's whsec_ secret",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Event",
+            "in": "header",
+            "required": true,
+            "description": "The event type",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Latte-Delivery",
+            "in": "header",
+            "required": true,
+            "description": "The delivery id; the same on a redelivery, so use it to drop duplicates",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PingEvent" } }
+          }
+        },
+        "responses": { "200": { "description": "Received" } }
+      }
+    }
+  }
+}

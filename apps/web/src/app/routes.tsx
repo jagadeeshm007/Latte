@@ -3,6 +3,7 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  Navigate,
   type RouterHistory,
 } from "@tanstack/react-router";
 
@@ -125,10 +126,24 @@ const apiKeyRoute = createRoute({
     return <ApiKeyPage key={keyId} keyId={keyId} />;
   },
 });
-const docsRoute = createRoute({
+// The docs moved to the public /docs; old links to the in-app page land there.
+const oldDocsRoute = createRoute({
   ...child,
   path: "/developers/docs",
-  component: () => <DocsPage />,
+  component: () => <Navigate to="/docs" replace />,
+});
+const docsIndexRoute = createRoute({
+  ...child,
+  path: "/docs",
+  component: () => <DocsPage slug="index" />,
+});
+const docsPageRoute = createRoute({
+  ...child,
+  path: "/docs/$page",
+  component: function DocsPageRoute() {
+    const { page } = docsPageRoute.useParams();
+    return <DocsPage key={page} slug={page} />;
+  },
 });
 const webhookRoute = createRoute({
   ...child,
@@ -183,7 +198,9 @@ export const routeTree = rootRoute.addChildren([
   batchRoute,
   developersRoute,
   apiKeyRoute,
-  docsRoute,
+  oldDocsRoute,
+  docsIndexRoute,
+  docsPageRoute,
   webhookRoute,
   notificationsRoute,
   alertsRoute,

@@ -36,3 +36,8 @@ sdks/python/build/
 sdks/python/dist/
 sdks/python/*.egg-info/
 __pycache__/
+# Written by apps/web/scripts/build-docs.ts from docs/public
+apps/web/public/docs/
+apps/web/public/llms.txt
+apps/web/public/llms-full.txt
+apps/web/public/openapi.json

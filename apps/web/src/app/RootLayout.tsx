@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 
+import { isPublicPath } from "@/app/public-paths";
+import { PublicLayout } from "@/app/PublicLayout";
 import { ErrorState, Loading } from "@/components/states";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -118,21 +120,10 @@ const ROLE_LABEL: Record<Role, string> = {
  * caller's role. Every route renders inside it; the API still checks every
  * role on every request, the menu only hides what a role cannot use.
  */
-/** Pages anyone may open without signing in. */
-const PUBLIC_PATHS = new Set(["/status"]);
-
 export function RootLayout() {
   const session = useSession();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (PUBLIC_PATHS.has(pathname) && session.status !== "signed_in") {
-    return (
-      <main className="min-h-svh bg-muted/40 px-4 py-10">
-        <Suspense fallback={<Loading label="Loading the page" />}>
-          <Outlet />
-        </Suspense>
-      </main>
-    );
-  }
+  if (isPublicPath(pathname) && session.status !== "signed_in") return <PublicLayout />;
   if (session.status === "loading") return <Loading shape="app" />;
   if (session.status === "signed_out") return <SignInPage />;
   return <Shell />;

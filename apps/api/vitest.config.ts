@@ -24,6 +24,7 @@ export default defineConfig({
         "src/seed.ts",
         "src/env-check.ts",
         "src/print-openapi.ts",
+        "src/gen-docs.ts",
         "src/load-seed.ts",
         "src/status.ts",
         "src/wiring.ts",
