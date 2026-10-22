@@ -139,7 +139,11 @@ export async function saveRubricVersion(
 }
 
 /** renameProfile sets the caller's display name and returns the profile as /me answers it. */
-export async function renameProfile(db: Queryable, id: string, displayName: string): Promise<Me | null> {
+export async function renameProfile(
+  db: Queryable,
+  id: string,
+  displayName: string,
+): Promise<Me | null> {
   const { rowCount } = await db.query(
     "UPDATE profiles SET display_name = $2, updated_at = now() WHERE id = $1 AND disabled_at IS NULL",
     [id, displayName],
