@@ -80,6 +80,12 @@ export const meSchema = z.object({
 });
 export type Me = z.infer<typeof meSchema>;
 
+/** What a person may change about themselves (SCC-2-6); role and email stay with managers and sign-in. */
+export const updateMeRequestSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+});
+export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
+
 export const referenceSchema = z.object({
   agents: z.array(
     z.object({
