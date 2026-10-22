@@ -92,7 +92,7 @@ make status       # recent calls with status, score and findings, and this month
 Create an API key under **Developers** in the app, then install the SDK:
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.tgz
 ```
 
 ```ts

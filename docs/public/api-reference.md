@@ -7,7 +7,7 @@ order: 90
 
 # API reference
 
-Version 0.2.0. Generated from [openapi.json](/openapi.json); do not edit by hand.
+Version 0.3.0. Generated from [openapi.json](/openapi.json); do not edit by hand.
 
 Every request needs `Authorization: Bearer latte_...`. Errors answer the [Error](#error) shape; see [Errors](errors.md).
 

@@ -1,6 +1,6 @@
 ---
 title: SDKs
-description: The TypeScript SDK, and clients for Python, Go, Java and other languages from openapi.json.
+description: Clients for TypeScript, Python, Go and Java, how to install them pinned or at the newest release, and other languages from openapi.json.
 section: SDKs
 order: 30
 ---
@@ -14,7 +14,7 @@ A zero-dependency client, about 16 kB, using `fetch` and Web Crypto. It runs on 
 Install a pinned release (recommended for production):
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.tgz
 ```
 
 Or whatever is newest:
@@ -48,14 +48,74 @@ Behaviour:
 - **Errors.** Failures throw `ApiError` (or `RateLimitError`) with the server's `code` and `requestId`.
 - **Types, not run-time checks.** Responses are typed from the API's own schemas and are not validated at run time, which keeps the SDK small.
 
-## Python, Go, Java and others
+## Python, Go and Java
 
-The API is described by an OpenAPI 3.1 document at [`/openapi.json`](/openapi.json), with an `operationId` on every endpoint and a named schema for every body. Any OpenAPI generator turns it into a typed client. With the official OpenAPI Generator image:
+Generated from the API's OpenAPI document and released with the TypeScript SDK under the same version. Each has the endpoints as methods named by their `operationId`, a model for every schema, and a webhook signature check.
+
+### Python
+
+Python 3.10 or later.
+
+```bash
+pip install "git+https://github.com/jagadeeshm007/Latte@sdk-v0.3.0#subdirectory=sdks/python"   # pinned
+pip install "git+https://github.com/jagadeeshm007/Latte@sdk-latest#subdirectory=sdks/python"   # newest
+```
+
+```python
+import os
+
+import latte_sdk
+
+config = latte_sdk.Configuration(host="https://your-latte-domain", access_token=os.environ["LATTE_API_KEY"])
+with latte_sdk.ApiClient(config) as client:
+    calls = latte_sdk.CallsApi(client).list_calls(status="scored", limit=20)
+```
+
+### Go
+
+```bash
+go get github.com/jagadeeshm007/Latte/sdks/go@v0.3.0   # pinned
+go get github.com/jagadeeshm007/Latte/sdks/go@latest   # newest
+```
+
+```go
+cfg := latte.NewConfiguration()
+cfg.Servers = latte.ServerConfigurations{{URL: "https://your-latte-domain"}}
+client := latte.NewAPIClient(cfg)
+ctx := context.WithValue(context.Background(), latte.ContextAccessToken, os.Getenv("LATTE_API_KEY"))
+calls, _, err := client.CallsAPI.ListCalls(ctx).Status("scored").Limit(20).Execute()
+```
+
+`latte.VerifyWebhookSignature(secret, header, body, time.Now())` checks a delivery.
+
+### Java
+
+Java 11 or later. Each release carries `latte-sdk-<version>.jar` and its pom (the newest at `releases/latest/download/latte-sdk.jar`):
+
+```bash
+curl -LO https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.jar
+curl -LO https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.pom
+mvn install:install-file -Dfile=latte-sdk-0.3.0.jar -DpomFile=latte-sdk-0.3.0.pom
+```
+
+```java
+ApiClient client = new ApiClient();
+client.updateBaseUri("https://your-latte-domain");
+client.setRequestInterceptor(r -> r.header("Authorization", "Bearer " + System.getenv("LATTE_API_KEY")));
+CallList calls = new CallsApi(client).listCalls(
+    CallsApi.APIListCallsRequest.newBuilder().status("scored").limit(20).build());
+```
+
+`Webhook.verifySignature(secret, header, rawBody)` checks a delivery.
+
+## Other languages
+
+The OpenAPI 3.1 document at [`/openapi.json`](/openapi.json) has an `operationId` on every endpoint and a named schema for every body, so any OpenAPI generator makes a typed client from it:
 
 ```bash
 curl -sO https://your-latte-domain/openapi.json
-docker run --rm -v "$PWD:/local" openapitools/openapi-generator-cli generate \
-  -i /local/openapi.json -g python -o /local/latte-python
+docker run --rm -v "$PWD:/local" openapitools/openapi-generator-cli:v7.26.0 generate \
+  -i /local/openapi.json -g csharp -o /local/latte-csharp
 ```
 
-Use `-g go` or `-g java` for those languages. Set the client's bearer token to your API key. The signature check for webhooks is a few lines in each language; see [Webhooks](webhooks.md#checking-the-signature).
+Set the client's bearer token to your API key. The webhook signature check is a few lines in any language; see [Webhooks](webhooks.md#checking-the-signature).
