@@ -1,6 +1,6 @@
 [project]
 name = "latte_sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Latte API"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},

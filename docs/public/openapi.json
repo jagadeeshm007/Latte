@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Latte API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Sales call compliance and coaching. Authenticate with `Authorization: Bearer latte_…`. Every response carries RateLimit-Limit, RateLimit-Remaining and RateLimit-Reset headers. Create requests accept an `Idempotency-Key` header. Webhooks are signed with `Latte-Signature`; see the `webhooks` section.",
     "license": { "name": "MIT", "identifier": "MIT" }
   },
