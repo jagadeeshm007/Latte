@@ -30,3 +30,8 @@ evals/audio/
 # Copied from the root LICENSE when the SDK is built
 packages/sdk/LICENSE
 packages/sdk/*.tgz
+# Written by apps/web/scripts/build-docs.ts from docs/public
+apps/web/public/docs/
+apps/web/public/llms.txt
+apps/web/public/llms-full.txt
+apps/web/public/openapi.json

@@ -23,6 +23,7 @@ export default defineConfig({
         "src/worker.ts",
         "src/seed.ts",
         "src/env-check.ts",
+        "src/gen-docs.ts",
         "src/load-seed.ts",
         "src/status.ts",
         "src/wiring.ts",

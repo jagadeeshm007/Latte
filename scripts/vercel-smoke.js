@@ -2,7 +2,7 @@
 // function the way Vercel's Node launcher does, serves it on a local port and
 // checks that it answers. Needs the local Postgres from `make db`; it never
 // reaches Supabase, a model provider or anything else outside this machine.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
 import process from "node:process";
@@ -42,6 +42,13 @@ expect(
   "the web app is in static",
   readFileSync(path.join(out, "static/index.html"), "utf8").includes("<div id"),
   "no index.html",
+);
+expect(
+  "the public docs and llms.txt are in static",
+  ["llms.txt", "llms-full.txt", "openapi.json", "docs/pages.json", "docs/quickstart.md"].every(
+    (f) => existsSync(path.join(out, "static", f)),
+  ),
+  "missing docs output",
 );
 
 // A deployment runs against a migrated database (deploy-vercel.md); so does this

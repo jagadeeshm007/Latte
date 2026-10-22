@@ -87,7 +87,7 @@ export function QuickSetup() {
           <FrameDescription>
             {finished} of {steps.length} done. Full guide in the{" "}
             <Link
-              to="/developers/docs"
+              to="/docs"
               className="font-medium text-foreground underline-offset-4 hover:underline"
             >
               documentation

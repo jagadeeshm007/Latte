@@ -3,24 +3,27 @@
 - Task: SCC-2
 - Title: PublicPlatform
 - Branch: feature/SCC-2-PublicPlatform
-- Status: started
+- Status: in progress
 - Owner: Jagadeesh
 - Started: 2026-10-22
 - Updated: 2026-10-22
 - Acceptance criteria: 7
 
 ## Next
-- Unit SCC-2-0: write the Intent/Unit/Bolt rule
+- Unit SCC-2-2 PublicDocs: in review (PR into feature/SCC-2-PublicPlatform)
+- Then SCC-2-3 LanguageSdks, SCC-2-4 SdkExamples, SCC-2-5 LandingLegal, SCC-2-6 Settings
 
 ## Done
-- none
+- SCC-2-0 IntentsUnitsBolts: way of working in AGENTS.md and CLAUDE.md (PR #8, merged)
+- SCC-2-1 OpenApi: operation ids, tags, named schemas, webhooks section (PR #9, merged)
 
 ## Blockers
 - none
 
 ## Decisions
-- none
+- Docs live in docs/public as Markdown; the API reference and openapi.json are generated and checked by make typecheck
+- marked renders docs through its lexer into React elements, never innerHTML
 
 ## Links
-- MR: none
+- MR: https://github.com/jagadeeshm007/Latte/pull/8, https://github.com/jagadeeshm007/Latte/pull/9
 - Ticket: none
