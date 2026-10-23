@@ -3,11 +3,17 @@
 # the eval replays recorded responses (REQ-027). GitHub sets CI=true, so a gate whose tool is missing fails here
 # instead of printing SKIPPED.
 #
+# Speed (SCC-5): validate works out which areas a pull request touches, and
+# each later job runs only for the areas that can affect it. Format, lint and
+# typecheck always run. Pushes to main or develop and tags run everything. A
+# job with nothing to check reports success without running its gate, and
+# ci-ok passes only when every job passed or had nothing to check.
+#
 # The two-approval rule (one peer, one lead, from CODEOWNERS) is a branch
 # protection setting, not something a workflow can enforce: Settings >
 # Branches > main and develop: require a pull request, 2 approving reviews,
-# review from Code Owners, dismiss stale approvals, and the status checks
-# lint, unit, integration, dependency-scan and build.
+# review from Code Owners, dismiss stale approvals, and the status check
+# ci-ok (the one check that covers every job, whichever ran).
 name: ci
 
 on:
@@ -29,6 +35,9 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      areas: ${{ steps.changes.outputs.areas }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -55,10 +64,41 @@ jobs:
           if git log --no-merges --format=%B "$range" | grep -Eiq 'co-authored-by: .*(claude|anthropic|copilot|chatgpt|gemini)|generated with'; then echo "AI attribution trailer found"; exit 1; fi
           echo "commits: $n commits checked, $bad bad"
           [ "$bad" -eq 0 ]
+      # Which areas the change can affect. A file shared by every build (the
+      # lockfile, the Makefile, this workflow, the base tsconfig) counts for all.
+      - name: changes
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          all=" api web pkgs eval build sdks deps "
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "areas=$all" >> "$GITHUB_OUTPUT"; echo "changes: $EVENT, every area"; exit 0
+          fi
+          files=$(git diff --name-only "origin/$BASE...HEAD")
+          shared='^(pnpm-lock\.yaml|package\.json|pnpm-workspace\.yaml|Makefile|tsconfig\.base\.json|\.github/workflows/ci\.yml)$'
+          if echo "$files" | grep -Eq "$shared"; then
+            echo "areas=$all" >> "$GITHUB_OUTPUT"; echo "changes: a shared build file, every area"; exit 0
+          fi
+          areas=" "
+          add() { if echo "$files" | grep -Eq "$2"; then areas="$areas$1 "; fi; }
+          # docs/public is read by the API's docs tests and served by the web build.
+          add api   '^(apps/api/|packages/(shared|gateway)/|docs/public/|docker-compose\.test\.yml$)'
+          add web   '^(apps/web/|packages/(shared|sdk)/|docs/public/)'
+          # evals imports @scc/api, so an API change runs its tests too.
+          add pkgs  '^(packages/|evals/|examples/|apps/api/)'
+          add eval  '^(apps/api/|packages/(shared|gateway)/|evals/)'
+          add build '^(apps/|packages/|docs/public/|scripts/vercel-)'
+          add sdks  '^(sdks/|apps/api/src/|packages/shared/|packages/sdk/package\.json$|scripts/gen-sdks\.js$)'
+          add deps  '(^|/)package\.json$'
+          echo "areas=$areas" >> "$GITHUB_OUTPUT"
+          echo "changes: $(echo "$files" | wc -l | tr -d ' ') files, areas:${areas}"
 
   lint:
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -71,22 +111,41 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: make ${{ matrix.gate }}
 
-  # Unit and integration tests; `make test` starts postgres:17 with docker compose.
+  # Unit and integration tests, one job per area so the slow API suite (with
+  # postgres:17 from docker compose) runs beside the others, not before them.
   test:
-    needs: lint
+    needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { area: api, packages: "apps/api" }
+          - { area: web, packages: "apps/web" }
+          - { area: pkgs, packages: "packages/shared packages/gateway packages/sdk evals examples" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: nothing to check
+        if: ${{ !contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        run: 'echo "test ${{ matrix.area }} has nothing to check: no change in this area"'
+      - if: ${{ contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        uses: actions/checkout@v4
+      - if: ${{ contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        uses: pnpm/action-setup@v4
+      - if: ${{ contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: make test
+      - if: ${{ contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        run: pnpm install --frozen-lockfile
+      - if: ${{ contains(needs.validate.outputs.areas, format(' {0} ', matrix.area)) }}
+        run: make test ALL_PACKAGES="${{ matrix.packages }}"
 
   # The judge eval from recorded responses: fails on any missed planted prohibited statement.
   eval:
-    needs: lint
+    needs: validate
+    if: contains(needs.validate.outputs.areas, ' eval ')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       MODEL_MODE: replay
     steps:
@@ -97,9 +156,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: make eval
 
+  # Known vulnerabilities in production dependencies: on dependency changes, and on every push to main.
   dependency-scan:
     needs: validate
+    if: contains(needs.validate.outputs.areas, ' deps ')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -110,8 +172,10 @@ jobs:
 
   # The Vercel build output, then a local run of the bundled function (ADR-0020).
   build:
-    needs: lint
+    needs: validate
+    if: contains(needs.validate.outputs.areas, ' build ')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -122,9 +186,12 @@ jobs:
 
   # The Python, Go and Java SDKs: committed output matches a fresh generation,
   # and each builds and passes its tests in its official image (ADR-0031).
+  # pip, Go module and Maven downloads are cached between runs.
   sdks:
     needs: validate
+    if: contains(needs.validate.outputs.areas, ' sdks ')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -136,4 +203,22 @@ jobs:
         run: |
           changed=$(git status --porcelain -- sdks)
           if [ -n "$changed" ]; then echo "$changed"; echo "run make sdks and commit the result"; exit 1; fi
+      - uses: actions/cache@v4
+        with:
+          path: .cache/sdks
+          key: sdks-${{ runner.os }}-${{ hashFiles('sdks/java/pom.xml', 'sdks/python/pyproject.toml', 'sdks/go/go.sum') }}
+          restore-keys: sdks-${{ runner.os }}-
       - run: make sdks-test
+
+  # The one status to require in branch protection: every job passed, or had nothing to check.
+  ci-ok:
+    if: always()
+    needs: [validate, lint, test, eval, dependency-scan, build, sdks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' > /dev/null
