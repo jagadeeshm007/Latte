@@ -8,7 +8,12 @@ import { describe, expect, it } from "vitest";
 // describe, so an example payload or a link cannot go stale silently.
 
 const dir = path.resolve(import.meta.dirname, "../../../docs/public");
-const pages = readdirSync(dir).filter((f) => f.endsWith(".md"));
+const listed = (sub: string) =>
+  readdirSync(path.join(dir, sub))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => path.join(sub, f));
+// The docs and the legal pages (SCC-2-5); a link between pages stays within its folder.
+const pages = [...listed(""), ...listed("legal")];
 const read = (name: string) => readFileSync(path.join(dir, name), "utf8");
 
 describe("docs/public", () => {
@@ -25,7 +30,7 @@ describe("docs/public", () => {
   it("links only to pages that exist", () => {
     const links = pages.flatMap((name) =>
       [...read(name).matchAll(/\]\(([\w-]+)\.md(?:#[\w-]+)?\)/g)].map(
-        (m) => `${name} -> ${m[1] ?? ""}.md`,
+        (m) => `${name} -> ${path.join(path.dirname(name), `${m[1] ?? ""}.md`)}`,
       ),
     );
 

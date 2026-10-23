@@ -45,9 +45,14 @@ expect(
 );
 expect(
   "the public docs and llms.txt are in static",
-  ["llms.txt", "llms-full.txt", "openapi.json", "docs/pages.json", "docs/quickstart.md"].every(
-    (f) => existsSync(path.join(out, "static", f)),
-  ),
+  [
+    "llms.txt",
+    "llms-full.txt",
+    "openapi.json",
+    "docs/pages.json",
+    "docs/quickstart.md",
+    "legal/privacy.md",
+  ].every((f) => existsSync(path.join(out, "static", f))),
   "missing docs output",
 );
 
