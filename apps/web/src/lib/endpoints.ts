@@ -48,6 +48,7 @@ import {
   type PostNoticeRequest,
   type InviteMemberRequest,
   type UpdateMemberRequest,
+  type UpdateMeRequest,
   type ApiBucket,
   type SavedViewPage,
   type SaveViewRequest,
@@ -456,6 +457,7 @@ export const api = {
   deleteView: (id: string) => apiSend(`/api/saved-views/${id}`, noContent, "DELETE"),
   markRead: (id: string) => apiSend(`/api/notifications/${id}/read`, noContent, "POST"),
   markAllRead: () => apiSend("/api/notifications/read-all", z.object({ read: z.number() }), "POST"),
+  updateMe: (body: UpdateMeRequest) => apiSend("/api/me", meSchema, "PATCH", body),
   setDigest: (frequency: "off" | "daily" | "weekly") =>
     apiSend("/api/digest", digestSettingSchema, "PUT", { frequency }),
   createAlertRule: (body: AlertRuleRequest) =>

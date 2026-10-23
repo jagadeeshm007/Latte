@@ -64,10 +64,9 @@ describe("inbox", () => {
     );
   });
 
-  it("marks a notification read when opened, marks all read, and sets the digest", async () => {
+  it("marks a notification read when opened, marks all read, and points to the digest setting", async () => {
     const read = vi.fn(() => new HttpResponse(null, { status: 204 }));
     const readAll = vi.fn(() => HttpResponse.json({ read: 1 }));
-    const digests: unknown[] = [];
     server.use(
       http.get("*/api/notifications", () =>
         HttpResponse.json({
@@ -86,11 +85,6 @@ describe("inbox", () => {
       ),
       http.post("*/api/notifications/:id/read", read),
       http.post("*/api/notifications/read-all", readAll),
-      http.get("*/api/digest", () => HttpResponse.json({ frequency: "off" })),
-      http.put("*/api/digest", async ({ request }) => {
-        digests.push(await request.json());
-        return HttpResponse.json({ frequency: "weekly" });
-      }),
     );
     await renderInRouter(<NotificationsPage />);
 
@@ -98,19 +92,21 @@ describe("inbox", () => {
     expect(list.getByText(/Flag rate jump/)).toHaveTextContent("(unread)");
     await userEvent.click(list.getByRole("button", { name: /Flag rate jump/ }));
     await userEvent.click(screen.getByRole("button", { name: "Mark all read" }));
-    await userEvent.click(screen.getByRole("button", { name: "Weekly" }));
 
     await waitFor(() => {
-      expect(digests).toEqual([{ frequency: "weekly" }]);
+      expect(readAll).toHaveBeenCalledTimes(1);
     });
     expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings?tab=notifications",
+    );
     expect(readAll).toHaveBeenCalledTimes(1);
   });
 
   it("says when there is nothing unread", async () => {
     server.use(
       http.get("*/api/notifications", () => HttpResponse.json({ items: [], total: 0, unread: 0 })),
-      http.get("*/api/digest", () => HttpResponse.json({ frequency: "daily" })),
     );
     await renderInRouter(<NotificationsPage />);
 

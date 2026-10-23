@@ -62,3 +62,6 @@ export const BillingPage = lazy(() =>
 export const StatusPage = lazy(() =>
   import("@/features/status/StatusPage").then((m) => ({ default: m.StatusPage })),
 );
+export const SettingsPage = lazy(() =>
+  import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
