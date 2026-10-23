@@ -10,7 +10,7 @@
 - Acceptance criteria: 6
 
 ## Next
-- SCC-4-1: plan the Vercel Queues enqueue and consumers per ADR-0032, agree it, then build
+- SCC-4-1: agree the queue port plan (ADR-0032), then build the port, contract tests and the pg-boss adapter; SCC-4-2: the Vercel Queues adapter
 
 ## Done
 - none
