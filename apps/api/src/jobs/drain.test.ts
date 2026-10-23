@@ -1,19 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { drainQueues, type FetchedJob, type JobSource, type PipelineQueue } from "./drain.ts";
+import type { Delivery } from "./bus.ts";
+import { drainQueues, type JobSource, type PipelineQueue } from "./drain.ts";
 
 // The drain loop behind /api/cron/work (ADR-0020), driven by a fake queue and clock.
 
-function job(id: string): FetchedJob {
-  return { id, retryCount: 0, data: { callId: `call-${id}` } };
+function job(id: string): Delivery {
+  return { id, attempt: 0, message: { v: 1, callId: `call-${id}` } };
 }
 
 /** A queue that hands out the given jobs per queue, a batch at a time. */
-function fakeSource(jobs: Record<PipelineQueue, FetchedJob[]>) {
+function fakeSource(jobs: Record<string, Delivery[]>) {
   const done: string[] = [];
   const failed: string[] = [];
   const source: JobSource = {
-    fetch: (queue, batchSize) => Promise.resolve(jobs[queue].splice(0, batchSize)),
+    fetch: (queue, batchSize) => Promise.resolve((jobs[queue] ?? []).splice(0, batchSize)),
     complete: (_queue, id) => {
       done.push(id);
       return Promise.resolve();

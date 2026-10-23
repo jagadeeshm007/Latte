@@ -3,16 +3,17 @@
 // call row, transcribe job. The worker then runs the real pipeline.
 // Development only. Run: pnpm --filter @scc/api load-seed
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { ENGLISH, languageSchema } from "@scc/shared";
 import { createClient } from "@supabase/supabase-js";
 
-import { databaseUrl, loadConfig, sslOptions } from "./config.ts";
+import { loadConfig } from "./config.ts";
 import { createPool } from "./db/pool.ts";
-import { bossEnqueue, QUEUES, startBoss } from "./jobs/queue.ts";
+import { openJobSystem } from "./jobs/adapters/index.ts";
+import { enqueueVia } from "./jobs/bus.ts";
+import { QUEUES } from "./jobs/queue.ts";
 import * as batches from "./repo/batches.ts";
 import * as calls from "./repo/calls.ts";
 import { audit } from "./repo/reference.ts";
@@ -23,11 +24,8 @@ if (config.NODE_ENV === "production") {
   throw new Error("load-seed loads synthetic calls; it never runs in production");
 }
 const pool = createPool(config);
-const boss = await startBoss(
-  databaseUrl(config),
-  sslOptions(config, (p) => readFileSync(p, "utf8")),
-);
-const enqueue = bossEnqueue(boss);
+const { bus } = await openJobSystem(config);
+const enqueue = enqueueVia(bus);
 const storage = createClient(config.SUPABASE_URL, config.SUPABASE_SECRET_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 }).storage.from(config.RECORDINGS_BUCKET);
@@ -94,6 +92,6 @@ try {
   }
   out(`load-seed: ${String(loaded)} calls queued, ${String(files.length - loaded)} already loaded`);
 } finally {
-  await boss.stop({ graceful: false });
+  await bus.stop();
   await pool.end();
 }
