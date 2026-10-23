@@ -61,6 +61,9 @@ Kafka, SQS or RabbitMQ would be one more adapter that passes `bus.contract.ts`. 
 | No export of audit events or reviewer history | `audit_events` is written only | An audit export per call and per period | F |
 | No cost per call by language or duration | `repo/billing.ts` aggregates only | Cost per call in the statement | F |
 | One organisation with teams; managers and QA see every team | no organisations table; `scopeOf` in `auth.ts` | Multi-tenancy (decided 2026-10-23, Q-014): an organisations table, `org_id` on every customer row, every query and storage path scoped, cross-org negative tests | G |
+| An invited person lands signed in but never sets a password, so after sign-out they cannot get back in by password | `auth-admin.ts` sends a Supabase invite; nothing in `apps/web/src/features/auth` asks for a password on arrival | A "Set your password" step on the first sign-in from an invite, which Settings > Security reuses (`changePassword` in `session.ts`) | H |
+| No "Forgot password" on the sign-in page, and no screen for the reset link | `SignInPage.tsx` signs in with a password, Google or Microsoft, or SAML; there is no `resetPasswordForEmail` and no handling of the recovery event | "Forgot password?" sends Supabase's reset email; the link opens a "Choose a new password" screen | H |
+| Google sign-in is built but off unless configured | `signInWithProvider` exists; the button shows only when `VITE_AUTH_PROVIDERS` includes `google` and the Google provider is enabled in Supabase | Default `VITE_AUTH_PROVIDERS` to `google`; the runbook names the Supabase and Google console steps (`docs/runbooks/sso.md`). Invite-only stays: a Google account whose email was never invited has no profile, and the API already refuses it with 403 (`authenticate` in `auth.ts`) | H |
 | No ops metrics or traces | no `/metrics`, no OpenTelemetry | Metrics for queue age, attempts, provider errors and cost; traces across API, job and provider | C |
 
 ## Settings instead of fixed values
@@ -101,6 +104,7 @@ Owner's rule (2026-10-23):
 - **D. Data protection.**
 - **E. AI quality.**
 - **F. QA workflow and enterprise features.**
+- **H. Account access:** set a password after an invite, "Forgot password", reset screen, Google sign-in on by default. Small and independent of B to G, so it can go first.
 
 Each of B to G changes schema or contracts, so each starts with its own plan.
 

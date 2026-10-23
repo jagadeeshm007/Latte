@@ -21,7 +21,7 @@
 
 ## Decisions
 - Multi-tenancy is planned (owner, 2026-10-23; Q-014, Intent G)
-- Order: A, then B with G's ADR alongside, then C to F
+- Order: A, then B with G's ADR alongside, then C to F; H (account access: set password after invite, forgot password, Google sign-in on by default) can go at any time
 - Every limit, period and switch is a setting with a standard SaaS default, overridable per organisation (Q-001, Q-003, Q-004, Q-009, Q-013)
 - Provider limits follow the account through rate-limit headers (Q-012); no legal review for the demo (Q-015); audience is sales-led companies and telecom (Q-016)
 
