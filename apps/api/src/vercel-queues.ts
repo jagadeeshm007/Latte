@@ -8,7 +8,7 @@ import { QUEUES } from "./jobs/queue.ts";
 import { openServerless } from "./serverless.ts";
 import { deliverDue } from "./webhooks/sender.ts";
 
-// The Vercel Queues consumer function (ADR-0032), built only when JOB_QUEUE=vercel
+// The Vercel Queues consumer function (ADR-0032), built unless JOB_QUEUE=pgboss
 // (scripts/vercel-build.js). Its triggers subscribe it to the transcribe and
 // score topics; Vercel calls it once per message, at most each trigger's
 // maxConcurrency at a time, and redelivers a message whose handler throws.

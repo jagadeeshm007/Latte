@@ -1,7 +1,8 @@
 # Runbook: deploy Latte on Vercel
 
-Owner: engineering. Covers ADR-0020. One Vercel project serves the web app,
-the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
+Owner: engineering. Covers ADR-0020 and ADR-0032. One Vercel project serves
+the web app, the API (one Node 24 function), the queue consumer (a second
+function, fed by Vercel Queues) and the scheduled jobs.
 
 ## First deploy
 
@@ -14,6 +15,7 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
 5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy`, then redeploy so the function reads the new `WEB_ORIGIN` for invitations: `vercel redeploy <url> --target production` (this CLI has no `--prod` on `redeploy`).
 6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
 7. Schedule the backstop in Supabase: `LATTE_URL=<url> make supabase-cron` (see Background work below).
+   Vercel Queues needs no setup of its own: the topics exist once the first deployment with the consumer is live.
 8. Release the SDK: push the tag `sdk-v<version>` matching `packages/sdk/package.json` (see the SDK README).
 
 ## One-time setup
@@ -24,8 +26,8 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
    (`node scripts/vercel-build.js`), which writes `.vercel/output`. Leave the
    framework preset as "Other".
 2. **Database.** Use the Supabase **session pooler** connection string (port
-   5432), not the transaction pooler: pg-boss needs session features. Set
-   `DB_POOL_MAX=2`; each function instance holds that plus one for pg-boss.
+   5432), not the transaction pooler. Set `DB_POOL_MAX=2`; each function
+   instance holds that (plus one for pg-boss when `JOB_QUEUE=pgboss`).
 3. **Migrations.** Run them from your machine or CI before the first deploy and
    before every deploy that adds one, never from the function:
 
@@ -57,6 +59,8 @@ the API (one Node 24 function) and the scheduled jobs (Vercel Cron).
    | `VITE_AUTH_PROVIDERS` | for example `google,azure,saml` once set up (`sso.md`) |
    | `VITE_API_URL` | leave unset: the API is on the same origin |
    | `VERCEL_CRON_PLAN` | `hobby` on a Hobby team, otherwise unset |
+   | `JOB_QUEUE` | leave unset for Vercel Queues; `pgboss` only to go back to the previous drain (see Background work) |
+   | `QUEUE_MAX_CONCURRENCY_TRANSCRIBE`, `QUEUE_MAX_CONCURRENCY_SCORE` | unset for no cap, or a whole number to keep each stage under the model provider's limits; read at build time, so redeploy after a change |
    | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, so Vercel installs with the pnpm version in `package.json` |
 
 6. **Supabase Auth URLs.** Add the production URL (and the preview pattern) to
@@ -66,13 +70,20 @@ The function runs in `bom1` (Mumbai), next to the Supabase database in `ap-south
 
 ## Background work
 
-Calls are processed as soon as they are uploaded (ADR-0029). The request that queues a job keeps its function running after the response (`waitUntil`) and drains the queue until it is empty or about a minute before the function's 300 s limit.
+Calls are processed by Vercel Queues (ADR-0032), the default for every Vercel build. Confirming an upload publishes a `transcribe` message; Vercel calls the consumer function (`functions/api/queues/pipeline.func`) once per message, and a transcribed call publishes `score` the same way.
 
-Anything a drain leaves behind (retries after a failure or rate limit, long backlogs, scheduled jobs) is picked up by Supabase `pg_cron`. It calls `/api/cron/*` through `pg_net`, with `CRON_SECRET` read from Supabase Vault:
+- **Pace:** without a cap, as many messages run at once as arrive. `QUEUE_MAX_CONCURRENCY_<TOPIC>` caps one stage; Vercel bills a capped delivery at twice the rate of an uncapped one.
+- **Retries:** a failed job is delivered again after 30 s, doubling each time, at most 5 deliveries in all. On the last one the call is marked failed with its reason and shows Retry. A rate-limited job reschedules itself after the wait the gateway reports.
+- **Twice delivered:** a second delivery finds the call already claimed and does nothing.
+- **Lost publishes:** the minute cron (`latte-work`) republishes calls left in Uploaded or Transcribed for more than 10 minutes, at most 100 a run. Vercel drops a repeat of the same call, step and state.
+
+To go back to the previous design (pg-boss in Postgres, drained by the upload request with `waitUntil`, ADR-0029), set `JOB_QUEUE=pgboss` for the build and redeploy. Calls waiting in Vercel Queues at the switch are picked up by the sweep, since their state is in Postgres.
+
+Supabase `pg_cron` runs the schedules. It calls `/api/cron/*` through `pg_net`, with `CRON_SECRET` read from Supabase Vault:
 
 | Job | Schedule | Task |
 | --- | --- | --- |
-| `latte-work` | every minute | drain the queues, deliver webhooks |
+| `latte-work` | every minute | republish calls left waiting (pg-boss: drain the queues), deliver webhooks |
 | `latte-status` | every 5 minutes | record the status page checks |
 | `latte-alerts` | hourly | evaluate alert rules |
 | `latte-digests` | hourly | send due digests |
@@ -107,6 +118,7 @@ vercel deploy --prebuilt --prod
 - `GET /api/health` answers `{"status":"ok"}` and `GET /api/ready` answers `ready`.
 - `/status` shows every component as operational.
 - `cron.job_run_details` shows `latte-work` succeeding every minute.
+- The consumer function's logs show a delivery for the call `make e2e-check` uploads.
 - `LATTE_URL=<url> make e2e-check` passes: an uploaded call is scored within a minute or two.
 
 ## Rollback
@@ -120,8 +132,9 @@ cannot work with the new schema.
 
 | Symptom | Check | Action |
 | --- | --- | --- |
-| Calls stay Uploaded | Vercel logs for `background drain`; `cron.job_run_details` for `latte-work`; a 401 in `net._http_response` means `CRON_SECRET` differs | `make supabase-cron` again after changing the secret, so Vault matches Vercel |
-| `stoppedBy: "budget"` on every run | the queue is behind | expected under a burst; if it persists, lower upload rate or move the worker to a long-lived host (`make dev-worker` code runs unchanged) |
+| Calls stay Uploaded | the consumer function's logs in Vercel; `sweep republished waiting calls` in the API logs; `cron.job_run_details` for `latte-work` (a 401 in `net._http_response` means `CRON_SECRET` differs) | no consumer function in the deployment means it was built with `JOB_QUEUE=pgboss`; messages published but never delivered: check the consumer is reachable by Vercel at `/api/queues/pipeline` (an untested assumption, see ADR-0032); `make supabase-cron` again after changing the secret |
+| Calls wait a long time with a cap set | the consumer function runs as many at once as the cap and no more | expected while the cap holds them back; raise `QUEUE_MAX_CONCURRENCY_<TOPIC>` within the provider's limits and redeploy |
+| `stoppedBy: "budget"` on every run (pg-boss only) | the queue is behind | expected under a burst; if it persists, use Vercel Queues or move the worker to a long-lived host (`make dev-worker` code runs unchanged) |
 | `/api/ready` 503 | the database URL and pooler mode | must be the session pooler; check Supabase status |
 | Webhooks not sent | `DATA_ENCRYPTION_KEY` set; endpoint enabled; delivery log on the endpoint page | redeliver from the log |
 | Too many connections | Supabase > Database > Connections | lower `DB_POOL_MAX` to 1 |

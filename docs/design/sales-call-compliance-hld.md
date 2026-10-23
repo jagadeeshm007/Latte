@@ -22,7 +22,7 @@ Diagram: docs/architecture/diagrams/SalesCall_SystemArchitecture_v1.svg
 | --- | --- | --- | --- | --- |
 | Web app | SPA | React 19, Vite, TanStack Router and Query, coss ui, supabase-js | Sign-in, direct upload, call list and detail with player, review queue, scorecard, rubric, dashboard | SalesCallPlatform |
 | API | HTTP service | Node 24, Express 5, Zod, Drizzle, pino, jose | Auth check, roles, signed upload and audio URLs, reads, review writes, reference data | SalesCallPlatform |
-| Worker | Background process | Node 24, pg-boss, gateway, audio module | Transcribe, score, purge jobs | SalesCallPlatform |
+| Worker | Background process, or on Vercel a queue consumer function | Node 24, the job port (Vercel Queues on Vercel, pg-boss elsewhere, ADR-0032), gateway, audio module | Transcribe, score, purge jobs | SalesCallPlatform |
 | Model gateway | Shared package (packages/gateway) | TypeScript, fetch to OpenAI-compatible endpoints | Every model call: budget, max_tokens cap, cost log, rate limits, replay | SalesCallPlatform |
 | Eval harness | CLI | TypeScript | Seed rendering, judge replay, per-item agreement, false-negative gate | SalesCallPlatform |
 | Supabase project | Managed platform | Postgres 17, Auth, Storage | Data, identities, recordings | existing: hosted Supabase project yzgzxtwfusvgpaphuupo |
@@ -106,7 +106,7 @@ Web app: React SPA. Signs in with Supabase Auth (publishable key), calls the API
 
 API: Express 5 service. Verifies the bearer token against the project JWKS (ADR-0003), loads the profile and role, validates every input with shared Zod schemas, issues signed upload and audio URLs after role and ownership checks, writes calls and reviews, enqueues jobs, audits recording access. Talks to Postgres through the session pooler and to Storage with the secret key. Owner: backend.
 
-Worker: separate Node process consuming pg-boss queues transcribe, score and purge (ADR-0004). Writes calls, segments, scores and findings. Uses the audio module and the gateway. When the gateway's limiter says wait, the job reschedules itself with startAfter and returns instead of sleeping, so no job outlives its pg-boss expiry. Owner: backend.
+Worker: consumes the transcribe and score topics through the job port (ADR-0032), never a queue library directly. On Vercel the platform pushes each message to a consumer function, with an optional concurrency cap per topic and a minute sweep that republishes calls whose publish was lost; elsewhere a separate Node process consumes pg-boss queues transcribe, score and purge (ADR-0004). Writes calls, segments, scores and findings. Uses the audio module and the gateway. When the gateway's limiter says wait, the job reschedules itself with startAfter and returns instead of sleeping, so no job outlives its lease. Owner: backend.
 
 Model gateway: workspace package used by the worker and the eval harness; one function `callModel` for chat, transcription and speech (REQ-022). Applies the max_tokens cap, the monthly USD budget check against model_calls, a limiter per model, retries on 5xx within one attempt, cost computation, and replay or record of responses keyed by request hash (ADR-0006, ADR-0007, ADR-0009). Owner: backend.
 
@@ -132,14 +132,14 @@ Retention: audio purged after 90 days by the purge job (Q-004, assumption); ever
 
 - REST API v1 under /api, contract api/openapi.yaml (new): uploads (sign, confirm), calls (list, get, audio URL, retry failed), review (queue, decisions, missed findings, complete), scorecard and coaching, agreement, dashboard, rubrics, usage, reference, me, health.
 - Shared schemas: packages/shared (new), the Zod source of request and response shapes and of the judge output schema.
-- Jobs: pg-boss queues transcribe {callId}, score {callId}, purge {} (new); payloads carry ids only; workers re-read rows (tenet 6).
+- Jobs: topics transcribe {v, callId}, score {v, callId}, purge {} behind the job port (ADR-0032); payloads carry ids and a version only; workers re-read rows (tenet 6).
 - Groq OpenAI-compatible endpoints: /chat/completions, /audio/transcriptions, /audio/speech.
 
 ## 6. External integrations
 
 Supabase (Auth, Postgres, Storage). Used for identities, all data and recordings. Plan, assumption: free tier, which caps each stored file at 50 MB. Down: sign-in fails and the API answers 503 on readiness; queued jobs wait in Postgres and resume. Slow: API requests time out at 10 s; uploads go browser to Storage and are not bound by that timeout. Credentials: secret key and database password in the server `.env` only, rotated in the Supabase dashboard by the project owner; a leaked secret key gives full data access, so rotation is immediate.
 
-Groq (Whisper, gpt-oss-120b, Orpheus). Used for transcription, judging and seed audio. Down or 5xx: the job is retried by pg-boss with exponential backoff (5 attempts over about 30 minutes); transcription then fails the call with Retry, judging falls back to unscored-in-QA. Rate limited (429 or limiter says wait): the job reschedules after retry-after. Credential: GROQ_API_KEY in the server `.env`, rotated in the Groq console; a leak lets someone spend on the account but not read our data.
+Groq (Whisper, gpt-oss-120b, Orpheus). Used for transcription, judging and seed audio. Down or 5xx: the job is retried by the queue system with exponential backoff (5 attempts, from 30 s doubling); transcription then fails the call with Retry, judging falls back to unscored-in-QA. Rate limited (429 or limiter says wait): the job reschedules after retry-after. Credential: GROQ_API_KEY in the server `.env`, rotated in the Groq console; a leak lets someone spend on the account but not read our data.
 
 ### Deliberately not integrated
 
@@ -160,7 +160,7 @@ Groq (Whisper, gpt-oss-120b, Orpheus). Used for transcription, judging and seed 
 | Web app | Direct upload fails mid-file | upload promise rejects | File marked failed in the batch list | User retries that file; no call row exists until confirm |
 | API | Supabase JWKS unreachable | JWT verify error logged, 503 count | "Service unavailable, try again" | jose caches keys; recovers when reachable |
 | API | Object uploaded, confirm never called | none at the time | Nothing | Purge job deletes objects with no call row older than 1 day |
-| Worker | Crash mid-transcribe | pg-boss expiry and retry | Call stays "transcribing" | Retry re-claims only if the stored job id is its own or expired; segments rewritten in one transaction |
+| Worker | Crash mid-transcribe | lease expiry (pg-boss) or visibility timeout (Vercel Queues), then redelivery | Call stays "transcribing" | Retry re-claims only if the stored job id is its own or expired; segments rewritten in one transaction |
 | Worker | Groq 429 or limiter wait | model_calls status, warn log | Call takes longer | Job reschedules with startAfter, never sleeps past its expiry |
 | Worker | Groq 5xx past retries during transcription | job dead-lettered | Call failed with reason and Retry | QA retries |
 | Worker | Judge output invalid, truncated, refused by budget or provider down | judge_status failed | Call in QA queue marked "unscored" with rule findings | Reviewer reviews by hand; Retry scoring when fixed |
