@@ -148,7 +148,7 @@ Every variable is listed with a placeholder in [`.env.example`](.env.example). T
 
 | Path               | Contents                                                                               |
 | ------------------ | -------------------------------------------------------------------------------------- |
-| `apps/api`         | Express 5 API and background worker (TypeScript, PostgreSQL, pg-boss)                  |
+| `apps/api`         | Express 5 API and background jobs (TypeScript, PostgreSQL; Vercel Queues or pg-boss)   |
 | `apps/web`         | React 19 web app (Vite, TanStack Router and Query, coss ui)                            |
 | `packages/shared`  | Shared Zod schemas for every request and response, and the default rubric              |
 | `packages/gateway` | All model provider calls: budget, token caps, cost log, rate limits, record and replay |
