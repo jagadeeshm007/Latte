@@ -3,16 +3,14 @@
 - Task: SCC-2
 - Title: PublicPlatform
 - Branch: feature/SCC-2-PublicPlatform
-- Status: in progress
+- Status: done
 - Owner: Jagadeesh
 - Started: 2026-10-22
-- Updated: 2026-10-22
+- Updated: 2026-10-23
 - Acceptance criteria: 7
 
 ## Next
-- Unit SCC-2-5 LandingLegal: in review (PR into feature/SCC-2-PublicPlatform)
-- Then one PR from feature/SCC-2-PublicPlatform into main
-- After that merge: push tag sdk-v0.3.0 (releases every SDK)
+- none: the Intent is on main (PR #17) and released as sdk-v0.3.0
 
 ## Done
 - SCC-2-0 IntentsUnitsBolts: way of working in AGENTS.md and CLAUDE.md (PR #8, merged)
@@ -22,6 +20,8 @@
 - SCC-2-7 Release030: every SDK at 0.3.0, SDK docs page and changelog (PR #12, merged)
 - SCC-2-4 SdkExamples: TypeScript examples package, Python, Go and Java examples (PR #13, merged)
 - SCC-2-6 Settings: /settings and PATCH /api/me (PR #15, merged; #14 closed for a commit subject CI refuses)
+- SCC-2-5 LandingLegal: landing page, /sign-in?next=, terms, privacy, cookies, subprocessors, licences (PR #16, merged)
+- Intent into main (PR #17, merged); sdk-v0.3.0 released every SDK, with sdks/go/v0.3.0 and sdk-latest
 
 ## Blockers
 - none
