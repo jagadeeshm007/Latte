@@ -116,8 +116,8 @@ const queueVc = JSON.parse(readFileSync(path.join(queueDir, ".vc-config.json"), 
 const triggers = queueVc.experimentalTriggers ?? [];
 expect(
   "the queue consumer is subscribed to transcribe and score",
-  triggers.map((t) => `${t.type}:${t.topic}:${t.maxDeliveries}`).join(",") ===
-    "queue/v2beta:transcribe:5,queue/v2beta:score:5",
+  triggers.map((t) => `${t.type}:${t.topic}:${t.consumer}:${t.maxDeliveries}`).join(",") ===
+    "queue/v2beta:transcribe:pipeline:5,queue/v2beta:score:pipeline:5",
   JSON.stringify(triggers),
 );
 const { default: consume } = await import(pathToFileURL(path.join(queueDir, queueVc.handler)).href);

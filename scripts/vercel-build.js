@@ -162,6 +162,8 @@ if (pushQueue) {
     experimentalTriggers: ["transcribe", "score"].map((topic) => ({
       type: "queue/v2beta",
       topic,
+      // Vercel requires a consumer group name; one group per topic, so each message runs once.
+      consumer: "pipeline",
       retryAfterSeconds: 30,
       maxDeliveries: MAX_DELIVERIES,
       ...maxConcurrency(topic),
