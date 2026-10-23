@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Capabilities, JobBus } from "./bus.ts";
 import { QUEUES } from "./queue.ts";
 
-// The queue port's contract (ADR-0032). Every adapter runs this suite: the
-// in-memory one in a unit test, pg-boss against Postgres in an integration
-// test, and each later adapter (Vercel Queues, Kafka, SQS) the same way. An
-// adapter is accepted when it passes; the pipeline relies on nothing else.
+// The queue port's contract (ADR-0032). Every pull adapter runs this suite:
+// the in-memory one in a unit test, pg-boss against Postgres in an
+// integration test, and each later one (Kafka, SQS) the same way. An adapter
+// is accepted when it passes; the pipeline relies on nothing else. A push
+// adapter (Vercel Queues) has no fetch to drive it with: its own tests cover
+// the envelope, the attempt count and the retry decision it hands the platform.
 
 export interface ContractHarness {
   bus: JobBus;

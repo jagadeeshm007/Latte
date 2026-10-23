@@ -37,6 +37,12 @@ export interface PublishOptions {
 
 /** What an adapter does natively. The pipeline works without priority and dedupe; delay is required. */
 export interface Capabilities {
+  /**
+   * "pull": the process asks for work (fetch, subscribe). "push": the platform
+   * calls a consumer function per message (Vercel Queues), so fetch and
+   * subscribe are not available and the contract's pull cases do not apply.
+   */
+  delivery: "pull" | "push";
   delay: boolean;
   priority: boolean;
   dedupe: boolean;

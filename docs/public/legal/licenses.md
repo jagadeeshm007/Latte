@@ -9,18 +9,19 @@ order: 5
 
 Latte is open source under the [MIT licence](https://github.com/jagadeeshm007/Latte/blob/main/LICENSE), copyright 2026 Jagadeesh Mandala.
 
-It runs on the open-source packages below, 237 in all. Each is used under its own licence, whose full text ships with the package and is at its homepage. Generated from `pnpm licenses list --prod` by `scripts/gen-licenses.js`; do not edit by hand.
+It runs on the open-source packages below, 243 in all. Each is used under its own licence, whose full text ships with the package and is at its homepage. Generated from `pnpm licenses list --prod` by `scripts/gen-licenses.js`; do not edit by hand.
 
 | Licence | Packages |
 | --- | --- |
-| MIT | 190 |
-| ISC | 22 |
+| MIT | 194 |
+| ISC | 23 |
 | Apache-2.0 | 15 |
 | BSD-3-Clause | 2 |
 | OFL-1.1 | 2 |
 | (AFL-2.1 OR BSD-3-Clause) | 1 |
 | (MIT OR CC0-1.0) | 1 |
 | 0BSD | 1 |
+| BlueOak-1.0.0 | 1 |
 | MIT AND ISC | 1 |
 | not stated by the package | 1 |
 | Unlicense | 1 |
@@ -83,12 +84,15 @@ It runs on the open-source packages below, 237 in all. Each is used under its ow
 | [@vercel/functions](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package) | 3.10.1 | Apache-2.0 |
 | [@vercel/oidc](https://vercel.com) | 3.2.0 | Apache-2.0 |
 | [@vercel/oidc](https://vercel.com) | 4.0.1 | Apache-2.0 |
+| @vercel/queue | 0.9.0 | MIT |
 | [@wasm-audio-decoders/common](https://github.com/eshaz/wasm-audio-decoders/tree/master/src/common) | 9.0.7 | MIT |
 | [@workflow/serde](https://github.com/vercel/workflow#readme) | 4.1.0 | Apache-2.0 |
 | [accepts](https://github.com/jshttp/accepts#readme) | 2.0.0 | MIT |
 | [ai](https://ai-sdk.dev/docs) | 7.0.140 | Apache-2.0 |
 | [atomic-sleep](https://github.com/davidmarkclements/atomic-sleep#readme) | 1.0.0 | MIT |
+| [balanced-match](https://github.com/juliangruber/balanced-match#readme) | 4.0.4 | MIT |
 | [body-parser](https://github.com/expressjs/body-parser#readme) | 2.3.0 | MIT |
+| [brace-expansion](https://github.com/juliangruber/brace-expansion#readme) | 5.0.12 | MIT |
 | [bytes](https://github.com/visionmedia/bytes.js#readme) | 3.1.2 | MIT |
 | [call-bind-apply-helpers](https://github.com/ljharb/call-bind-apply-helpers#readme) | 1.0.2 | MIT |
 | [call-bound](https://github.com/ljharb/call-bound#readme) | 1.0.4 | MIT |
@@ -167,6 +171,8 @@ It runs on the open-source packages below, 237 in all. Each is used under its ow
 | [mime-db](https://github.com/jshttp/mime-db#readme) | 1.54.0 | MIT |
 | [mime-types](https://github.com/jshttp/mime-types#readme) | 3.0.2 | MIT |
 | [mimic-fn](https://github.com/sindresorhus/mimic-fn#readme) | 2.1.0 | MIT |
+| [minimatch](https://github.com/isaacs/minimatch#readme) | 10.2.6 | BlueOak-1.0.0 |
+| mixpart | 0.0.6 | MIT |
 | [mpg123-decoder](https://github.com/eshaz/wasm-audio-decoders/tree/main/src/mpg123-decoder) | 1.0.3 | MIT |
 | [ms](https://github.com/vercel/ms#readme) | 2.1.3 | MIT |
 | [negotiator](https://github.com/jshttp/negotiator#readme) | 1.1.0 | MIT |
@@ -189,6 +195,7 @@ It runs on the open-source packages below, 237 in all. Each is used under its ow
 | [pg-protocol](https://github.com/brianc/node-postgres#readme) | 1.16.1 | MIT |
 | [pg-types](https://github.com/brianc/node-pg-types) | 2.2.0 | MIT |
 | [pgpass](https://github.com/hoegaarden/pgpass#readme) | 1.0.5 | MIT |
+| [picocolors](https://github.com/alexeyraspopov/picocolors#readme) | 1.1.1 | ISC |
 | [pino](https://getpino.io) | 10.3.1 | MIT |
 | [pino-abstract-transport](https://github.com/pinojs/pino-abstract-transport#readme) | 3.0.0 | MIT |
 | [pino-http](https://github.com/pinojs/pino-http#readme) | 11.0.0 | MIT |

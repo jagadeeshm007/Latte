@@ -74,7 +74,7 @@ export function pgBossBus(boss: PgBoss): JobBus {
     name: "pgboss",
     // Latte's queues use pg-boss's standard policy, where singletonKey does not de-duplicate;
     // the pipeline does not need it, because a second delivery finds its call already claimed.
-    capabilities: { delay: true, priority: true, dedupe: false },
+    capabilities: { delivery: "pull", delay: true, priority: true, dedupe: false },
     publish: async (topic, message, options) => {
       const envelope: JobEnvelope = { v: 1, ...message };
       await boss.send(topic, envelope, {

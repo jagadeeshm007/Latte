@@ -20,7 +20,7 @@ busContract(
       close: () => bus.stop(),
     });
   },
-  { retryLimit: 2, capabilities: { delay: true, priority: true, dedupe: true } },
+  { retryLimit: 2, capabilities: { delivery: "pull", delay: true, priority: true, dedupe: true } },
 );
 
 describe("memory adapter", () => {

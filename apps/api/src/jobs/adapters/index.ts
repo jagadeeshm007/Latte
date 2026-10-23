@@ -1,8 +1,11 @@
 import { readFileSync } from "node:fs";
 
+import { QueueClient } from "@vercel/queue";
+
 import { type Config, databaseUrl, sslOptions } from "../../config.ts";
 import type { JobBus, Scheduler } from "../bus.ts";
 import { pgBossBus, pgBossScheduler, startBoss } from "./pgboss.ts";
+import { vercelQueuesBus } from "./vercel.ts";
 
 // The one place that maps JOB_QUEUE to an adapter (ADR-0032). Adding a queue
 // system (Kafka, SQS, RabbitMQ) is a new entry in OPENERS, a new value for
@@ -31,6 +34,8 @@ const OPENERS: Record<JobConfig["JOB_QUEUE"], Opener> = {
     );
     return { bus: pgBossBus(boss), scheduler: serverless ? null : pgBossScheduler(boss) };
   },
+  // Only on Vercel: the client finds its region and credentials in the function's environment.
+  vercel: () => Promise.resolve({ bus: vercelQueuesBus(new QueueClient()), scheduler: null }),
 };
 
 /** openJobSystem connects the configured queue system; serverless instances neither supervise nor schedule. */

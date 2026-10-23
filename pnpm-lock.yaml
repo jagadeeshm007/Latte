@@ -157,6 +157,9 @@ importers:
       '@vercel/functions':
         specifier: 3.10.1
         version: 3.10.1(ws@8.22.0)
+      '@vercel/queue':
+        specifier: 0.9.0
+        version: 0.9.0(@opentelemetry/api@1.9.1)
       express:
         specifier: 5.3.0
         version: 5.3.0(supports-color@7.2.0)
@@ -1796,6 +1799,15 @@ packages:
     resolution: {integrity: sha512-l//xMmDTj2WR6EMtfA2BEF2oR7ViKCD1SCxqFKCn1/8wOZBxgxhxkegSGi90ICTc1rB50ZbKuPIslc8aJxAqew==}
     engines: {node: '>= 20'}
 
+  '@vercel/queue@0.9.0':
+    resolution: {integrity: sha512-Bt98IBWGrokAgGpK6ATFEM3CY7xtak3cVh1cVZDeFmN5JslO22ESiaWt0xCdeOJl+TPnoe54XZwByELKrY+Icw==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.0.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+
   '@vitejs/plugin-react@5.2.0':
     resolution: {integrity: sha512-YmKkfhOAi3wsB1PhJq5Scj3GXMn3WvtQ/JC0xoopuHoXSdmtdStOpFrYaT1kie2YgFBcIe64ROzMYRjCrYOdYw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -3082,6 +3094,10 @@ packages:
 
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
+
+  mixpart@0.0.6:
+    resolution: {integrity: sha512-CRdXtgfQH2jARmtNmPR0Q7jL20fiESbaYk1b0KvLD0jCdUuemepREtsbd8nbiY6BHV9OGGddAZITNXklupUPUQ==}
+    engines: {node: '>=20.0.0'}
 
   mpg123-decoder@1.0.3:
     resolution: {integrity: sha512-+fjxnWigodWJm3+4pndi+KUg9TBojgn31DPk85zEsim7C6s0X5Ztc/hQYdytXkwuGXH+aB0/aEkG40Emukv6oQ==}
@@ -5236,6 +5252,15 @@ snapshots:
       '@vercel/cli-exec': 1.0.1
       jose: 5.10.0
 
+  '@vercel/queue@0.9.0(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@vercel/oidc': 3.2.0
+      minimatch: 10.2.6
+      mixpart: 0.0.6
+      picocolors: 1.1.1
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.1
+
   '@vitejs/plugin-react@5.2.0(supports-color@7.2.0)(vite@7.3.6(@types/node@24.13.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))':
     dependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
@@ -6625,6 +6650,8 @@ snapshots:
       brace-expansion: 1.1.21
 
   minimist@1.2.8: {}
+
+  mixpart@0.0.6: {}
 
   mpg123-decoder@1.0.3:
     dependencies:
