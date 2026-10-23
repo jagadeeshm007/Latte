@@ -42,6 +42,6 @@ Over the limit, the API answers `429 rate_limited` with `Retry-After` in seconds
 
 ## Backing off
 
-- Wait `Retry-After` seconds, then retry. The TypeScript SDK does this for you, three times by default (`maxRetries`).
+- Wait `Retry-After` seconds, then retry. The TypeScript SDK does this for you, three times by default (`maxRetries`). The Python SDK can, with `Configuration(retries=urllib3.Retry(total=3, status_forcelist=[429]))`, which waits `Retry-After`; urllib3 retries reads only, unless you also allow POST for writes that carry an idempotency key. The Go and Java SDKs return the 429 as an error with its headers; wait and call again.
 - Refused requests count too, so a client looping on a 403 runs into its limit.
 - Use [webhooks](webhooks.md) rather than polling a batch every second.

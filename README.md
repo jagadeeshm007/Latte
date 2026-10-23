@@ -34,7 +34,8 @@ Live: [latte-delta.vercel.app](https://latte-delta.vercel.app) · License: [MIT]
 
 - A REST API with scoped API keys, per-route rate limits, request logs and an OpenAPI description.
 - Signed webhooks for scored calls, failed calls, finished batches, alerts and digests.
-- `@latte/sdk`, a zero-dependency TypeScript client.
+- SDKs for TypeScript (`@latte/sdk`, zero dependencies), Python, Go and Java, each with the webhook signature check.
+- Public docs at `/docs`, readable by LLMs through `/llms.txt` and `/llms-full.txt`, and runnable examples in [`examples`](examples).
 
 ## How it works
 
@@ -87,13 +88,18 @@ make load-seed    # upload them through the running pipeline
 make status       # recent calls with status, score and findings, and this month's spend
 ```
 
-## API and SDK
+## API and SDKs
 
-Create an API key under **Developers** in the app, then install the SDK:
+Create an API key under **Developers** in the app. The docs are public at `/docs` on any Latte deployment, written in [`docs/public`](docs/public).
 
-```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.tgz
-```
+| SDK        | Install the newest                                                                                                    | Details                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| TypeScript | `npm install https://github.com/jagadeeshm007/Latte/releases/latest/download/latte-sdk.tgz`                           | [`packages/sdk`](packages/sdk/README.md) |
+| Python     | `pip install "git+https://github.com/jagadeeshm007/Latte@sdk-latest#subdirectory=sdks/python"`                        | [`sdks/python`](sdks/python/README.md)   |
+| Go         | `go get github.com/jagadeeshm007/Latte/sdks/go@latest`                                                                | [`sdks/go`](sdks/go/README.md)           |
+| Java       | `latte-sdk.jar` and `latte-sdk.pom` from the [latest release](https://github.com/jagadeeshm007/Latte/releases/latest) | [`sdks/java`](sdks/java/README.md)       |
+
+Each README also shows a pinned install for production. All four share one version and are released together by the tag `sdk-v<version>` ([`sdks/README.md`](sdks/README.md)).
 
 ```ts
 import { LatteClient } from "@latte/sdk";
@@ -108,9 +114,9 @@ const done = await latte.batches.wait(batch.batchId!);
 const csv = await latte.batches.resultsCsv(done.id);
 ```
 
-- Docs: public at `/docs` in the app, written in [`docs/public`](docs/public); `/llms.txt` and `/llms-full.txt` for LLMs and tools.
-- SDK reference: [`packages/sdk/README.md`](packages/sdk/README.md).
-- OpenAPI: `GET /api/openapi.json`.
+- Guides: [`docs/public`](docs/public), served at `/docs`; the API reference is generated from the code.
+- Examples: [`examples`](examples) (TypeScript) and `sdks/<language>/examples`.
+- OpenAPI: `GET /api/openapi.json`, also at `/openapi.json`.
 
 ## Deployment
 
@@ -170,6 +176,8 @@ Runs formatting, lint, typecheck, unit and integration tests (against PostgreSQL
 | Security               | [`docs/design/threat-model.md`](docs/design/threat-model.md)                                                           |
 | Decisions              | [`docs/adr`](docs/adr)                                                                                                 |
 | Operations             | [`docs/runbooks`](docs/runbooks)                                                                                       |
+| API, webhooks and SDKs | [`docs/public`](docs/public) (served at `/docs`), [`sdks/README.md`](sdks/README.md), [`examples`](examples)           |
+| Legal                  | [`docs/public/legal`](docs/public/legal) (served at `/legal`): terms, privacy, cookies, subprocessors, licences        |
 | Contributing           | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md)                                                         |
 
 ## License

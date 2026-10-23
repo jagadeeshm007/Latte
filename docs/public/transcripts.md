@@ -43,7 +43,7 @@ The answer is `201` with `{ "batchId": "...", "callIds": [...] }`. These calls h
 
 ## Labelled text with the SDK
 
-The TypeScript SDK reads labelled text into lines:
+The TypeScript SDK reads labelled text into lines. The Python, Go and Java SDKs send lines as given (`UploadsApi.upload_transcripts` and its equivalents), so split your text into `{ speaker, text }` lines first:
 
 ```ts
 import { parseTranscript } from "@latte/sdk";

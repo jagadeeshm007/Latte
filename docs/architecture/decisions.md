@@ -26,6 +26,18 @@ settled again, differently, in each file that runs into it.
 | ADR-0017 | Batches as a table, and batch exports streamed by the API | api, data model | Accepted | moderate: migration 0007 has a down file |
 | ADR-0018 | Scoped API keys, Postgres rate limits and per-key request logs | api, auth | Accepted | moderate: migration 0008 has a down file |
 | ADR-0019 | A TypeScript SDK as a workspace package | sdk | Accepted | cheap: packages/sdk depends only on @scc/shared |
+| ADR-0020 | Deploy everything on Vercel, with Vercel Cron draining the job queue | deployment, jobs | Accepted; scheduling amended by ADR-0029 (processing on upload, Supabase pg_cron) | easy: server.ts and worker.ts still run the same code as long-lived processes |
+| ADR-0021 | Webhooks through an outbox, signed, with an SSRF guard | api, integrations, security | Accepted | moderate: migration 0009 has a down file |
+| ADR-0022 | Idempotency keys on create endpoints | api | Accepted | easy: one middleware and one table (migration 0009) |
+| ADR-0023 | PII redaction by default, a rubric per product, retention per team | data model, compliance, scoring | Accepted | moderate: migration 0011 has a down file; redaction is applied on read, so stored text is unchanged |
+| ADR-0024 | Single sign-on, invite-only, through Supabase Auth | auth | Accepted | easy: provider buttons follow `VITE_AUTH_PROVIDERS`; migration 0012 has a down file |
+| ADR-0025 | In-app notifications, saved views, flag-rate alerts and digests | product, jobs | Accepted | easy: migration 0010 has a down file; email can be added as another channel |
+| ADR-0026 | Usage statements without payments, and a public status page | billing, operations | Accepted | easy: migration 0013 has a down file |
+| ADR-0027 | A zero-dependency SDK, installed from GitHub releases | sdk, distribution | Accepted | easy: the same tarball can be published to npm later |
+| ADR-0028 | Run everything locally in Docker, with only model keys from outside | development, deployment | Accepted | easy: hosted Supabase and Vercel keep working unchanged |
+| ADR-0029 | Process calls on upload, with Supabase pg_cron as the backstop | deployment, jobs | Accepted | easy: the queue, handlers and cron routes are unchanged; remove the jobs with `cron.unschedule` |
+| ADR-0030 | Calls uploaded as transcripts, and a notice when a batch finishes | api, data model, pipeline, sdk, web | Accepted | moderate: migration 0014 has a down file, which refuses while transcript calls exist |
+| ADR-0031 | Python, Go and Java SDKs generated from the OpenAPI document | sdk, distribution | Accepted | easy: any SDK can later be hand-written or published to a registry under the same names |
 
 ## Conflicts that were settled
 

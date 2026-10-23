@@ -80,7 +80,7 @@ export function llmsTxt(pages: DocPage[]): string {
   const lines = [
     "# Latte",
     "",
-    "> Latte checks recorded sales and service calls against a compliance and quality rubric. Its REST API uploads recordings or transcripts, returns scores and findings, exports results and sends signed webhooks.",
+    "> Latte checks recorded sales and service calls against a compliance and quality rubric. Its REST API uploads recordings or transcripts, returns scores and findings, exports results and sends signed webhooks; SDKs exist for TypeScript, Python, Go and Java.",
     "",
     "Every page below is plain Markdown. The OpenAPI 3.1 document is /openapi.json; all pages in one file are /llms-full.txt. Authenticate with `Authorization: Bearer latte_...`.",
     "",

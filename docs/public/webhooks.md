@@ -160,6 +160,17 @@ Every body is an envelope: `id` (the event id), `type`, `createdAt` and `data`. 
 
 Check every delivery before trusting it. Use the **raw body bytes** as received: parsing and re-serialising the JSON changes them. Refuse a `t` more than five minutes from now, and compare in constant time.
 
+Every SDK has the check built in, tested against the same signature as the server ([SDKs](sdks.md)):
+
+| SDK | Call |
+| --- | --- |
+| TypeScript | `await verifyWebhookSignature({ secret, header, body })` from `@latte/sdk` |
+| Python | `verify_webhook_signature(secret, header, raw_body)` from `latte_sdk.webhook` |
+| Go | `latte.VerifyWebhookSignature(secret, header, body, time.Now())` |
+| Java | `Webhook.verifySignature(secret, header, rawBody)` in `io.github.jagadeeshm007.latte` |
+
+Without an SDK, the check is a few lines; the versions below match what the SDKs do.
+
 ### TypeScript
 
 ```ts

@@ -38,7 +38,7 @@ upload ──► transcribe each speaker ──► score against the rubric ─�
 
 ## SDKs
 
-A TypeScript client, `@latte/sdk`, wraps every endpoint ([SDKs](sdks.md)). Clients for other languages are generated from [openapi.json](/openapi.json).
+Clients for TypeScript (`@latte/sdk`), Python (`latte_sdk`), Go and Java wrap every endpoint and include the webhook signature check; all four share one version ([SDKs](sdks.md)). Runnable examples are in [examples/](https://github.com/jagadeeshm007/Latte/tree/main/examples). For any other language, generate a client from [openapi.json](/openapi.json).
 
 ## For LLMs and tools
 
