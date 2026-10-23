@@ -6,7 +6,7 @@ Claude Code specifics for this repository; the standard is AGENTS.md above.
 Loaded into every session: keep this file under 40 lines.
 
 ```
-Repository:   SalesCallPlatform (pnpm monorepo: apps/api, apps/web, packages/*, evals)
+Repository:   SalesCallPlatform (pnpm monorepo: apps/api, apps/web, packages/*, evals, examples; generated sdks/)
 Stack:        Node 24 + TS 5.9 + Express 5 + Zod 4 + pg + pg-boss + pino; React 19 + Vite + coss ui
 Databases:    PostgreSQL (hosted Supabase; local postgres:17 for tests via make db)
 Entrypoint:   apps/api/src/server.ts, apps/api/src/worker.ts, apps/web/src/main.tsx

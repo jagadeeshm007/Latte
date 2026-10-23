@@ -39,6 +39,19 @@ How work moves through this repository. The standards themselves are in
 9. Squash-merge with the Conventional subject. Delete the branch.
    `tracker-sync` moves the ticket, or skips with a note when there is none.
 
+## Generated files
+
+Some committed files are generated from the code. Regenerate them in the same change as the code they follow; `make typecheck` (and so `make check` and CI) fails while one is stale.
+
+| Files | Follow | Regenerate with | Checked by |
+| --- | --- | --- | --- |
+| `packages/sdk/src/types.ts` | the Zod schemas in `packages/shared` | `pnpm --filter @latte/sdk gen:types` | `make typecheck` |
+| `docs/public/openapi.json`, `docs/public/api-reference.md` | routes and schemas (`apps/api/src/openapi.ts`) | `pnpm --filter @scc/api gen:docs` | `make typecheck` |
+| `docs/public/legal/licenses.md` | `pnpm-lock.yaml` | `make licenses` | `make typecheck` |
+| `sdks/python`, `sdks/go`, `sdks/java` | the OpenAPI document and `packages/sdk`'s version | `make sdks` (Docker) | the `sdks` CI job; `make sdks-test` builds and tests them |
+
+The Python, Go and Java SDKs are never edited by hand except each one's webhook check, its test, its examples and its README ([`sdks/README.md`](sdks/README.md)). Releasing all SDKs together is described there too.
+
 ## Branches
 
 Trunk-based by default: `main` is the trunk and what is in production.

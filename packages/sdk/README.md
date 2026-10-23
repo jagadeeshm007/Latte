@@ -104,6 +104,10 @@ app.post("/latte", express.text({ type: "application/json" }), async (req, res) 
 Deliveries older than five minutes fail the check (`toleranceSeconds`). Use the
 `Latte-Delivery` header to drop a redelivery you have already handled.
 
+## Other languages
+
+Python, Go and Java SDKs with the same endpoints, the same version and their own webhook check are generated from the OpenAPI document: see [sdks/README.md](../../sdks/README.md).
+
 ## Reference
 
 The full API is described at `/api/openapi.json`.
