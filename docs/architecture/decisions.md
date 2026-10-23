@@ -38,6 +38,7 @@ settled again, differently, in each file that runs into it.
 | ADR-0029 | Process calls on upload, with Supabase pg_cron as the backstop | deployment, jobs | Accepted | easy: the queue, handlers and cron routes are unchanged; remove the jobs with `cron.unschedule` |
 | ADR-0030 | Calls uploaded as transcripts, and a notice when a batch finishes | api, data model, pipeline, sdk, web | Accepted | moderate: migration 0014 has a down file, which refuses while transcript calls exist |
 | ADR-0031 | Python, Go and Java SDKs generated from the OpenAPI document | sdk, distribution | Accepted | easy: any SDK can later be hand-written or published to a registry under the same names |
+| ADR-0032 | Pipeline jobs on Vercel Queues, with a global concurrency cap | jobs, deployment | Accepted | moderate: jobs go through the `Enqueue` interface, so the pg-boss path can be switched back on |
 
 ## Conflicts that were settled
 
