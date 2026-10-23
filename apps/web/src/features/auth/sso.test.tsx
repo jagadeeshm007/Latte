@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { renderWithProviders } from "@/test/render";
+import { renderInRouter } from "@/test/render";
 
 // The sign-in options come from VITE_AUTH_PROVIDERS, read once at load: set it here.
 vi.mock("@/lib/env", () => ({
@@ -25,7 +25,7 @@ const { SignInPage } = await import("./SignInPage");
 
 describe("single sign-on (ADR-0024)", () => {
   it("offers the providers that are set up, and says sign-in is invite-only", async () => {
-    renderWithProviders(<SignInPage />);
+    await renderInRouter(<SignInPage />);
 
     await userEvent.click(screen.getByRole("button", { name: "Continue with Microsoft" }));
 
@@ -35,7 +35,7 @@ describe("single sign-on (ADR-0024)", () => {
   });
 
   it("finds the company's SAML sign-in from the email typed, and shows why it failed", async () => {
-    renderWithProviders(<SignInPage />);
+    await renderInRouter(<SignInPage />);
 
     await userEvent.type(screen.getByLabelText("Email"), "neha@acme.example");
     await userEvent.click(screen.getByRole("button", { name: /Sign in with your company/ }));

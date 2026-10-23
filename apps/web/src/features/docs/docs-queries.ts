@@ -22,15 +22,20 @@ async function fetchText(path: string): Promise<string> {
   return res.text();
 }
 
-export const docPagesQuery = queryOptions({
-  queryKey: ["docs", "pages"],
-  queryFn: async () => docSummariesSchema.parse(JSON.parse(await fetchText("/docs/pages.json"))),
-  staleTime: Infinity,
-});
+/** The two folders the build publishes: the docs and the legal pages. */
+export type SiteFolder = "docs" | "legal";
 
-export const docPageQuery = (slug: string) =>
+export const docPagesQuery = (folder: SiteFolder = "docs") =>
   queryOptions({
-    queryKey: ["docs", "page", slug],
-    queryFn: () => fetchText(`/docs/${slug}.md`),
+    queryKey: [folder, "pages"],
+    queryFn: async () =>
+      docSummariesSchema.parse(JSON.parse(await fetchText(`/${folder}/pages.json`))),
+    staleTime: Infinity,
+  });
+
+export const docPageQuery = (slug: string, folder: SiteFolder = "docs") =>
+  queryOptions({
+    queryKey: [folder, "page", slug],
+    queryFn: () => fetchText(`/${folder}/${slug}.md`),
     staleTime: Infinity,
   });

@@ -179,7 +179,7 @@ describe("public pages", () => {
     expect(await screen.findByRole("heading", { name: "index.md page" })).toBeInTheDocument();
     const site = within(screen.getByRole("navigation", { name: "Site" }));
     expect(site.getByRole("link", { name: "Docs" })).toHaveAttribute("href", "/docs");
-    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/sign-in");
   });
 
   it("sends the old in-app docs address to /docs", async () => {

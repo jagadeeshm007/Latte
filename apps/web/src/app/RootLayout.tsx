@@ -1,6 +1,6 @@
 import type { Me, Role } from "@scc/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   AudioLinesIcon,
   CoffeeIcon,
@@ -28,7 +28,6 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
-import { SignInPage } from "@/features/auth/SignInPage";
 import { NotificationBell } from "@/features/inbox/NotificationBell";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
 import { PlayerHost } from "@/features/player/PlayerHost";
@@ -140,10 +139,24 @@ const ROLE_LABEL: Record<Role, string> = {
  */
 export function RootLayout() {
   const session = useSession();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (isPublicPath(pathname) && session.status !== "signed_in") return <PublicLayout />;
-  if (session.status === "loading") return <Loading shape="app" />;
-  if (session.status === "signed_out") return <SignInPage />;
+  const location = useRouterState({ select: (s) => s.location });
+  const { pathname } = location;
+  // The sign-in page stands alone; once signed in, its route sends the person on.
+  if (pathname === "/sign-in") {
+    return (
+      <Suspense fallback={<Loading shape="app" />}>
+        <Outlet />
+      </Suspense>
+    );
+  }
+  // At / a signed-in person goes to their home, so do not flash the landing page while loading.
+  if (session.status === "loading" && (pathname === "/" || !isPublicPath(pathname))) {
+    return <Loading shape="app" />;
+  }
+  if (session.status !== "signed_in") {
+    if (isPublicPath(pathname)) return <PublicLayout />;
+    return <Navigate to="/sign-in" search={{ next: location.href }} replace />;
+  }
   return <Shell />;
 }
 
