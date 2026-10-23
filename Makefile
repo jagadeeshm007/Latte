@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack sdks sdks-test licenses up down logs setup-deploy supabase-cron e2e-check clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack sdks sdks-test sdks-test-python sdks-test-go sdks-test-java licenses up down logs setup-deploy supabase-cron e2e-check clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -133,10 +133,23 @@ licenses: ## Rewrite docs/public/legal/licenses.md from pnpm licenses list (afte
 sdks: ## Regenerate the Python, Go and Java SDKs in sdks/ from the API's OpenAPI document (Docker)
 	node scripts/gen-sdks.js
 
-sdks-test: ## Build and test the Python, Go and Java SDKs in their official images; leaves the wheel and jar
-	$(SDK_RUN) -w /w/sdks/python python:3.12-slim sh -c 'python -m venv /tmp/v && /tmp/v/bin/pip install -q . build && /tmp/v/bin/python -m unittest discover -s test && cd examples && /tmp/v/bin/python -c "import scored_calls" && cd .. && /tmp/v/bin/python -m build -q --wheel --outdir dist'
-	$(SDK_RUN) -w /w/sdks/go -e GOCACHE=/tmp/go-cache -e GOPATH=/tmp/go golang:1.24 sh -c 'go vet ./... && go test ./...'
-	$(SDK_RUN) -w /w/sdks/java --entrypoint sh maven:3.9-eclipse-temurin-21 -c 'mvn -q -B -Duser.home=/tmp -Dmaven.repo.local=/tmp/m2 package dependency:build-classpath -Dmdep.outputFile=/tmp/cp && javac -d /tmp/examples -cp "target/classes:$$(cat /tmp/cp)" examples/*.java'
+sdks-test: ## Build and test the Python, Go and Java SDKs in their official images, in parallel; leaves the wheel and jar
+	@$(MAKE) --no-print-directory -j3 -O sdks-test-python sdks-test-go sdks-test-java
+
+# Downloads (pip, Go modules, Maven) are kept in $(SDK_CACHE) between runs; CI caches the folder.
+SDK_CACHE = .cache/sdks
+
+sdks-test-python:
+	@mkdir -p $(SDK_CACHE)/pip
+	$(SDK_RUN) -e PIP_CACHE_DIR=/w/$(SDK_CACHE)/pip -w /w/sdks/python python:3.12-slim sh -c 'python -m venv /tmp/v && /tmp/v/bin/pip install -q . build && /tmp/v/bin/python -m unittest discover -s test && cd examples && /tmp/v/bin/python -c "import scored_calls" && cd .. && /tmp/v/bin/python -m build -q --wheel --outdir dist'
+
+sdks-test-go:
+	@mkdir -p $(SDK_CACHE)/go-build $(SDK_CACHE)/go-mod
+	$(SDK_RUN) -w /w/sdks/go -e GOCACHE=/w/$(SDK_CACHE)/go-build -e GOMODCACHE=/w/$(SDK_CACHE)/go-mod -e CGO_ENABLED=0 golang:1.24-alpine sh -c 'go vet ./... && go test ./...'
+
+sdks-test-java:
+	@mkdir -p $(SDK_CACHE)/m2
+	$(SDK_RUN) -w /w/sdks/java --entrypoint sh maven:3.9-eclipse-temurin-21-alpine -c 'mvn -q -B -Duser.home=/tmp -Dmaven.repo.local=/w/$(SDK_CACHE)/m2 package dependency:build-classpath -Dmdep.outputFile=/tmp/cp && javac -d /tmp/examples -cp "target/classes:$$(cat /tmp/cp)" examples/*.java'
 
 clean: ## Remove build and test output
 	rm -rf .vercel/output packages/sdk/dist packages/sdk/*.tgz sdks/java/target sdks/python/build sdks/python/dist apps/*/dist apps/*/coverage packages/*/coverage evals/coverage $(STATE)/.check-passed

@@ -42,3 +42,5 @@ apps/web/public/legal/
 apps/web/public/llms.txt
 apps/web/public/llms-full.txt
 apps/web/public/openapi.json
+# Tool download caches (make sdks-test); CI restores this folder
+.cache/
