@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { QUEUES } from "../queue.ts";
 import { openJobSystem } from "./index.ts";
 import {
+  nodeFunctionHandler,
   type QueueConsumerClient,
   type QueueSenderClient,
   readCallbackBody,
@@ -200,5 +201,40 @@ describe("openJobSystem with JOB_QUEUE=vercel", () => {
     vi.unstubAllEnvs();
 
     expect([bus.name, bus.capabilities.delivery, scheduler]).toEqual(["vercel", "push", null]);
+  });
+});
+
+describe("nodeFunctionHandler", () => {
+  it("passes the parsed body to the callback and answers through the bare response", async () => {
+    const seen: unknown[] = [];
+    const handler = nodeFunctionHandler((req, res) => {
+      seen.push(req.method, req.body);
+      res.status(200).json({ status: "success" });
+      return Promise.resolve();
+    });
+    const req = Object.assign(Readable.from([Buffer.from('{"v":1}')]), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    const headers: Record<string, string> = {};
+    const res = {
+      statusCode: 0,
+      body: "",
+      setHeader: (name: string, value: string) => {
+        headers[name] = value;
+      },
+      end(chunk?: string) {
+        this.body = chunk ?? "";
+      },
+    };
+
+    await handler(req, res);
+
+    expect(seen).toEqual(["POST", { v: 1 }]);
+    expect([res.statusCode, headers, res.body]).toEqual([
+      200,
+      { "Content-Type": "application/json" },
+      '{"status":"success"}',
+    ]);
   });
 });

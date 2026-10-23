@@ -329,6 +329,32 @@ export async function failStuckCalls(db: Queryable, olderThanSeconds: number): P
 }
 
 /**
+ * listWaitingCalls finds live calls waiting for their next job longer than
+ * olderThanSeconds, oldest first; `since` is when each last moved, in
+ * milliseconds, as text so it keys a publish exactly.
+ */
+export async function listWaitingCalls(
+  db: Queryable,
+  olderThanSeconds: number,
+  limit: number,
+): Promise<{ id: string; status: "uploaded" | "transcribed"; since: string }[]> {
+  const { rows } = await db.query<{
+    id: string;
+    status: "uploaded" | "transcribed";
+    since: string;
+  }>(
+    `SELECT id, status, floor(extract(epoch FROM updated_at) * 1000)::bigint::text AS since
+       FROM calls
+      WHERE deleted_at IS NULL AND status IN ('uploaded', 'transcribed')
+        AND updated_at < now() - make_interval(secs => $1)
+      ORDER BY updated_at
+      LIMIT $2`,
+    [olderThanSeconds, limit],
+  );
+  return rows;
+}
+
+/**
  * requeueForRetry atomically moves a failed call, an unscored call whose review
  * is not done, or a call stuck in flight, back to the step it needs, and says
  * which step. Two reviewers pressing Retry together queue it once. A

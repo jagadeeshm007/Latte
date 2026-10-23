@@ -1,6 +1,7 @@
 // Smoke test of the built Vercel output (make vercel-smoke): loads the bundled
-// function the way Vercel's Node launcher does, serves it on a local port and
-// checks that it answers. Needs the local Postgres from `make db`; it never
+// functions the way Vercel's Node launcher does, serves them on a local port and
+// checks that they answer. The API runs on pg-boss; the Vercel Queues consumer
+// is only loaded, since its messages come from Vercel. Needs the local Postgres from `make db`; it never
 // reaches Supabase, a model provider or anything else outside this machine.
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -93,6 +94,27 @@ expect(
 );
 
 server.close();
+
+const queueDir = path.join(out, "functions/api/queues/pipeline.func");
+const queueVc = JSON.parse(readFileSync(path.join(queueDir, ".vc-config.json"), "utf8"));
+const triggers = queueVc.experimentalTriggers ?? [];
+expect(
+  "the queue consumer is subscribed to transcribe and score",
+  triggers.map((t) => `${t.type}:${t.topic}:${t.maxDeliveries}`).join(",") ===
+    "queue/v2beta:transcribe:5,queue/v2beta:score:5",
+  JSON.stringify(triggers),
+);
+// Its config is read at load: the Vercel Queues client needs a region, which Vercel sets.
+Object.assign(process.env, { JOB_QUEUE: "vercel", VERCEL_REGION: "bom1" });
+const { default: consume } = await import(pathToFileURL(path.join(queueDir, queueVc.handler)).href);
+const queueServer = createServer(consume);
+await new Promise((resolve) => queueServer.listen(0, "127.0.0.1", resolve));
+const queueAddress = queueServer.address();
+const queuePort = typeof queueAddress === "object" && queueAddress ? queueAddress.port : 0;
+const probe = await fetch(`http://127.0.0.1:${queuePort}/`);
+expect("the queue consumer loads and answers", probe.status === 200, probe.status);
+queueServer.close();
+
 process.stdout.write(
   failures.length ? `vercel-smoke: ${failures.length} failed\n` : "vercel-smoke: passed\n",
 );

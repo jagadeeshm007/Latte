@@ -95,13 +95,24 @@ export function vercelPushConsumer<T extends QueueName>(
   );
 }
 
+/** The parts of node:http's IncomingMessage the consumer reads. */
+export type CallbackRequest = AsyncIterable<Buffer | string> & {
+  method?: string | undefined;
+  headers: Record<string, string | string[] | undefined>;
+};
+
+/** The parts of node:http's ServerResponse the consumer writes. */
+export interface BareResponse {
+  statusCode: number;
+  setHeader(name: string, value: string): unknown;
+  end(chunk?: string): unknown;
+}
+
 /**
  * readCallbackBody reads a callback request's body the way the client's Node
  * handler expects it already parsed: JSON as a value, anything else as bytes.
  */
-export async function readCallbackBody(
-  req: AsyncIterable<Buffer | string> & { headers: Record<string, string | string[] | undefined> },
-): Promise<unknown> {
+export async function readCallbackBody(req: CallbackRequest): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of req)
     chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
@@ -109,4 +120,31 @@ export async function readCallbackBody(
   const type = req.headers["content-type"];
   const isJson = (Array.isArray(type) ? type[0] : type)?.includes("json") ?? false;
   return isJson ? (JSON.parse(body.toString("utf8")) as unknown) : body;
+}
+
+/**
+ * nodeFunctionHandler turns the client's callback into a plain Node handler
+ * for a Vercel Function: it reads the body the callback expects parsed and
+ * answers through the bare ServerResponse (shouldAddHelpers is off).
+ */
+export function nodeFunctionHandler(
+  callback: NodeCallback,
+): (req: CallbackRequest, res: BareResponse) => Promise<void> {
+  return async (req, res) => {
+    const body = req.method === "POST" ? await readCallbackBody(req) : undefined;
+    const reply = (code: number) => {
+      res.statusCode = code;
+      return {
+        json: (data: unknown) => {
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(data));
+        },
+        end: () => res.end(),
+      };
+    };
+    await callback(
+      { headers: req.headers, body, ...(req.method ? { method: req.method } : {}) },
+      { status: reply, end: () => res.end() },
+    );
+  };
 }
