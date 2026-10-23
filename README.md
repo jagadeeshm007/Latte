@@ -92,7 +92,7 @@ make status       # recent calls with status, score and findings, and this month
 Create an API key under **Developers** in the app, then install the SDK:
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.tgz
 ```
 
 ```ts
@@ -108,7 +108,7 @@ const done = await latte.batches.wait(batch.batchId!);
 const csv = await latte.batches.resultsCsv(done.id);
 ```
 
-- API guide: [`docs/api/guide.md`](docs/api/guide.md), also in the app under Developers > Docs.
+- Docs: public at `/docs` in the app, written in [`docs/public`](docs/public); `/llms.txt` and `/llms-full.txt` for LLMs and tools.
 - SDK reference: [`packages/sdk/README.md`](packages/sdk/README.md).
 - OpenAPI: `GET /api/openapi.json`.
 
@@ -147,6 +147,8 @@ Every variable is listed with a placeholder in [`.env.example`](.env.example). T
 | `packages/shared`  | Shared Zod schemas for every request and response, and the default rubric              |
 | `packages/gateway` | All model provider calls: budget, token caps, cost log, rate limits, record and replay |
 | `packages/sdk`     | `@latte/sdk`, the TypeScript client                                                    |
+| `sdks`             | Python, Go and Java SDKs, generated from the OpenAPI document                          |
+| `examples`         | Runnable SDK examples: uploads, transcript import, webhook receiver, CRM sync          |
 | `evals`            | 20 labelled sample calls and the judge evaluation                                      |
 | `docs`             | Requirements, design, architecture decisions, API guide and runbooks                   |
 

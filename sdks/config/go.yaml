@@ -1,0 +1,8 @@
+# OpenAPI Generator settings for sdks/go (sdks/README.md).
+generatorName: go
+packageName: latte
+gitHost: github.com
+gitUserId: jagadeeshm007
+gitRepoId: Latte/sdks/go
+isGoSubmodule: false
+generateInterfaces: false

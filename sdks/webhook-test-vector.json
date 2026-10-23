@@ -1,0 +1,7 @@
+{
+  "note": "Shared by every SDK's webhook test; apps/api checks it against signPayload. Not a real secret.",
+  "secret": "whsec_test_vector_not_a_secret",
+  "timestamp": 1792670000,
+  "body": "{\"id\":\"be6b6a5d-bf8e-4c5b-8fa6-6b7dae7de061\",\"type\":\"ping\",\"createdAt\":\"2026-10-22T09:00:00.000Z\",\"data\":{\"message\":\"A test event from Latte\"}}",
+  "header": "t=1792670000,v1=da2fcff46dbdba4655549b83ac1b82d3347aeaf53d534b836ea2341b0211e560"
+}

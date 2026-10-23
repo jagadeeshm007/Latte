@@ -1,0 +1,9 @@
+# Not generated: CI and publishing files we do not use, generated test stubs,
+# and the hand-written webhook check with its test.
+git_push.sh
+.travis.yml
+.gitlab-ci.yml
+.github/**
+test/**
+latte_sdk/webhook.py
+README.md

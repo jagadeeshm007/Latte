@@ -1,6 +1,6 @@
 import type { Me, Role } from "@scc/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   AudioLinesIcon,
   CoffeeIcon,
@@ -10,6 +10,7 @@ import {
   InboxIcon,
   SirenIcon,
   ReceiptIcon,
+  SettingsIcon,
   UsersRoundIcon,
   UserCogIcon,
   KeyRoundIcon,
@@ -20,19 +21,27 @@ import {
 } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 
+import { isPublicPath } from "@/app/public-paths";
+import { PublicLayout } from "@/app/PublicLayout";
 import { ErrorState, Loading } from "@/components/states";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
-import { SignInPage } from "@/features/auth/SignInPage";
 import { NotificationBell } from "@/features/inbox/NotificationBell";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
 import { PlayerHost } from "@/features/player/PlayerHost";
 import { StatusBanner } from "@/features/status/StatusBanner";
 import { meQuery } from "@/lib/endpoints";
 
-const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
+interface NavItem {
+  to: string;
+  label: string;
+  roles: Role[];
+  icon: ReactNode;
+}
+
+const NAV: NavItem[] = [
   {
     to: "/queue",
     label: "Review queue",
@@ -76,6 +85,22 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     icon: <SirenIcon aria-hidden="true" />,
   },
   {
+    to: "/rubric",
+    label: "Rubric",
+    roles: ["qa_reviewer", "manager"],
+    icon: <BookCheckIcon aria-hidden="true" />,
+  },
+];
+
+/** Settings: everyone's own account, then the workspace pages a manager runs. */
+const SETTINGS_NAV: NavItem[] = [
+  {
+    to: "/settings",
+    label: "Account",
+    roles: ["qa_reviewer", "manager", "agent"],
+    icon: <SettingsIcon aria-hidden="true" />,
+  },
+  {
     to: "/members",
     label: "Members",
     roles: ["manager"],
@@ -99,12 +124,6 @@ const NAV: { to: string; label: string; roles: Role[]; icon: ReactNode }[] = [
     roles: ["manager"],
     icon: <KeyRoundIcon aria-hidden="true" />,
   },
-  {
-    to: "/rubric",
-    label: "Rubric",
-    roles: ["qa_reviewer", "manager"],
-    icon: <BookCheckIcon aria-hidden="true" />,
-  },
 ];
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -118,23 +137,26 @@ const ROLE_LABEL: Record<Role, string> = {
  * caller's role. Every route renders inside it; the API still checks every
  * role on every request, the menu only hides what a role cannot use.
  */
-/** Pages anyone may open without signing in. */
-const PUBLIC_PATHS = new Set(["/status"]);
-
 export function RootLayout() {
   const session = useSession();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (PUBLIC_PATHS.has(pathname) && session.status !== "signed_in") {
+  const location = useRouterState({ select: (s) => s.location });
+  const { pathname } = location;
+  // The sign-in page stands alone; once signed in, its route sends the person on.
+  if (pathname === "/sign-in") {
     return (
-      <main className="min-h-svh bg-muted/40 px-4 py-10">
-        <Suspense fallback={<Loading label="Loading the page" />}>
-          <Outlet />
-        </Suspense>
-      </main>
+      <Suspense fallback={<Loading shape="app" />}>
+        <Outlet />
+      </Suspense>
     );
   }
-  if (session.status === "loading") return <Loading shape="app" />;
-  if (session.status === "signed_out") return <SignInPage />;
+  // At / a signed-in person goes to their home, so do not flash the landing page while loading.
+  if (session.status === "loading" && (pathname === "/" || !isPublicPath(pathname))) {
+    return <Loading shape="app" />;
+  }
+  if (session.status !== "signed_in") {
+    if (isPublicPath(pathname)) return <PublicLayout />;
+    return <Navigate to="/sign-in" search={{ next: location.href }} replace />;
+  }
   return <Shell />;
 }
 
@@ -200,17 +222,13 @@ function Frame({ me }: { me: Me }) {
             Workspace
           </span>
           {NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm whitespace-nowrap text-sidebar-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
-              activeProps={{
-                className: "bg-sidebar-accent font-medium text-foreground shadow-xs/5",
-              }}
-            >
-              {n.icon}
-              {n.label}
-            </Link>
+            <NavLink key={n.to} item={n} />
+          ))}
+          <span className="hidden px-2.5 pt-4 pb-1.5 text-xs font-medium text-muted-foreground md:block">
+            Settings
+          </span>
+          {SETTINGS_NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
+            <NavLink key={n.to} item={n} />
           ))}
         </nav>
         <div className="flex flex-col gap-3 border-t px-3 py-3">
@@ -238,6 +256,21 @@ function Frame({ me }: { me: Me }) {
         </div>
       </main>
     </div>
+  );
+}
+
+function NavLink({ item }: { item: NavItem }) {
+  return (
+    <Link
+      to={item.to}
+      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm whitespace-nowrap text-sidebar-foreground transition-colors outline-none hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+      activeProps={{
+        className: "bg-sidebar-accent font-medium text-foreground shadow-xs/5",
+      }}
+    >
+      {item.icon}
+      {item.label}
+    </Link>
   );
 }
 

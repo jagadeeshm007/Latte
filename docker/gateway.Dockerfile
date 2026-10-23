@@ -17,6 +17,8 @@ COPY packages/shared packages/shared
 # The web app reads transcripts with the SDK's parser (@latte/sdk/transcript).
 COPY packages/sdk packages/sdk
 COPY apps/web apps/web
+# The public docs, which the build turns into /docs, /llms.txt and /openapi.json.
+COPY docs/public docs/public
 # Public values only: VITE_ variables are inlined into the bundle.
 ARG VITE_SUPABASE_URL=http://localhost:8000
 ARG VITE_SUPABASE_PUBLISHABLE_KEY

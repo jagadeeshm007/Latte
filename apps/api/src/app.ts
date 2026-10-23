@@ -4,7 +4,7 @@ import express, { json, Router, type Express } from "express";
 import { pinoHttp } from "pino-http";
 
 import { apiKeyGate } from "./api-access.ts";
-import { authenticate, currentUser } from "./auth.ts";
+import { authenticate } from "./auth.ts";
 import { errorHandler, notFoundHandler } from "./errors.ts";
 import { idempotency } from "./idempotency.ts";
 import { openApiDocument } from "./openapi.ts";
@@ -18,6 +18,7 @@ import { callsRouter } from "./routes/calls.ts";
 import { cronRouter } from "./routes/cron.ts";
 import type { AppDeps } from "./routes/deps.ts";
 import { inboxRouter } from "./routes/inbox.ts";
+import { meRouter } from "./routes/me.ts";
 import { membersRouter } from "./routes/members.ts";
 import { reviewRouter } from "./routes/review.ts";
 import { publicStatusRouter, statusNoticesRouter } from "./routes/status.ts";
@@ -113,9 +114,7 @@ export function buildApp(deps: AppDeps): Express {
   );
   api.use(apiKeyGate(deps.pool));
   api.use(idempotency(deps.pool));
-  api.get("/me", (req, res) => {
-    res.json(currentUser(req));
-  });
+  api.use(meRouter(deps));
   api.use(callsRouter(deps));
   api.use(reviewRouter(deps));
   api.use(batchesRouter(deps, exportSecret));

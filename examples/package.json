@@ -1,0 +1,30 @@
+{
+  "name": "@scc/examples",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Runnable examples of the Latte TypeScript SDK; typechecked, linted and tested in make check so they cannot rot",
+  "type": "module",
+  "scripts": {
+    "upload-and-wait": "tsx src/upload-and-wait.ts",
+    "transcript-import": "tsx src/transcript-import.ts",
+    "webhook-receiver": "tsx src/webhook-receiver.ts",
+    "crm-sync": "tsx src/crm-sync.ts",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@latte/sdk": "workspace:*",
+    "express": "5.3.0",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "24.13.4",
+    "@types/supertest": "7.2.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "supertest": "7.3.1",
+    "vitest": "4.1.11"
+  }
+}

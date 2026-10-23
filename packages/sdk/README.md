@@ -3,15 +3,15 @@
 A small TypeScript client for the Latte API (ADR-0019, ADR-0027). It has no
 dependencies: about 16 kB of plain JavaScript using `fetch` and Web Crypto, so it runs
 on Node 20 or later, Bun, Deno, Cloudflare Workers and other edge runtimes. Types for
-every request and response ship with it. The full guide is in the app under
-Developers > Docs, and in [docs/api/guide.md](../../docs/api/guide.md).
+every request and response ship with it. The full guide is public at `/docs` in the app,
+written in [docs/public](../../docs/public).
 
 ## Install
 
 Each release is a tarball on GitHub; no registry or token is needed.
 
 ```bash
-npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.2.0/latte-sdk-0.2.0.tgz
+npm install https://github.com/jagadeeshm007/Latte/releases/download/sdk-v0.3.0/latte-sdk-0.3.0.tgz
 ```
 
 The same URL works with `pnpm add` and `yarn add`, and is what lands in your

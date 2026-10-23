@@ -124,6 +124,17 @@ const config = {
       headers: { "Cache-Control": "public, max-age=31536000, immutable" },
       continue: true,
     },
+    // The public docs as raw Markdown and text, for people and LLMs (llms.txt).
+    {
+      src: "^/(?:docs|legal)/.+\\.md$",
+      headers: { "Content-Type": "text/markdown; charset=utf-8" },
+      continue: true,
+    },
+    {
+      src: "^/llms(?:-full)?\\.txt$",
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      continue: true,
+    },
     { src: "^/api(?:/.*)?$", dest: "/api" },
     { handle: "filesystem" },
     { src: "^/(.*)$", dest: "/index.html" },

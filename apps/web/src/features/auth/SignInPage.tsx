@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { AudioWaveformIcon, Building2Icon } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 
@@ -54,7 +55,7 @@ export function SignInPage() {
   }
 
   return (
-    <main className="relative flex min-h-svh items-center justify-center bg-muted/40 px-4">
+    <main className="relative flex min-h-svh flex-col items-center justify-center gap-4 bg-muted/40 px-4">
       <ThemeToggle className="absolute end-4 top-4" />
       <Card className="w-full max-w-sm">
         <CardHeader>
@@ -122,6 +123,28 @@ export function SignInPage() {
           ) : null}
         </CardPanel>
       </Card>
+      <nav aria-label="About Latte" className="flex flex-wrap justify-center gap-x-4 text-xs">
+        <Link to="/" className="text-muted-foreground hover:text-foreground">
+          About Latte
+        </Link>
+        <Link to="/docs" className="text-muted-foreground hover:text-foreground">
+          Docs
+        </Link>
+        <Link
+          to="/legal/$page"
+          params={{ page: "terms" }}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          Terms
+        </Link>
+        <Link
+          to="/legal/$page"
+          params={{ page: "privacy" }}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          Privacy
+        </Link>
+      </nav>
     </main>
   );
 }

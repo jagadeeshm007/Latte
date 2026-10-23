@@ -35,10 +35,7 @@ export function DevelopersPage() {
         description="Connect a CRM, dialler or data warehouse to Latte with an API key and webhooks."
         actions={
           <>
-            <Link
-              to="/developers/docs"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
+            <Link to="/docs" className={buttonVariants({ variant: "outline", size: "sm" })}>
               <BookOpenIcon aria-hidden="true" />
               Documentation
             </Link>

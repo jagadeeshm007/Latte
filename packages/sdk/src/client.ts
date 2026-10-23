@@ -40,7 +40,7 @@ import type {
 // Deno, edge runtimes and browsers. Response types are generated from the
 // API's own schemas (scripts/gen-types.ts).
 
-export const SDK_VERSION = "0.2.0";
+export const SDK_VERSION = "0.3.0";
 
 export interface LatteClientOptions {
   /** latte_<prefix>_<secret>, from Developers in the app. */

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { WebhookDelivery, WebhookEndpoint, WebhookEvent } from "@scc/shared";
+import type { WebhookDelivery, WebhookEndpoint, WebhookEvent, WebhookEventData } from "@scc/shared";
 
 import type { Queryable } from "../db/pool.ts";
 
@@ -122,10 +122,11 @@ export async function deleteEndpoint(db: Queryable, id: string): Promise<boolean
  * transaction that makes the change, so the event exists exactly when the
  * change does.
  */
-export async function emitEvent(
+export async function emitEvent<K extends WebhookEvent>(
   db: Queryable,
-  type: WebhookEvent,
-  data: Record<string, unknown>,
+  type: K,
+  /** Typed by the documented payload, so code and docs cannot drift (webhook-events.ts). */
+  data: WebhookEventData[K],
   onlyEndpoint?: string,
 ): Promise<number> {
   const eventId = randomUUID();

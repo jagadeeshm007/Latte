@@ -1,27 +1,20 @@
-import { DIGEST_FREQUENCIES, type Notification } from "@scc/shared";
+import type { Notification } from "@scc/shared";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { BellRingIcon, CheckCheckIcon, LayersIcon, NewspaperIcon } from "lucide-react";
 import { useState } from "react";
 
 import { PageNav } from "@/components/PageNav";
 import { EmptyState, ErrorState, Loading, PageHeader } from "@/components/states";
 import { Button } from "@/components/ui/button";
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from "@/components/ui/frame";
+import { Frame, FrameHeader, FramePanel, FrameTitle } from "@/components/ui/frame";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { api, digestQuery, notificationsQuery } from "@/lib/endpoints";
+import { api, notificationsQuery } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
 
 // The inbox (ADR-0025): alerts and digests, newest first. Opening one marks
 // it read and follows its link; digest settings sit beside the list.
 
-const FREQUENCY_LABEL = { off: "Off", daily: "Daily", weekly: "Weekly" } as const;
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 
@@ -154,49 +147,18 @@ export function NotificationsPage() {
             </div>
           ) : null}
         </Frame>
-        <DigestSettings />
+        <p className="text-sm text-muted-foreground">
+          A daily or weekly digest of these numbers by email is set in{" "}
+          <Link
+            to="/settings"
+            search={{ tab: "notifications" }}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            Settings
+          </Link>
+          .
+        </p>
       </div>
     </div>
-  );
-}
-
-function DigestSettings() {
-  const queryClient = useQueryClient();
-  const digest = useQuery(digestQuery);
-  const set = useMutation({
-    mutationFn: (f: (typeof DIGEST_FREQUENCIES)[number]) => api.setDigest(f),
-    onSuccess: (data) => {
-      queryClient.setQueryData(digestQuery.queryKey, data);
-    },
-  });
-  return (
-    <Frame role="region" aria-labelledby="digest-heading">
-      <FrameHeader className="px-4 py-3">
-        <FrameTitle role="heading" aria-level={2} id="digest-heading">
-          Digest
-        </FrameTitle>
-        <FrameDescription>
-          The period's headline numbers, top performers and who needs coaching, in your inbox.
-        </FrameDescription>
-      </FrameHeader>
-      <FramePanel className="px-4 py-3">
-        <ToggleGroup
-          variant="outline"
-          size="sm"
-          aria-label="Digest frequency"
-          value={[digest.data?.frequency ?? "off"]}
-          onValueChange={(v: unknown[]) => {
-            const next = DIGEST_FREQUENCIES.find((f) => f === v[0]);
-            if (next) set.mutate(next);
-          }}
-        >
-          {DIGEST_FREQUENCIES.map((f) => (
-            <ToggleGroupItem key={f} value={f}>
-              {FREQUENCY_LABEL[f]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </FramePanel>
-    </Frame>
   );
 }

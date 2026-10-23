@@ -3,8 +3,12 @@ import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  Navigate,
+  useRouter,
   type RouterHistory,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { z } from "zod";
 
 import { HomeRedirect } from "@/app/HomeRedirect";
 import { NotFound } from "@/app/NotFound";
@@ -19,22 +23,28 @@ import {
   DashboardPage,
   DevelopersPage,
   DocsPage,
+  LandingPage,
   MembersPage,
   NotificationsPage,
   PerformancePage,
   QueuePage,
   RubricPage,
   ScorecardPage,
+  SettingsPage,
   StatusPage,
   TeamsPage,
   UploadPage,
   WebhookPage,
 } from "@/app/pages";
+import { safeNext } from "@/app/public-paths";
 import { RootLayout } from "@/app/RootLayout";
 import { RouteError } from "@/app/RouteError";
 import { Loading } from "@/components/states";
+import { useSession } from "@/features/auth/session";
+import { SignInPage } from "@/features/auth/SignInPage";
 import { callsSearchSchema } from "@/features/calls/calls-search";
 import { performanceSearchSchema } from "@/features/manager/performance-search";
+import { settingsSearchSchema } from "@/features/settings/settings-search";
 
 // Code-based routes. Access is enforced by the API on every request; the
 // menu in RootLayout only hides what a role cannot use.
@@ -50,7 +60,42 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 
 const child = { getParentRoute: () => rootRoute };
 
-const homeRoute = createRoute({ ...child, path: "/", component: HomeRedirect });
+const homeRoute = createRoute({
+  ...child,
+  path: "/",
+  // Signed in, each role goes to its own home; signed out, the landing page.
+  component: function HomeRoute() {
+    return useSession().status === "signed_in" ? <HomeRedirect /> : <LandingPage />;
+  },
+});
+const signInRoute = createRoute({
+  ...child,
+  path: "/sign-in",
+  validateSearch: z.object({ next: z.string().optional().catch(undefined) }),
+  component: function SignInRoute() {
+    const { next } = signInRoute.useSearch();
+    const session = useSession();
+    const router = useRouter();
+    const signedIn = session.status === "signed_in";
+    useEffect(() => {
+      if (signedIn) router.history.replace(safeNext(next));
+    }, [signedIn, next, router]);
+    return signedIn ? <Loading shape="app" /> : <SignInPage />;
+  },
+});
+const legalIndexRoute = createRoute({
+  ...child,
+  path: "/legal",
+  component: () => <DocsPage folder="legal" slug="terms" />,
+});
+const legalPageRoute = createRoute({
+  ...child,
+  path: "/legal/$page",
+  component: function LegalPageRoute() {
+    const { page } = legalPageRoute.useParams();
+    return <DocsPage key={page} folder="legal" slug={page} />;
+  },
+});
 const queueRoute = createRoute({ ...child, path: "/queue", component: () => <QueuePage /> });
 const callsRoute = createRoute({
   ...child,
@@ -125,10 +170,24 @@ const apiKeyRoute = createRoute({
     return <ApiKeyPage key={keyId} keyId={keyId} />;
   },
 });
-const docsRoute = createRoute({
+// The docs moved to the public /docs; old links to the in-app page land there.
+const oldDocsRoute = createRoute({
   ...child,
   path: "/developers/docs",
-  component: () => <DocsPage />,
+  component: () => <Navigate to="/docs" replace />,
+});
+const docsIndexRoute = createRoute({
+  ...child,
+  path: "/docs",
+  component: () => <DocsPage slug="index" />,
+});
+const docsPageRoute = createRoute({
+  ...child,
+  path: "/docs/$page",
+  component: function DocsPageRoute() {
+    const { page } = docsPageRoute.useParams();
+    return <DocsPage key={page} slug={page} />;
+  },
 });
 const webhookRoute = createRoute({
   ...child,
@@ -148,6 +207,23 @@ const teamsRoute = createRoute({ ...child, path: "/teams", component: () => <Tea
 const membersRoute = createRoute({ ...child, path: "/members", component: () => <MembersPage /> });
 const billingRoute = createRoute({ ...child, path: "/billing", component: () => <BillingPage /> });
 // Public: RootLayout serves it without a sign-in (ADR-0026).
+const settingsRoute = createRoute({
+  ...child,
+  path: "/settings",
+  validateSearch: settingsSearchSchema,
+  component: function SettingsRoute() {
+    const { tab } = settingsRoute.useSearch();
+    const navigate = settingsRoute.useNavigate();
+    return (
+      <SettingsPage
+        tab={tab}
+        onTab={(next) => {
+          void navigate({ search: { tab: next }, replace: true });
+        }}
+      />
+    );
+  },
+});
 const statusRoute = createRoute({ ...child, path: "/status", component: () => <StatusPage /> });
 const rubricRoute = createRoute({ ...child, path: "/rubric", component: () => <RubricPage /> });
 
@@ -171,6 +247,9 @@ const agentRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   homeRoute,
+  signInRoute,
+  legalIndexRoute,
+  legalPageRoute,
   queueRoute,
   callsRoute,
   callRoute,
@@ -183,7 +262,10 @@ export const routeTree = rootRoute.addChildren([
   batchRoute,
   developersRoute,
   apiKeyRoute,
-  docsRoute,
+  settingsRoute,
+  oldDocsRoute,
+  docsIndexRoute,
+  docsPageRoute,
   webhookRoute,
   notificationsRoute,
   alertsRoute,

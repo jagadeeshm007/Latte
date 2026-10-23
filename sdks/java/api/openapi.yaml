@@ -1,0 +1,3808 @@
+openapi: 3.1.0
+info:
+  description: "Sales call compliance and coaching. Authenticate with `Authorization:\
+    \ Bearer latte_…`. Every response carries RateLimit-Limit, RateLimit-Remaining\
+    \ and RateLimit-Reset headers. Create requests accept an `Idempotency-Key` header.\
+    \ Webhooks are signed with `Latte-Signature`; see the `webhooks` section."
+  license:
+    name: MIT
+  title: Latte API
+  version: 0.3.0
+servers:
+- url: /
+security:
+- apiKey: []
+tags:
+- description: "Who the key acts as, and the agents, teams and products to upload\
+    \ against."
+  name: Account
+- description: "Calls with their transcript, score and findings."
+  name: Calls
+- description: "Add calls: sign upload URLs for recordings and confirm them, or send\
+    \ transcripts with no audio."
+  name: Uploads
+- description: "Calls uploaded together, with their progress and results."
+  name: Batches
+- description: "Batch results as CSV, and transcripts and recordings as a ZIP."
+  name: Exports
+- description: "Scores and flags grouped by team, product, agent or language."
+  name: Analytics
+- description: Endpoints that receive signed events. The events themselves are described
+    under `webhooks`.
+  name: Webhooks
+paths:
+  /api/me:
+    get:
+      description: ""
+      operationId: getMe
+      parameters: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: The manager the key acts as
+      tags:
+      - Account
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/reference:
+    get:
+      description: Needs the `calls:read` scope.
+      operationId: getReference
+      parameters: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reference"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Agents, teams and products to upload against"
+      tags:
+      - Account
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/calls:
+    get:
+      description: "Filter by status, flag, agent, team, product, language, batch\
+        \ or text. Paged with `limit` and `page`, or `cursor`. Needs the `calls:read`\
+        \ scope."
+      operationId: listCalls
+      parameters:
+      - explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          enum:
+          - uploaded
+          - transcribing
+          - transcribed
+          - scoring
+          - scored
+          - failed
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: needsReview
+        required: false
+        schema:
+          enum:
+          - "true"
+          - "false"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: agentId
+        required: false
+        schema:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: teamId
+        required: false
+        schema:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: productId
+        required: false
+        schema:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: language
+        required: false
+        schema:
+          enum:
+          - en-IN
+          - hi-IN
+          - bn-IN
+          - ta-IN
+          - te-IN
+          - kn-IN
+          - ml-IN
+          - mr-IN
+          - gu-IN
+          - od-IN
+          - pa-IN
+          - auto
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: flag
+        required: false
+        schema:
+          enum:
+          - flagged
+          - passed
+          - pending
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: q
+        required: false
+        schema:
+          maxLength: 100
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: batchId
+        required: false
+        schema:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: archived
+        required: false
+        schema:
+          enum:
+          - "true"
+          - "false"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: groupBy
+        required: false
+        schema:
+          enum:
+          - agent
+          - team
+          - product
+          - language
+          - status
+          - flag
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 50
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: page
+        required: false
+        schema:
+          maximum: 10000
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallList"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: List calls
+      tags:
+      - Calls
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/calls/{id}:
+    get:
+      description: Personal data in the transcript and quotes is masked for API keys.
+        Needs the `calls:read` scope.
+      operationId: getCall
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: One call with its transcript and findings
+      tags:
+      - Calls
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/calls/{id}/audio-url:
+    post:
+      description: Needs the `calls:read` scope.
+      operationId: getAudioUrl
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AudioUrlRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudioUrl"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: A short-lived link to the recording
+      tags:
+      - Calls
+      x-rate-limit-bucket: read
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/uploads/sign:
+    post:
+      description: "PUT each file to its `signedUrl`, then call confirmUploads with\
+        \ the returned paths. Needs the `calls:write` scope."
+      operationId: signUploads
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadSignRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadSignResponse"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Signed upload URLs for up to 50 recordings
+      tags:
+      - Uploads
+      x-rate-limit-bucket: single or batch
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/uploads/confirm:
+    post:
+      description: Accepts an `Idempotency-Key` header. Needs the `calls:write` scope.
+      operationId: confirmUploads
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadConfirmRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Create calls from uploaded recordings, into a new or existing batch"
+      tags:
+      - Uploads
+      x-rate-limit-bucket: single or batch
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/uploads/transcripts:
+    post:
+      description: "Give times on every line or on none; without times, findings point\
+        \ to line numbers. Accepts an `Idempotency-Key` header. Needs the `calls:write`\
+        \ scope."
+      operationId: uploadTranscripts
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TranscriptUploadRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Create calls from transcripts, with no audio, into a new or existing\
+        \ batch"
+      tags:
+      - Uploads
+      x-rate-limit-bucket: single or batch
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/calls/{id}/retry:
+    post:
+      description: Needs the `calls:write` scope.
+      operationId: retryCall
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallRetryResponse"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Queue a failed or stuck call again
+      tags:
+      - Calls
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+  /api/calls/{id}/archive:
+    post:
+      description: Needs the `calls:write` scope.
+      operationId: archiveCall
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Done; no body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Hide a call from lists
+      tags:
+      - Calls
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+  /api/calls/{id}/unarchive:
+    post:
+      description: Needs the `calls:write` scope.
+      operationId: unarchiveCall
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Done; no body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Bring an archived call back
+      tags:
+      - Calls
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+  /api/batches:
+    get:
+      description: Needs the `batches:read` scope.
+      operationId: listBatches
+      parameters:
+      - explode: true
+        in: query
+        name: q
+        required: false
+        schema:
+          maxLength: 100
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: state
+        required: false
+        schema:
+          enum:
+          - processing
+          - completed
+          - has_failures
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: archived
+        required: false
+        schema:
+          enum:
+          - "true"
+          - "false"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 10000
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchList"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: List batches
+      tags:
+      - Batches
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/batches/{id}:
+    get:
+      description: Needs the `batches:read` scope.
+      operationId: getBatch
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: One batch with its progress and results
+      tags:
+      - Batches
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+    patch:
+      description: Needs the `batches:write` scope.
+      operationId: updateBatch
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchUpdateRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Rename or archive a batch
+      tags:
+      - Batches
+      x-rate-limit-bucket: single
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/batches/{id}/retry-failed:
+    post:
+      description: Accepts an `Idempotency-Key` header. Needs the `batches:write`
+        scope.
+      operationId: retryFailedCalls
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchRetryResponse"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Queue every failed call in the batch again
+      tags:
+      - Batches
+      x-rate-limit-bucket: batch
+      x-accepts:
+      - application/json
+  /api/batches/{id}/results.csv:
+    get:
+      description: Needs the `exports:read` scope.
+      operationId: getBatchResultsCsv
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                format: binary
+                type: string
+          description: The file
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Results, one row per call and one column per rubric item"
+      tags:
+      - Exports
+      x-rate-limit-bucket: bulk
+      x-accepts:
+      - application/json
+      - text/csv
+  /api/batches/{id}/export.zip:
+    get:
+      description: Needs the `exports:read` scope.
+      operationId: exportBatchZip
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - explode: true
+        in: query
+        name: include
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/zip:
+              schema:
+                format: binary
+                type: string
+          description: The file
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Results, transcripts and recordings as a ZIP (up to 200 calls)"
+      tags:
+      - Exports
+      x-rate-limit-bucket: bulk
+      x-accepts:
+      - application/json
+      - application/zip
+  /api/dashboard:
+    get:
+      description: Needs the `analytics:read` scope.
+      operationId: getDashboard
+      parameters:
+      - explode: true
+        in: query
+        name: groupBy
+        required: false
+        schema:
+          default: team
+          enum:
+          - team
+          - product
+          - agent
+          - language
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: from
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: to
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Results grouped by team, product, agent or language"
+      tags:
+      - Analytics
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/dashboard/highlights:
+    get:
+      description: Needs the `analytics:read` scope.
+      operationId: getHighlights
+      parameters:
+      - explode: true
+        in: query
+        name: from
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: to
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlights"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: The period's headline numbers and highlights
+      tags:
+      - Analytics
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/dashboard/leaderboard:
+    get:
+      description: Needs the `analytics:read` scope.
+      operationId: getLeaderboard
+      parameters:
+      - explode: true
+        in: query
+        name: groupBy
+        required: false
+        schema:
+          default: agent
+          enum:
+          - team
+          - product
+          - agent
+          - language
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: q
+        required: false
+        schema:
+          maxLength: 100
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: sort
+        required: false
+        schema:
+          default: avgScore
+          enum:
+          - name
+          - calls
+          - avgScore
+          - flagRate
+          - breaches
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: dir
+        required: false
+        schema:
+          default: desc
+          enum:
+          - asc
+          - desc
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 10000
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 25
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: minCalls
+        required: false
+        schema:
+          default: 1
+          maximum: 10000
+          minimum: 0
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: from
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: to
+        required: false
+        schema:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Leaderboard"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "A sorted, paged ranking of any grouping"
+      tags:
+      - Analytics
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/webhooks:
+    get:
+      description: Needs the `webhooks:write` scope.
+      operationId: listWebhooks
+      parameters: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpointList"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: List webhook endpoints
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+    post:
+      description: Accepts an `Idempotency-Key` header. Needs the `webhooks:write`
+        scope.
+      operationId: createWebhook
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedWebhook"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Register an https endpoint; the signing secret is returned once
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: single
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/webhooks/{id}:
+    delete:
+      description: Needs the `webhooks:write` scope.
+      operationId: deleteWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Done; no body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Delete an endpoint and its deliveries
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+    get:
+      description: Needs the `webhooks:write` scope.
+      operationId: getWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: One webhook endpoint
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+    patch:
+      description: Needs the `webhooks:write` scope.
+      operationId: updateWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebhookRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Change the URL, events or description, or turn it off and on"
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: single
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /api/webhooks/{id}/test:
+    post:
+      description: Needs the `webhooks:write` scope.
+      operationId: testWebhook
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queued"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Send a ping event to this endpoint
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+  /api/webhooks/{id}/deliveries:
+    get:
+      description: Needs the `webhooks:write` scope.
+      operationId: listWebhookDeliveries
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          enum:
+          - pending
+          - succeeded
+          - failed
+          type: string
+        style: form
+      - explode: true
+        in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          maximum: 10000
+          minimum: 1
+          type: integer
+        style: form
+      - explode: true
+        in: query
+        name: limit
+        required: false
+        schema:
+          default: 25
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: "Deliveries to this endpoint, newest first"
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: read
+      x-accepts:
+      - application/json
+  /api/webhooks/{id}/deliveries/{deliveryId}/redeliver:
+    post:
+      description: Needs the `webhooks:write` scope.
+      operationId: redeliverWebhookDelivery
+      parameters:
+      - explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      - explode: false
+        in: path
+        name: deliveryId
+        required: true
+        schema:
+          format: uuid
+          type: string
+        style: simple
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Queued"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Error: 400, 401, 403, 404, 409, 413, 422 or 429 (with Retry-After)"
+      summary: Send a delivery again now
+      tags:
+      - Webhooks
+      x-rate-limit-bucket: single
+      x-accepts:
+      - application/json
+components:
+  schemas:
+    Me:
+      additionalProperties: false
+      example:
+        id: id
+        email: email
+        displayName: displayName
+        role: qa_reviewer
+        agentId: agentId
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        displayName:
+          type: string
+        role:
+          enum:
+          - qa_reviewer
+          - agent
+          - manager
+          type: string
+        agentId:
+          nullable: true
+          type: string
+      required:
+      - agentId
+      - displayName
+      - email
+      - id
+      - role
+    Reference:
+      additionalProperties: {}
+      example:
+        agents:
+        - id: id
+          name: name
+          teamId: teamId
+          externalCode: externalCode
+        - id: id
+          name: name
+          teamId: teamId
+          externalCode: externalCode
+        teams:
+        - id: id
+          name: name
+        - id: id
+          name: name
+        products:
+        - id: id
+          name: name
+        - id: id
+          name: name
+      properties:
+        agents:
+          items:
+            $ref: "#/components/schemas/Reference_agents_inner"
+          type: array
+          default: null
+        teams:
+          items:
+            $ref: "#/components/schemas/Reference_teams_inner"
+          type: array
+          default: null
+        products:
+          items:
+            $ref: "#/components/schemas/Reference_teams_inner"
+          type: array
+          default: null
+      required:
+      - agents
+      - products
+      - teams
+    CallSummary:
+      additionalProperties: false
+      example:
+        id: id
+        agentId: agentId
+        agentName: agentName
+        teamName: teamName
+        productName: productName
+        callDate: callDate
+        originalFilename: originalFilename
+        language: en-IN
+        status: uploaded
+        error: error
+        durationMs: 0.8008281904610115
+        createdAt: createdAt
+        overallScore: 6.027456183070403
+        judgeStatus: judgeStatus
+        needsReview: true
+        reviewStatus: not_required
+        breaches: 1.4658129805029452
+        missed: 5.962133916683182
+        flag: flagged
+        archivedAt: archivedAt
+        batchId: batchId
+        batchName: batchName
+        input: audio
+        timed: true
+      properties:
+        id:
+          type: string
+        agentId:
+          type: string
+        agentName:
+          type: string
+        teamName:
+          type: string
+        productName:
+          type: string
+        callDate:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        originalFilename:
+          type: string
+        language:
+          enum:
+          - en-IN
+          - hi-IN
+          - bn-IN
+          - ta-IN
+          - te-IN
+          - kn-IN
+          - ml-IN
+          - mr-IN
+          - gu-IN
+          - od-IN
+          - pa-IN
+          - auto
+          type: string
+        status:
+          enum:
+          - uploaded
+          - transcribing
+          - transcribed
+          - scoring
+          - scored
+          - failed
+          type: string
+        error:
+          nullable: true
+          type: string
+        durationMs:
+          nullable: true
+          type: number
+        createdAt:
+          type: string
+        overallScore:
+          nullable: true
+          type: number
+        judgeStatus:
+          nullable: true
+          type: string
+        needsReview:
+          nullable: true
+          type: boolean
+        reviewStatus:
+          enum:
+          - not_required
+          - pending
+          - done
+          nullable: true
+          type: string
+        breaches:
+          type: number
+        missed:
+          type: number
+        flag:
+          enum:
+          - flagged
+          - passed
+          - pending
+          type: string
+        archivedAt:
+          nullable: true
+          type: string
+        batchId:
+          type: string
+        batchName:
+          type: string
+        input:
+          default: audio
+          enum:
+          - audio
+          - transcript
+          type: string
+        timed:
+          default: true
+          type: boolean
+      required:
+      - agentId
+      - agentName
+      - archivedAt
+      - batchId
+      - batchName
+      - breaches
+      - callDate
+      - createdAt
+      - durationMs
+      - error
+      - flag
+      - id
+      - input
+      - judgeStatus
+      - language
+      - missed
+      - needsReview
+      - originalFilename
+      - overallScore
+      - productName
+      - reviewStatus
+      - status
+      - teamName
+      - timed
+    CallList:
+      additionalProperties: false
+      example:
+        items:
+        - id: id
+          agentId: agentId
+          agentName: agentName
+          teamName: teamName
+          productName: productName
+          callDate: callDate
+          originalFilename: originalFilename
+          language: en-IN
+          status: uploaded
+          error: error
+          durationMs: 0.8008281904610115
+          createdAt: createdAt
+          overallScore: 6.027456183070403
+          judgeStatus: judgeStatus
+          needsReview: true
+          reviewStatus: not_required
+          breaches: 1.4658129805029452
+          missed: 5.962133916683182
+          flag: flagged
+          archivedAt: archivedAt
+          batchId: batchId
+          batchName: batchName
+          input: audio
+          timed: true
+        - id: id
+          agentId: agentId
+          agentName: agentName
+          teamName: teamName
+          productName: productName
+          callDate: callDate
+          originalFilename: originalFilename
+          language: en-IN
+          status: uploaded
+          error: error
+          durationMs: 0.8008281904610115
+          createdAt: createdAt
+          overallScore: 6.027456183070403
+          judgeStatus: judgeStatus
+          needsReview: true
+          reviewStatus: not_required
+          breaches: 1.4658129805029452
+          missed: 5.962133916683182
+          flag: flagged
+          archivedAt: archivedAt
+          batchId: batchId
+          batchName: batchName
+          input: audio
+          timed: true
+        nextCursor: nextCursor
+        total: 5.637376656633329
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/CallSummary"
+          type: array
+          default: null
+        nextCursor:
+          nullable: true
+          type: string
+        total:
+          type: number
+      required:
+      - items
+      - nextCursor
+      - total
+    Segment:
+      additionalProperties: {}
+      example:
+        seq: 1.4658129805029452
+        channel: agent
+        startMs: 5.962133916683182
+        endMs: 5.637376656633329
+        text: text
+        language: language
+        avgLogprob: 2.3021358869347655
+        words:
+        - text: text
+          startMs: 7.061401241503109
+          endMs: 9.301444243932576
+        - text: text
+          startMs: 7.061401241503109
+          endMs: 9.301444243932576
+        translation: translation
+      properties:
+        seq:
+          type: number
+        channel:
+          enum:
+          - agent
+          - customer
+          type: string
+        startMs:
+          type: number
+        endMs:
+          type: number
+        text:
+          type: string
+        language:
+          nullable: true
+          type: string
+        avgLogprob:
+          nullable: true
+          type: number
+        words:
+          items:
+            $ref: "#/components/schemas/Segment_words_inner"
+          type: array
+          default: null
+        translation:
+          nullable: true
+          type: string
+      required:
+      - avgLogprob
+      - channel
+      - endMs
+      - language
+      - seq
+      - startMs
+      - text
+      - translation
+      - words
+    Finding:
+      additionalProperties: {}
+      example:
+        id: id
+        itemKey: itemKey
+        itemType: mandatory
+        status: met
+        source: llm
+        quote: quote
+        segmentSeq: 3.616076749251911
+        startMs: 2.027123023002322
+        endMs: 4.145608029883936
+        channel: agent
+        rationale: rationale
+        grounded: true
+        review:
+          decision: agree
+          note: note
+          reviewerName: reviewerName
+          updatedAt: updatedAt
+      properties:
+        id:
+          type: string
+        itemKey:
+          type: string
+        itemType:
+          enum:
+          - mandatory
+          - prohibited
+          - quality
+          type: string
+        status:
+          enum:
+          - met
+          - missed
+          - partial
+          - breach
+          - clear
+          - not_applicable
+          type: string
+        source:
+          enum:
+          - llm
+          - rule
+          - reviewer
+          type: string
+        quote:
+          nullable: true
+          type: string
+        segmentSeq:
+          nullable: true
+          type: number
+        startMs:
+          nullable: true
+          type: number
+        endMs:
+          nullable: true
+          type: number
+        channel:
+          enum:
+          - agent
+          - customer
+          nullable: true
+          type: string
+        rationale:
+          nullable: true
+          type: string
+        grounded:
+          type: boolean
+        review:
+          $ref: "#/components/schemas/Finding_review"
+      required:
+      - channel
+      - endMs
+      - grounded
+      - id
+      - itemKey
+      - itemType
+      - quote
+      - rationale
+      - review
+      - segmentSeq
+      - source
+      - startMs
+      - status
+    CallDetail:
+      additionalProperties: {}
+      example:
+        call:
+          id: id
+          agentId: agentId
+          agentName: agentName
+          teamName: teamName
+          productName: productName
+          callDate: callDate
+          originalFilename: originalFilename
+          language: en-IN
+          status: uploaded
+          error: error
+          durationMs: 0.8008281904610115
+          createdAt: createdAt
+          overallScore: 6.027456183070403
+          judgeStatus: judgeStatus
+          needsReview: true
+          reviewStatus: not_required
+          breaches: 1.4658129805029452
+          missed: 5.962133916683182
+          flag: flagged
+          archivedAt: archivedAt
+          batchId: batchId
+          batchName: batchName
+          input: audio
+          timed: true
+        audioAvailable: true
+        score:
+          id: id
+          rubricVersion: 0.8008281904610115
+          talkRatio: 6.027456183070403
+          coachingNotes:
+          - coachingNotes
+          - coachingNotes
+          judgeError: judgeError
+          reviewedBy: reviewedBy
+          reviewedAt: reviewedAt
+        rubricItems:
+        - key: key
+          type: mandatory
+          label: label
+          description: description
+        - key: key
+          type: mandatory
+          label: label
+          description: description
+        segments:
+        - seq: 1.4658129805029452
+          channel: agent
+          startMs: 5.962133916683182
+          endMs: 5.637376656633329
+          text: text
+          language: language
+          avgLogprob: 2.3021358869347655
+          words:
+          - text: text
+            startMs: 7.061401241503109
+            endMs: 9.301444243932576
+          - text: text
+            startMs: 7.061401241503109
+            endMs: 9.301444243932576
+          translation: translation
+        - seq: 1.4658129805029452
+          channel: agent
+          startMs: 5.962133916683182
+          endMs: 5.637376656633329
+          text: text
+          language: language
+          avgLogprob: 2.3021358869347655
+          words:
+          - text: text
+            startMs: 7.061401241503109
+            endMs: 9.301444243932576
+          - text: text
+            startMs: 7.061401241503109
+            endMs: 9.301444243932576
+          translation: translation
+        findings:
+        - id: id
+          itemKey: itemKey
+          itemType: mandatory
+          status: met
+          source: llm
+          quote: quote
+          segmentSeq: 3.616076749251911
+          startMs: 2.027123023002322
+          endMs: 4.145608029883936
+          channel: agent
+          rationale: rationale
+          grounded: true
+          review:
+            decision: agree
+            note: note
+            reviewerName: reviewerName
+            updatedAt: updatedAt
+        - id: id
+          itemKey: itemKey
+          itemType: mandatory
+          status: met
+          source: llm
+          quote: quote
+          segmentSeq: 3.616076749251911
+          startMs: 2.027123023002322
+          endMs: 4.145608029883936
+          channel: agent
+          rationale: rationale
+          grounded: true
+          review:
+            decision: agree
+            note: note
+            reviewerName: reviewerName
+            updatedAt: updatedAt
+        redactions: 7.386281948385884
+      properties:
+        call:
+          $ref: "#/components/schemas/CallSummary"
+        audioAvailable:
+          type: boolean
+        score:
+          $ref: "#/components/schemas/CallDetail_score"
+        rubricItems:
+          items:
+            $ref: "#/components/schemas/CallDetail_rubricItems_inner"
+          type: array
+          default: null
+        segments:
+          items:
+            $ref: "#/components/schemas/Segment"
+          type: array
+          default: null
+        findings:
+          items:
+            $ref: "#/components/schemas/Finding"
+          type: array
+          default: null
+        redactions:
+          default: 0
+          type: number
+      required:
+      - audioAvailable
+      - call
+      - findings
+      - redactions
+      - rubricItems
+      - score
+      - segments
+    AudioUrl:
+      additionalProperties: false
+      example:
+        url: url
+        expiresInSeconds: 0.8008281904610115
+      properties:
+        url:
+          type: string
+        expiresInSeconds:
+          type: number
+      required:
+      - expiresInSeconds
+      - url
+    CallRetryResponse:
+      additionalProperties: false
+      example:
+        status: queued
+      properties:
+        status:
+          enum:
+          - queued
+          type: string
+      required:
+      - status
+    UploadSignResponse:
+      additionalProperties: {}
+      example:
+        uploads:
+        - path: path
+          signedUrl: signedUrl
+          token: token
+        - path: path
+          signedUrl: signedUrl
+          token: token
+      properties:
+        uploads:
+          items:
+            $ref: "#/components/schemas/UploadSignResponse_uploads_inner"
+          type: array
+          default: null
+      required:
+      - uploads
+    UploadResult:
+      additionalProperties: false
+      example:
+        batchId: batchId
+        callIds:
+        - callIds
+        - callIds
+      properties:
+        batchId:
+          type: string
+        callIds:
+          items:
+            type: string
+          type: array
+          default: null
+      required:
+      - batchId
+      - callIds
+    BatchSummary:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+        source: web
+        createdBy: createdBy
+        createdByName: createdByName
+        createdAt: createdAt
+        archivedAt: archivedAt
+        total: 0.8008281904610115
+        queued: 6.027456183070403
+        processing: 1.4658129805029452
+        scored: 5.962133916683182
+        failed: 5.637376656633329
+        flagged: 2.3021358869347655
+        avgScore: 7.061401241503109
+        state: processing
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          enum:
+          - web
+          - api
+          type: string
+        createdBy:
+          type: string
+        createdByName:
+          type: string
+        createdAt:
+          type: string
+        archivedAt:
+          nullable: true
+          type: string
+        total:
+          type: number
+        queued:
+          type: number
+        processing:
+          type: number
+        scored:
+          type: number
+        failed:
+          type: number
+        flagged:
+          type: number
+        avgScore:
+          nullable: true
+          type: number
+        state:
+          enum:
+          - processing
+          - completed
+          - has_failures
+          type: string
+      required:
+      - archivedAt
+      - avgScore
+      - createdAt
+      - createdBy
+      - createdByName
+      - failed
+      - flagged
+      - id
+      - name
+      - processing
+      - queued
+      - scored
+      - source
+      - state
+      - total
+    BatchList:
+      additionalProperties: false
+      example:
+        items:
+        - id: id
+          name: name
+          source: web
+          createdBy: createdBy
+          createdByName: createdByName
+          createdAt: createdAt
+          archivedAt: archivedAt
+          total: 0.8008281904610115
+          queued: 6.027456183070403
+          processing: 1.4658129805029452
+          scored: 5.962133916683182
+          failed: 5.637376656633329
+          flagged: 2.3021358869347655
+          avgScore: 7.061401241503109
+          state: processing
+        - id: id
+          name: name
+          source: web
+          createdBy: createdBy
+          createdByName: createdByName
+          createdAt: createdAt
+          archivedAt: archivedAt
+          total: 0.8008281904610115
+          queued: 6.027456183070403
+          processing: 1.4658129805029452
+          scored: 5.962133916683182
+          failed: 5.637376656633329
+          flagged: 2.3021358869347655
+          avgScore: 7.061401241503109
+          state: processing
+        total: 9.301444243932576
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/BatchSummary"
+          type: array
+          default: null
+        total:
+          type: number
+      required:
+      - items
+      - total
+    BatchDetail:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+        source: web
+        createdBy: createdBy
+        createdByName: createdByName
+        createdAt: createdAt
+        archivedAt: archivedAt
+        total: 0.8008281904610115
+        queued: 6.027456183070403
+        processing: 1.4658129805029452
+        scored: 5.962133916683182
+        failed: 5.637376656633329
+        flagged: 2.3021358869347655
+        avgScore: 7.061401241503109
+        state: processing
+        breaches: 9.301444243932576
+        audioMs: 3.616076749251911
+        costUsd: 2.027123023002322
+        lastActivityAt: lastActivityAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        source:
+          enum:
+          - web
+          - api
+          type: string
+        createdBy:
+          type: string
+        createdByName:
+          type: string
+        createdAt:
+          type: string
+        archivedAt:
+          nullable: true
+          type: string
+        total:
+          type: number
+        queued:
+          type: number
+        processing:
+          type: number
+        scored:
+          type: number
+        failed:
+          type: number
+        flagged:
+          type: number
+        avgScore:
+          nullable: true
+          type: number
+        state:
+          enum:
+          - processing
+          - completed
+          - has_failures
+          type: string
+        breaches:
+          type: number
+        audioMs:
+          type: number
+        costUsd:
+          type: number
+        lastActivityAt:
+          nullable: true
+          type: string
+      required:
+      - archivedAt
+      - audioMs
+      - avgScore
+      - breaches
+      - costUsd
+      - createdAt
+      - createdBy
+      - createdByName
+      - failed
+      - flagged
+      - id
+      - lastActivityAt
+      - name
+      - processing
+      - queued
+      - scored
+      - source
+      - state
+      - total
+    BatchRetryResponse:
+      additionalProperties: false
+      example:
+        queued: 0.8008281904610115
+      properties:
+        queued:
+          type: number
+      required:
+      - queued
+    Dashboard:
+      additionalProperties: {}
+      example:
+        groupBy: team
+        groups:
+        - id: id
+          name: name
+          callsScored: 0.8008281904610115
+          flagged: 6.027456183070403
+          flagRate: 1.4658129805029452
+          avgOverall: 5.962133916683182
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        - id: id
+          name: name
+          callsScored: 0.8008281904610115
+          flagged: 6.027456183070403
+          flagRate: 1.4658129805029452
+          avgOverall: 5.962133916683182
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+      properties:
+        groupBy:
+          enum:
+          - team
+          - product
+          - agent
+          - language
+          type: string
+        groups:
+          items:
+            $ref: "#/components/schemas/Dashboard_groups_inner"
+          type: array
+          default: null
+      required:
+      - groupBy
+      - groups
+    Highlights:
+      additionalProperties: {}
+      example:
+        from: from
+        to: to
+        previousFrom: previousFrom
+        previousTo: previousTo
+        kpis:
+          callsScored:
+            value: 0.8008281904610115
+            previous: 6.027456183070403
+          avgScore:
+            value: 0.8008281904610115
+            previous: 6.027456183070403
+          flagRate:
+            value: 0.8008281904610115
+            previous: 6.027456183070403
+          breaches:
+            value: 0.8008281904610115
+            previous: 6.027456183070403
+          reviewBacklog: 1.4658129805029452
+        topAgents:
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        bottomAgents:
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        riskiestTeams:
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        failedItems:
+        - key: key
+          label: label
+          failed: 3.616076749251911
+          applicable: 2.027123023002322
+          failRate: 4.145608029883936
+        - key: key
+          label: label
+          failed: 3.616076749251911
+          applicable: 2.027123023002322
+          failRate: 4.145608029883936
+        languageMix:
+        - name: name
+          calls: 7.386281948385884
+        - name: name
+          calls: 7.386281948385884
+        productMix:
+        - name: name
+          calls: 7.386281948385884
+        - name: name
+          calls: 7.386281948385884
+      properties:
+        from:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        to:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        previousFrom:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        previousTo:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        kpis:
+          $ref: "#/components/schemas/Highlights_kpis"
+        topAgents:
+          items:
+            $ref: "#/components/schemas/Highlights_topAgents_inner"
+          type: array
+          default: null
+        bottomAgents:
+          items:
+            $ref: "#/components/schemas/Highlights_topAgents_inner"
+          type: array
+          default: null
+        riskiestTeams:
+          items:
+            $ref: "#/components/schemas/Highlights_topAgents_inner"
+          type: array
+          default: null
+        failedItems:
+          items:
+            $ref: "#/components/schemas/Highlights_failedItems_inner"
+          type: array
+          default: null
+        languageMix:
+          items:
+            $ref: "#/components/schemas/Highlights_languageMix_inner"
+          type: array
+          default: null
+        productMix:
+          items:
+            $ref: "#/components/schemas/Highlights_languageMix_inner"
+          type: array
+          default: null
+      required:
+      - bottomAgents
+      - failedItems
+      - from
+      - kpis
+      - languageMix
+      - previousFrom
+      - previousTo
+      - productMix
+      - riskiestTeams
+      - to
+      - topAgents
+    Leaderboard:
+      additionalProperties: {}
+      example:
+        groupBy: team
+        items:
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        - id: id
+          name: name
+          callsScored: 5.962133916683182
+          flagged: 5.637376656633329
+          flagRate: 2.3021358869347655
+          avgOverall: 7.061401241503109
+          breaches: 9.301444243932576
+          items:
+          - key: key
+            passRate: 5.637376656633329
+          - key: key
+            passRate: 5.637376656633329
+        total: 0.8008281904610115
+      properties:
+        groupBy:
+          enum:
+          - team
+          - product
+          - agent
+          - language
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/Highlights_topAgents_inner"
+          type: array
+          default: null
+        total:
+          type: number
+      required:
+      - groupBy
+      - items
+      - total
+    WebhookEndpoint:
+      additionalProperties: false
+      example:
+        id: id
+        url: url
+        description: description
+        events:
+        - call.scored
+        - call.scored
+        createdBy: createdBy
+        createdAt: createdAt
+        disabledAt: disabledAt
+        disabledReason: disabledReason
+        consecutiveFailures: 0.8008281904610115
+        deliveries24h: 6.027456183070403
+        failures24h: 1.4658129805029452
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        description:
+          type: string
+        events:
+          items:
+            enum:
+            - call.scored
+            - call.failed
+            - batch.completed
+            - alert.triggered
+            - digest.ready
+            type: string
+          type: array
+          default: null
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+        disabledAt:
+          nullable: true
+          type: string
+        disabledReason:
+          nullable: true
+          type: string
+        consecutiveFailures:
+          type: number
+        deliveries24h:
+          type: number
+        failures24h:
+          type: number
+      required:
+      - consecutiveFailures
+      - createdAt
+      - createdBy
+      - deliveries24h
+      - description
+      - disabledAt
+      - disabledReason
+      - events
+      - failures24h
+      - id
+      - url
+    WebhookEndpointList:
+      additionalProperties: false
+      example:
+        items:
+        - id: id
+          url: url
+          description: description
+          events:
+          - call.scored
+          - call.scored
+          createdBy: createdBy
+          createdAt: createdAt
+          disabledAt: disabledAt
+          disabledReason: disabledReason
+          consecutiveFailures: 0.8008281904610115
+          deliveries24h: 6.027456183070403
+          failures24h: 1.4658129805029452
+        - id: id
+          url: url
+          description: description
+          events:
+          - call.scored
+          - call.scored
+          createdBy: createdBy
+          createdAt: createdAt
+          disabledAt: disabledAt
+          disabledReason: disabledReason
+          consecutiveFailures: 0.8008281904610115
+          deliveries24h: 6.027456183070403
+          failures24h: 1.4658129805029452
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/WebhookEndpoint"
+          type: array
+          default: null
+      required:
+      - items
+    CreatedWebhook:
+      additionalProperties: false
+      example:
+        endpoint:
+          id: id
+          url: url
+          description: description
+          events:
+          - call.scored
+          - call.scored
+          createdBy: createdBy
+          createdAt: createdAt
+          disabledAt: disabledAt
+          disabledReason: disabledReason
+          consecutiveFailures: 0.8008281904610115
+          deliveries24h: 6.027456183070403
+          failures24h: 1.4658129805029452
+        secret: secret
+      properties:
+        endpoint:
+          $ref: "#/components/schemas/WebhookEndpoint"
+        secret:
+          type: string
+      required:
+      - endpoint
+      - secret
+    WebhookDelivery:
+      additionalProperties: false
+      example:
+        id: id
+        eventId: eventId
+        eventType: eventType
+        status: pending
+        attempts: 0.8008281904610115
+        lastStatus: 6.027456183070403
+        lastError: lastError
+        nextAttemptAt: nextAttemptAt
+        deliveredAt: deliveredAt
+        createdAt: createdAt
+        payload: ""
+      properties:
+        id:
+          type: string
+        eventId:
+          type: string
+        eventType:
+          type: string
+        status:
+          enum:
+          - pending
+          - succeeded
+          - failed
+          type: string
+        attempts:
+          type: number
+        lastStatus:
+          nullable: true
+          type: number
+        lastError:
+          nullable: true
+          type: string
+        nextAttemptAt:
+          type: string
+        deliveredAt:
+          nullable: true
+          type: string
+        createdAt:
+          type: string
+        payload: {}
+      required:
+      - attempts
+      - createdAt
+      - deliveredAt
+      - eventId
+      - eventType
+      - id
+      - lastError
+      - lastStatus
+      - nextAttemptAt
+      - payload
+      - status
+    WebhookDeliveryList:
+      additionalProperties: false
+      example:
+        items:
+        - id: id
+          eventId: eventId
+          eventType: eventType
+          status: pending
+          attempts: 0.8008281904610115
+          lastStatus: 6.027456183070403
+          lastError: lastError
+          nextAttemptAt: nextAttemptAt
+          deliveredAt: deliveredAt
+          createdAt: createdAt
+          payload: ""
+        - id: id
+          eventId: eventId
+          eventType: eventType
+          status: pending
+          attempts: 0.8008281904610115
+          lastStatus: 6.027456183070403
+          lastError: lastError
+          nextAttemptAt: nextAttemptAt
+          deliveredAt: deliveredAt
+          createdAt: createdAt
+          payload: ""
+        total: 1.4658129805029452
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+          type: array
+          default: null
+        total:
+          type: number
+      required:
+      - items
+      - total
+    Queued:
+      additionalProperties: false
+      example:
+        queued: -2147483648
+      properties:
+        queued:
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+      required:
+      - queued
+    Error:
+      additionalProperties: {}
+      example:
+        error:
+          code: code
+          message: message
+          requestId: requestId
+      properties:
+        error:
+          $ref: "#/components/schemas/Error_error"
+      required:
+      - error
+    CallScoredData:
+      additionalProperties: {}
+      description: A call has its score and findings.
+      properties:
+        callId:
+          type: string
+        batchId:
+          type: string
+        agentId:
+          type: string
+        teamId:
+          type: string
+        productId:
+          type: string
+        overallScore:
+          description: 0 to 100; null when the judge could not score
+          nullable: true
+          type: number
+        needsReview:
+          description: true when QA should look at the call
+          nullable: true
+          type: boolean
+        judgeStatus:
+          description: "ok, or why the judge failed"
+          nullable: true
+          type: string
+        breaches:
+          description: prohibited statements found
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+      required:
+      - agentId
+      - batchId
+      - breaches
+      - callId
+      - judgeStatus
+      - needsReview
+      - overallScore
+      - productId
+      - teamId
+    CallFailedData:
+      additionalProperties: {}
+      description: A call could not be processed; retry it once the reason is fixed.
+      properties:
+        callId:
+          type: string
+        reason:
+          description: "why processing gave up, for a person"
+          type: string
+      required:
+      - callId
+      - reason
+    BatchCompletedData:
+      additionalProperties: {}
+      description: Every call in a batch is scored or failed.
+      properties:
+        batchId:
+          type: string
+        name:
+          type: string
+        total:
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+        scored:
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+        failed:
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+      required:
+      - batchId
+      - failed
+      - name
+      - scored
+      - total
+    AlertTriggeredData:
+      additionalProperties: {}
+      description: "An alert rule fired for a team, product or agent."
+      properties:
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        metric:
+          enum:
+          - flag_rate
+          - avg_score
+          - item_fail_rate
+          type: string
+        scope:
+          enum:
+          - team
+          - product
+          - agent
+          type: string
+        itemKey:
+          description: "the rubric item, for an item fail-rate rule"
+          nullable: true
+          type: string
+        groupId:
+          type: string
+        groupName:
+          type: string
+        value:
+          description: the metric over the recent window
+          type: number
+        baseline:
+          description: the metric over the baseline window
+          type: number
+        calls:
+          maximum: 9007199254740991
+          minimum: -9007199254740991
+          type: integer
+      required:
+      - baseline
+      - calls
+      - groupId
+      - groupName
+      - itemKey
+      - metric
+      - ruleId
+      - ruleName
+      - scope
+      - value
+    DigestReadyData:
+      additionalProperties: {}
+      description: A daily or weekly digest was built.
+      properties:
+        frequency:
+          enum:
+          - daily
+          - weekly
+          type: string
+        from:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        to:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        kpis:
+          $ref: "#/components/schemas/Highlights_kpis"
+      required:
+      - frequency
+      - from
+      - kpis
+      - to
+    PingData:
+      additionalProperties: {}
+      description: "A test event, sent from the endpoint page or the API."
+      properties:
+        message:
+          type: string
+      required:
+      - message
+    CallScoredEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - call.scored
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/CallScoredData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    CallFailedEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - call.failed
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/CallFailedData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    BatchCompletedEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - batch.completed
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/BatchCompletedData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    AlertTriggeredEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - alert.triggered
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/AlertTriggeredData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    DigestReadyEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - digest.ready
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/DigestReadyData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    PingEvent:
+      additionalProperties: {}
+      properties:
+        id:
+          description: the event id; the same on every redelivery
+          type: string
+        type:
+          enum:
+          - ping
+          type: string
+        createdAt:
+          description: ISO 8601
+          type: string
+        data:
+          $ref: "#/components/schemas/PingData"
+      required:
+      - createdAt
+      - data
+      - id
+      - type
+    AudioUrlRequest:
+      default: {}
+      example:
+        download: true
+      properties:
+        download:
+          type: boolean
+    UploadSignRequest:
+      example:
+        files:
+        - name: name
+          type: audio/wav
+          size: 4198646
+        - name: name
+          type: audio/wav
+          size: 4198646
+        - name: name
+          type: audio/wav
+          size: 4198646
+        - name: name
+          type: audio/wav
+          size: 4198646
+        - name: name
+          type: audio/wav
+          size: 4198646
+      properties:
+        files:
+          items:
+            $ref: "#/components/schemas/UploadSignRequest_files_inner"
+          maxItems: 50
+          minItems: 1
+          type: array
+          default: null
+      required:
+      - files
+    UploadConfirmRequest:
+      example:
+        files:
+        - path: path
+          originalFilename: originalFilename
+          mimeType: audio/wav
+          sizeBytes: 4198646
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+        - path: path
+          originalFilename: originalFilename
+          mimeType: audio/wav
+          sizeBytes: 4198646
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+        - path: path
+          originalFilename: originalFilename
+          mimeType: audio/wav
+          sizeBytes: 4198646
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+        - path: path
+          originalFilename: originalFilename
+          mimeType: audio/wav
+          sizeBytes: 4198646
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+        - path: path
+          originalFilename: originalFilename
+          mimeType: audio/wav
+          sizeBytes: 4198646
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+        batchId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        batchName: batchName
+      properties:
+        files:
+          items:
+            $ref: "#/components/schemas/UploadConfirmRequest_files_inner"
+          maxItems: 50
+          minItems: 1
+          type: array
+          default: null
+        batchId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        batchName:
+          maxLength: 120
+          minLength: 1
+          type: string
+      required:
+      - files
+    TranscriptLine:
+      example:
+        speaker: agent
+        text: text
+        startMs: 2147483647
+        endMs: 2147483647
+      properties:
+        speaker:
+          enum:
+          - agent
+          - customer
+          type: string
+        text:
+          maxLength: 5000
+          minLength: 1
+          type: string
+        startMs:
+          maximum: 9007199254740991
+          minimum: 0
+          type: integer
+        endMs:
+          maximum: 9007199254740991
+          minimum: 0
+          type: integer
+      required:
+      - speaker
+      - text
+    TranscriptUploadRequest:
+      example:
+        transcripts:
+        - originalFilename: originalFilename
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+          lines:
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+        - originalFilename: originalFilename
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+          lines:
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+        - originalFilename: originalFilename
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+          lines:
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+        - originalFilename: originalFilename
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+          lines:
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+        - originalFilename: originalFilename
+          agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          callDate: callDate
+          language: en-IN
+          lines:
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+          - speaker: agent
+            text: text
+            startMs: 2147483647
+            endMs: 2147483647
+        batchId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        batchName: batchName
+      properties:
+        transcripts:
+          items:
+            $ref: "#/components/schemas/TranscriptUploadRequest_transcripts_inner"
+          maxItems: 50
+          minItems: 1
+          type: array
+          default: null
+        batchId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        batchName:
+          maxLength: 120
+          minLength: 1
+          type: string
+      required:
+      - transcripts
+    BatchUpdateRequest:
+      example:
+        name: name
+        archived: true
+      properties:
+        name:
+          maxLength: 120
+          minLength: 1
+          type: string
+        archived:
+          type: boolean
+    CreateWebhookRequest:
+      example:
+        url: url
+        description: ""
+        events:
+        - call.scored
+        - call.scored
+      properties:
+        url:
+          maxLength: 2000
+          type: string
+        description:
+          default: ""
+          maxLength: 200
+          type: string
+        events:
+          items:
+            enum:
+            - call.scored
+            - call.failed
+            - batch.completed
+            - alert.triggered
+            - digest.ready
+            type: string
+          minItems: 1
+          type: array
+          default: null
+      required:
+      - events
+      - url
+    UpdateWebhookRequest:
+      example:
+        url: url
+        description: description
+        events:
+        - call.scored
+        - call.scored
+        enabled: true
+      properties:
+        url:
+          maxLength: 2000
+          type: string
+        description:
+          maxLength: 200
+          type: string
+        events:
+          items:
+            enum:
+            - call.scored
+            - call.failed
+            - batch.completed
+            - alert.triggered
+            - digest.ready
+            type: string
+          minItems: 1
+          type: array
+          default: null
+        enabled:
+          type: boolean
+    Reference_agents_inner:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+        teamId: teamId
+        externalCode: externalCode
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        teamId:
+          type: string
+        externalCode:
+          nullable: true
+          type: string
+      required:
+      - externalCode
+      - id
+      - name
+      - teamId
+    Reference_teams_inner:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - name
+    Segment_words_inner:
+      additionalProperties: false
+      example:
+        text: text
+        startMs: 7.061401241503109
+        endMs: 9.301444243932576
+      properties:
+        text:
+          type: string
+        startMs:
+          type: number
+        endMs:
+          type: number
+      required:
+      - endMs
+      - startMs
+      - text
+    Finding_review:
+      additionalProperties: false
+      example:
+        decision: agree
+        note: note
+        reviewerName: reviewerName
+        updatedAt: updatedAt
+      nullable: true
+      properties:
+        decision:
+          enum:
+          - agree
+          - disagree
+          type: string
+        note:
+          nullable: true
+          type: string
+        reviewerName:
+          type: string
+        updatedAt:
+          type: string
+      required:
+      - decision
+      - note
+      - reviewerName
+      - updatedAt
+    CallDetail_score:
+      additionalProperties: false
+      example:
+        id: id
+        rubricVersion: 0.8008281904610115
+        talkRatio: 6.027456183070403
+        coachingNotes:
+        - coachingNotes
+        - coachingNotes
+        judgeError: judgeError
+        reviewedBy: reviewedBy
+        reviewedAt: reviewedAt
+      nullable: true
+      properties:
+        id:
+          type: string
+        rubricVersion:
+          type: number
+        talkRatio:
+          type: number
+        coachingNotes:
+          items:
+            type: string
+          type: array
+          default: null
+        judgeError:
+          nullable: true
+          type: string
+        reviewedBy:
+          nullable: true
+          type: string
+        reviewedAt:
+          nullable: true
+          type: string
+      required:
+      - coachingNotes
+      - id
+      - judgeError
+      - reviewedAt
+      - reviewedBy
+      - rubricVersion
+      - talkRatio
+    CallDetail_rubricItems_inner:
+      additionalProperties: false
+      example:
+        key: key
+        type: mandatory
+        label: label
+        description: description
+      properties:
+        key:
+          description: Stable key; findings and agreement group by it
+          pattern: "^[a-z][a-z0-9_]{1,40}$"
+          type: string
+        type:
+          enum:
+          - mandatory
+          - prohibited
+          - quality
+          type: string
+        label:
+          maxLength: 60
+          minLength: 1
+          type: string
+        description:
+          maxLength: 600
+          minLength: 1
+          type: string
+      required:
+      - description
+      - key
+      - label
+      - type
+    UploadSignResponse_uploads_inner:
+      additionalProperties: false
+      example:
+        path: path
+        signedUrl: signedUrl
+        token: token
+      properties:
+        path:
+          type: string
+        signedUrl:
+          type: string
+        token:
+          type: string
+      required:
+      - path
+      - signedUrl
+      - token
+    Dashboard_groups_inner_items_inner:
+      additionalProperties: false
+      example:
+        key: key
+        passRate: 5.637376656633329
+      properties:
+        key:
+          type: string
+        passRate:
+          nullable: true
+          type: number
+      required:
+      - key
+      - passRate
+    Dashboard_groups_inner:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+        callsScored: 0.8008281904610115
+        flagged: 6.027456183070403
+        flagRate: 1.4658129805029452
+        avgOverall: 5.962133916683182
+        items:
+        - key: key
+          passRate: 5.637376656633329
+        - key: key
+          passRate: 5.637376656633329
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        callsScored:
+          type: number
+        flagged:
+          type: number
+        flagRate:
+          nullable: true
+          type: number
+        avgOverall:
+          nullable: true
+          type: number
+        items:
+          items:
+            $ref: "#/components/schemas/Dashboard_groups_inner_items_inner"
+          type: array
+          default: null
+      required:
+      - avgOverall
+      - callsScored
+      - flagRate
+      - flagged
+      - id
+      - items
+      - name
+    Highlights_kpis_callsScored:
+      additionalProperties: false
+      example:
+        value: 0.8008281904610115
+        previous: 6.027456183070403
+      properties:
+        value:
+          nullable: true
+          type: number
+        previous:
+          nullable: true
+          type: number
+      required:
+      - previous
+      - value
+    Highlights_kpis:
+      additionalProperties: false
+      example:
+        callsScored:
+          value: 0.8008281904610115
+          previous: 6.027456183070403
+        avgScore:
+          value: 0.8008281904610115
+          previous: 6.027456183070403
+        flagRate:
+          value: 0.8008281904610115
+          previous: 6.027456183070403
+        breaches:
+          value: 0.8008281904610115
+          previous: 6.027456183070403
+        reviewBacklog: 1.4658129805029452
+      properties:
+        callsScored:
+          $ref: "#/components/schemas/Highlights_kpis_callsScored"
+        avgScore:
+          $ref: "#/components/schemas/Highlights_kpis_callsScored"
+        flagRate:
+          $ref: "#/components/schemas/Highlights_kpis_callsScored"
+        breaches:
+          $ref: "#/components/schemas/Highlights_kpis_callsScored"
+        reviewBacklog:
+          type: number
+      required:
+      - avgScore
+      - breaches
+      - callsScored
+      - flagRate
+      - reviewBacklog
+    Highlights_topAgents_inner:
+      additionalProperties: false
+      example:
+        id: id
+        name: name
+        callsScored: 5.962133916683182
+        flagged: 5.637376656633329
+        flagRate: 2.3021358869347655
+        avgOverall: 7.061401241503109
+        breaches: 9.301444243932576
+        items:
+        - key: key
+          passRate: 5.637376656633329
+        - key: key
+          passRate: 5.637376656633329
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        callsScored:
+          type: number
+        flagged:
+          type: number
+        flagRate:
+          nullable: true
+          type: number
+        avgOverall:
+          nullable: true
+          type: number
+        breaches:
+          type: number
+        items:
+          items:
+            $ref: "#/components/schemas/Dashboard_groups_inner_items_inner"
+          type: array
+          default: null
+      required:
+      - avgOverall
+      - breaches
+      - callsScored
+      - flagRate
+      - flagged
+      - id
+      - items
+      - name
+    Highlights_failedItems_inner:
+      additionalProperties: false
+      example:
+        key: key
+        label: label
+        failed: 3.616076749251911
+        applicable: 2.027123023002322
+        failRate: 4.145608029883936
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        failed:
+          type: number
+        applicable:
+          type: number
+        failRate:
+          type: number
+      required:
+      - applicable
+      - failRate
+      - failed
+      - key
+      - label
+    Highlights_languageMix_inner:
+      additionalProperties: false
+      example:
+        name: name
+        calls: 7.386281948385884
+      properties:
+        name:
+          type: string
+        calls:
+          type: number
+      required:
+      - calls
+      - name
+    Error_error:
+      additionalProperties: false
+      example:
+        code: code
+        message: message
+        requestId: requestId
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+      required:
+      - code
+      - message
+    UploadSignRequest_files_inner:
+      example:
+        name: name
+        type: audio/wav
+        size: 4198646
+      properties:
+        name:
+          maxLength: 255
+          minLength: 1
+          type: string
+        type:
+          enum:
+          - audio/wav
+          - audio/mpeg
+          type: string
+        size:
+          exclusiveMinimum: true
+          maximum: 52428800
+          minimum: 0
+          type: integer
+      required:
+      - name
+      - size
+      - type
+    UploadConfirmRequest_files_inner:
+      example:
+        path: path
+        originalFilename: originalFilename
+        mimeType: audio/wav
+        sizeBytes: 4198646
+        agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        callDate: callDate
+        language: en-IN
+      properties:
+        path:
+          minLength: 1
+          type: string
+        originalFilename:
+          maxLength: 255
+          minLength: 1
+          type: string
+        mimeType:
+          enum:
+          - audio/wav
+          - audio/mpeg
+          type: string
+        sizeBytes:
+          exclusiveMinimum: true
+          maximum: 52428800
+          minimum: 0
+          type: integer
+        agentId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        teamId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        productId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        callDate:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        language:
+          default: en-IN
+          enum:
+          - en-IN
+          - hi-IN
+          - bn-IN
+          - ta-IN
+          - te-IN
+          - kn-IN
+          - ml-IN
+          - mr-IN
+          - gu-IN
+          - od-IN
+          - pa-IN
+          - auto
+          type: string
+      required:
+      - agentId
+      - callDate
+      - mimeType
+      - originalFilename
+      - path
+      - productId
+      - sizeBytes
+      - teamId
+    TranscriptUploadRequest_transcripts_inner:
+      example:
+        originalFilename: originalFilename
+        agentId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        teamId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        productId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        callDate: callDate
+        language: en-IN
+        lines:
+        - speaker: agent
+          text: text
+          startMs: 2147483647
+          endMs: 2147483647
+        - speaker: agent
+          text: text
+          startMs: 2147483647
+          endMs: 2147483647
+        - speaker: agent
+          text: text
+          startMs: 2147483647
+          endMs: 2147483647
+        - speaker: agent
+          text: text
+          startMs: 2147483647
+          endMs: 2147483647
+        - speaker: agent
+          text: text
+          startMs: 2147483647
+          endMs: 2147483647
+      properties:
+        originalFilename:
+          maxLength: 255
+          minLength: 1
+          type: string
+        agentId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        teamId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        productId:
+          format: uuid
+          pattern: "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          type: string
+        callDate:
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+          type: string
+        language:
+          default: en-IN
+          enum:
+          - en-IN
+          - hi-IN
+          - bn-IN
+          - ta-IN
+          - te-IN
+          - kn-IN
+          - ml-IN
+          - mr-IN
+          - gu-IN
+          - od-IN
+          - pa-IN
+          - auto
+          type: string
+        lines:
+          items:
+            $ref: "#/components/schemas/TranscriptLine"
+          maxItems: 3000
+          minItems: 1
+          type: array
+          default: null
+      required:
+      - agentId
+      - callDate
+      - lines
+      - originalFilename
+      - productId
+      - teamId
+  securitySchemes:
+    apiKey:
+      bearerFormat: latte_<prefix>_<secret>
+      scheme: bearer
+      type: http
+

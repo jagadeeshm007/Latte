@@ -1,0 +1,15 @@
+# OpenAPI Generator settings for sdks/java (sdks/README.md).
+generatorName: java
+library: native
+groupId: io.github.jagadeeshm007
+artifactId: latte-sdk
+invokerPackage: io.github.jagadeeshm007.latte
+apiPackage: io.github.jagadeeshm007.latte.api
+modelPackage: io.github.jagadeeshm007.latte.model
+useJakartaEe: true
+openApiNullable: false
+hideGenerationTimestamp: true
+gitHost: github.com
+gitUserId: jagadeeshm007
+gitRepoId: Latte
+useSingleRequestParameter: true
