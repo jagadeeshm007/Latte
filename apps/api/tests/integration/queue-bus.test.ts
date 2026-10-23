@@ -38,7 +38,7 @@ busContract(
   },
   {
     retryLimit: RETRY_LIMIT,
-    capabilities: { delay: true, priority: true, dedupe: false },
+    capabilities: { delivery: "pull", delay: true, priority: true, dedupe: false },
     deliveryTimeoutMs: 10_000,
   },
 );

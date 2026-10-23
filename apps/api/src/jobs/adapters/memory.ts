@@ -148,7 +148,7 @@ export function memoryBus(options: MemoryBusOptions = {}): MemoryBus {
 
   return {
     name: "memory",
-    capabilities: { delay: true, priority: true, dedupe: true },
+    capabilities: { delivery: "pull", delay: true, priority: true, dedupe: true },
     publish: (topic, message, opts) => {
       const key = opts?.idempotencyKey;
       const pending = entries.some(
