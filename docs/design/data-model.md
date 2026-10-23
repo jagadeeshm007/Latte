@@ -10,7 +10,7 @@ Generated views: schema.sql, data-dictionary.csv and erd.md are written by `docs
 
 ### PostgreSQL
 
-**Holds:** every entity: calls, transcripts, scores, findings, reviews, rubric versions, the model cost log, audit events. pg-boss keeps its queue tables in its own schema in the same database (ADR-0004). Recordings are objects in Supabase Storage, not rows.
+**Holds:** every entity: calls, transcripts, scores, findings, reviews, rubric versions, the model cost log, audit events. When pg-boss is the queue (local, Docker, tests; ADR-0032), it keeps its tables in its own schema in the same database; on Vercel the queue is Vercel Queues and holds no tables here. Recordings are objects in Supabase Storage, not rows.
 
 | Considered | Why not |
 | --- | --- |
@@ -477,7 +477,7 @@ Erasure: a customer erasure request cannot be matched to calls today; no custome
 
 1. `0001_initial.sql`: schema.sql as written (new database; no hot table yet). Expand phase only.
 3. `0002_upload_once_and_decision_audit.sql`: unique partial index on `calls.storage_path` and two new audit actions (`finding_decided`, `call_retried`), from the security review. calls is small at this stage; build the index `CONCURRENTLY` outside a transaction once it passes 10^6 rows.
-2. pg-boss creates its own schema on first start; not a migration of ours.
+2. pg-boss, when it is the queue, creates its own schema on first start; not a migration of ours.
 
 ## 10. Rules and deviations
 

@@ -12,7 +12,7 @@ Serves: REQ-001 to REQ-036; US-00-001, US-00-002, US-00-003, US-01-001 to US-01-
 
 ## Summary
 
-One TypeScript monorepo holds a React web app, an Express API and a pg-boss worker on a hosted Supabase project; the browser uploads recordings straight to a private bucket, the worker transcribes each stereo channel with Groq Whisper and scores the transcript with one Groq gpt-oss-120b call, and every model call passes one budgeted gateway. A rule net runs on every transcript before and independently of the judge, findings take their quotes and times from transcript segments in code, and any call whose judge fails still reaches QA as unscored, so a prohibited statement reaches a human even when the model misses it; the eval gate fails any judge miss on planted breaches.
+One TypeScript monorepo holds a React web app, an Express API and background jobs behind a queue port (Vercel Queues on Vercel, pg-boss elsewhere, ADR-0032) on a hosted Supabase project; the browser uploads recordings straight to a private bucket, the worker transcribes each stereo channel with Groq Whisper and scores the transcript with one Groq gpt-oss-120b call, and every model call passes one budgeted gateway. A rule net runs on every transcript before and independently of the judge, findings take their quotes and times from transcript segments in code, and any call whose judge fails still reaches QA as unscored, so a prohibited statement reaches a human even when the model misses it; the eval gate fails any judge miss on planted breaches.
 
 Diagram: docs/architecture/diagrams/SalesCall_SystemArchitecture_v1.svg
 
@@ -74,7 +74,7 @@ flowchart LR
   end
   subgraph Node
     A[API, Express]
-    K[Worker, pg-boss]
+    K[Worker, queue port: Vercel Queues or pg-boss]
     G[packages/gateway]
   end
   subgraph Supabase
@@ -118,7 +118,7 @@ Eval harness: CLI scripts in evals/: render seed audio, run the judge in replay 
 
 ## 4. Data
 
-Entities (full model in docs/design/data-model.md): profiles, teams, products, agents, rubrics (versioned), calls, transcript_segments, scores, findings, finding_reviews, model_calls, audit_events; pg-boss owns its own schema. All in Supabase Postgres 17, written by the API and the worker only. Migrations are SQL files applied in order by a migrate script; RLS is enabled with no anon or authenticated policies on every app table (ADR-0003).
+Entities (full model in docs/design/data-model.md): profiles, teams, products, agents, rubrics (versioned), calls, transcript_segments, scores, findings, finding_reviews, model_calls, audit_events; when pg-boss is the queue it owns its own schema. All in Supabase Postgres 17, written by the API and the worker only. Migrations are SQL files applied in order by a migrate script; RLS is enabled with no anon or authenticated policies on every app table (ADR-0003).
 
 Growth, assumption: 20,000 calls a month of 6 minutes: about 100 segments per call is 2M segment rows a month; about 12 findings per call is 240K rows; about 3 model_calls per call is 60K rows. Recordings: a 6-minute stereo MP3 at 128 kbps is about 5.8 MB, so about 116 GB a month; with 90-day audio retention (Q-004) about 350 GB held.
 
@@ -186,7 +186,7 @@ QA load, assumption: one missed mandatory item flags a call, so most calls may q
 
 Cost per call: Whisper large v3 at $0.111 an hour for 360 s is $0.011; judge 3,000 input at $0.15/M plus 1,000 output at $0.60/M is $0.001; about $0.012 a call, about $245 a month for 20,000 calls. The default monthly budget of USD 5 covers about 400 calls and suits development (Q-003).
 
-Connections: the API and the worker each run a pool of at most 5 plus pg-boss's own pool of at most 4: 18 connections, under the session pooler's default of 15 per user on the smallest compute only if pools are kept at 3, 3 and 2; the configured maxima are set to fit the plan's pool size (assumption: read it from the dashboard before pilot).
+Connections, with pg-boss as the queue: the API and the worker each run a pool of at most 5 plus pg-boss's own pool of at most 4: 18 connections, under the session pooler's default of 15 per user on the smallest compute only if pools are kept at 3, 3 and 2; the configured maxima are set to fit the plan's pool size (assumption: read it from the dashboard before pilot).
 
 Parallelism: the limiter is per process; with N worker processes each is configured to the plan limit divided by N.
 
@@ -227,7 +227,7 @@ Phase 1, development: seeded users, reference data and the 20 synthetic calls; m
 
 - Express 5 (ADR-0002): needs Architect or Engineering Manager sign-off; pending.
 - Supabase hosted Auth and Storage (ADR-0003): needs sign-off; pending.
-- pg-boss (ADR-0004): needs sign-off; pending.
+- pg-boss (ADR-0004): narrowed by ADR-0032, which puts jobs behind a queue port; pg-boss stays the adapter for local, Docker and tests.
 - Groq Whisper, gpt-oss-120b, Orpheus (ADR-0006, ADR-0007, ADR-0009): needs sign-off; pending.
 - coss ui (ADR-0008): needs sign-off; pending.
 
