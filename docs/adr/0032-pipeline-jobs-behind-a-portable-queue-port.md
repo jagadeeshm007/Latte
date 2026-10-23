@@ -62,3 +62,14 @@ Jobs go through a **queue port** that names no queue system, and each system is 
 ## Commits us to
 
 The queue port and its contract tests as the only way jobs are published and consumed; the envelope `{ v, callId, reschedules? }`; the topic names `transcribe` and `score`; the idempotency key of call id and stage; and the pg_cron sweep as the recovery path for lost publishes.
+
+## Update, 2026-10-23 (SCC-4-2, the Vercel Queues adapter)
+
+What the build settled, without changing the decision:
+
+- **Pace is configuration, not a constant.** The owner is moving from Groq's free tier to production limits, so the caps are not fixed at 2 and 3. `QUEUE_MAX_CONCURRENCY_TRANSCRIBE` and `QUEUE_MAX_CONCURRENCY_SCORE`, read at build time, set each trigger's `maxConcurrency`; unset means no cap. A rate-limited job still takes the existing delayed reschedule (up to `MAX_RESCHEDULES`).
+- **One consumer function, two triggers.** `scripts/vercel-build.js` writes `functions/api/queues/pipeline.func` when `JOB_QUEUE=vercel`, subscribed to `transcribe` and `score` with `maxDeliveries` 5. Its path is under `/api`, so an outside request is routed to the API function instead.
+- **Push is a declared capability.** The port's capabilities gain `delivery: "pull" | "push"`. The shared contract suite drives adapters through `fetch`, so it covers the pull adapters (memory, pg-boss); the Vercel adapter's tests cover the envelope, the attempt count and the retry backoff (30 s doubling, at most an hour) against a stand-in client.
+- **The sweep.** With push delivery the minute cron runs `republishWaiting` instead of a drain: calls in `uploaded` or `transcribed` for more than 10 minutes are published again, at most 100 a run, keyed by call id, stage and the time the call last moved, so a repeat sweep is dropped and a call that moved on gets a new key.
+- **No priority on Vercel Queues.** An interactive upload waits behind a batch in the same topic.
+
