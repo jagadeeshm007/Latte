@@ -1,6 +1,7 @@
 // Smoke test of the built Vercel output (make vercel-smoke): loads the bundled
-// function the way Vercel's Node launcher does, serves it on a local port and
-// checks that it answers. Needs the local Postgres from `make db`; it never
+// functions the way Vercel's Node launcher does, serves them on a local port and
+// checks that they answer, with the environment the build wrote for them. The
+// Vercel Queues consumer is only loaded, since its messages come from Vercel. Needs the local Postgres from `make db`; it never
 // reaches Supabase, a model provider or anything else outside this machine.
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -30,8 +31,20 @@ function expect(name, ok, detail) {
   if (!ok) failures.push(name);
 }
 
+function finish() {
+  process.stdout.write(
+    failures.length ? `vercel-smoke: ${failures.length} failed\n` : "vercel-smoke: passed\n",
+  );
+  process.exit(failures.length ? 1 : 0);
+}
+
 const vc = JSON.parse(readFileSync(path.join(out, "functions/api.func/.vc-config.json"), "utf8"));
 expect("function runs on Node 24", vc.runtime === "nodejs24.x", vc.runtime);
+expect(
+  "production runs on Vercel Queues unless JOB_QUEUE=pgboss",
+  vc.environment.JOB_QUEUE === (process.env.JOB_QUEUE || "vercel"),
+  vc.environment.JOB_QUEUE,
+);
 const config = JSON.parse(readFileSync(path.join(out, "config.json"), "utf8"));
 expect(
   "every cron path is a cron route",
@@ -69,6 +82,8 @@ const migrations = createPool({
 await migrate(migrations);
 await migrations.end();
 
+// As Vercel does: the build's environment for the function; the client needs the region Vercel sets.
+Object.assign(process.env, vc.environment, { VERCEL_REGION: "bom1" });
 const handlerUrl = pathToFileURL(path.join(out, "functions/api.func", vc.handler)).href;
 const { default: handler } = await import(handlerUrl);
 const server = createServer(handler);
@@ -87,13 +102,31 @@ const work = await fetch(`${base}/api/cron/work`, {
 });
 const workBody = await work.json();
 expect(
-  "the work cron drains the queues",
+  "the work cron answers",
   work.status === 200 && workBody.task === "work",
   `${work.status} ${JSON.stringify(workBody)}`,
 );
 
 server.close();
-process.stdout.write(
-  failures.length ? `vercel-smoke: ${failures.length} failed\n` : "vercel-smoke: passed\n",
+
+const queueDir = path.join(out, "functions/api/queues/pipeline.func");
+// A pg-boss build has no consumer function.
+if (vc.environment.JOB_QUEUE !== "vercel") finish();
+const queueVc = JSON.parse(readFileSync(path.join(queueDir, ".vc-config.json"), "utf8"));
+const triggers = queueVc.experimentalTriggers ?? [];
+expect(
+  "the queue consumer is subscribed to transcribe and score",
+  triggers.map((t) => `${t.type}:${t.topic}:${t.consumer}:${t.maxDeliveries}`).join(",") ===
+    "queue/v2beta:transcribe:pipeline:5,queue/v2beta:score:pipeline:5",
+  JSON.stringify(triggers),
 );
-process.exit(failures.length ? 1 : 0);
+const { default: consume } = await import(pathToFileURL(path.join(queueDir, queueVc.handler)).href);
+const queueServer = createServer(consume);
+await new Promise((resolve) => queueServer.listen(0, "127.0.0.1", resolve));
+const queueAddress = queueServer.address();
+const queuePort = typeof queueAddress === "object" && queueAddress ? queueAddress.port : 0;
+const probe = await fetch(`http://127.0.0.1:${queuePort}/`);
+expect("the queue consumer loads and answers", probe.status === 200, probe.status);
+queueServer.close();
+
+finish();

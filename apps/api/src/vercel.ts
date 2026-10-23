@@ -1,77 +1,54 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
-import { attachDatabasePool, getDeadline, waitUntil } from "@vercel/functions";
+import { getDeadline, waitUntil } from "@vercel/functions";
 
 import { buildApp } from "./app.ts";
 import { createAuthAdmin } from "./auth-admin.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
-import { databaseUrl, loadConfig, jwksUrl, sslOptions } from "./config.ts";
-import { createPool } from "./db/pool.ts";
+import { jwksUrl } from "./config.ts";
 import { backgroundDrain } from "./jobs/background.ts";
 import { drainQueues, runPipelineJob } from "./jobs/drain.ts";
 import { handlePurge, type JobDeps } from "./jobs/handlers.ts";
-import { bossEnqueue, bossJobSource, type Enqueue, startBoss } from "./jobs/queue.ts";
+import type { Enqueue } from "./jobs/queue.ts";
 import { evaluateAlerts, recordStatus, sendDigests } from "./jobs/scheduled.ts";
-import { createLogger } from "./logger.ts";
+import { republishWaiting } from "./jobs/sweep.ts";
 import type { CronJobs } from "./routes/cron.ts";
-import { createStorage } from "./storage.ts";
+import { openServerless } from "./serverless.ts";
 import { deliverDue } from "./webhooks/sender.ts";
-import { buildGateway } from "./wiring.ts";
 
 // The Vercel Function entry point (ADR-0020, ADR-0029): the same Express app
 // as server.ts, built once per instance and exported as the request handler.
-// pg-boss runs without supervision or schedules here. Queuing a job starts a
-// drain after the response (waitUntil), so a call is processed within seconds
-// of its upload; /api/cron/*, called every minute by Supabase pg_cron, is the
-// backstop for retries and anything a drain left behind.
+// With a pull queue (pg-boss), queuing a job starts a drain after the response
+// (waitUntil), so a call is processed within seconds of its upload, and
+// /api/cron/work, called every minute by Supabase pg_cron, is the backstop for
+// retries and anything a drain left behind. With a push queue (Vercel Queues)
+// the platform calls the consumer function (vercel-queues.ts) per message, and
+// the minute cron sweeps for calls whose publish was lost (ADR-0032).
 
 /** Must match maxDuration in the function's .vc-config.json (scripts/vercel-build.js). */
 export const MAX_DURATION_SECONDS = 300;
 /** Kept back from the deadline for the job in hand to finish. */
 const MARGIN_MS = 60_000;
 
-const loaded = loadConfig();
-// The build ships the database CA beside the bundle; a relative path means "next to this file".
-const config = {
-  ...loaded,
-  DB_SSL_CA: loaded.DB_SSL_CA && path.resolve(import.meta.dirname, loaded.DB_SSL_CA),
-};
-const log = createLogger(config);
-const pool = createPool(config);
-const storage = createStorage(config);
-const boss = await startBoss(
-  databaseUrl(config),
-  sslOptions(config, (p) => readFileSync(p, "utf8")),
-  { maintenance: false, max: 1 },
-);
-// Idle connections are closed before Vercel suspends the instance.
-attachDatabasePool(pool);
+const { config, log, pool, storage, bus, queue, gateway, webhookDeps } = await openServerless();
+const push = bus.capabilities.delivery === "push";
 
-const queue = bossEnqueue(boss);
-/** Queues a job and, unless it is meant to wait, starts draining after this response. */
+/** Queues a job and, with a pull queue and unless it is meant to wait, starts draining after this response. */
 const enqueue: Enqueue = async (name, data, options) => {
   await queue(name, data, options);
-  if (!options?.startAfterSeconds) kick();
+  if (!push && !options?.startAfterSeconds) kick();
 };
-const jobDeps: JobDeps = {
-  pool,
-  storage,
-  gateway: buildGateway(config, pool),
-  enqueue,
-  log,
-};
-const webhookDeps = { pool, log, encryptionKey: config.DATA_ENCRYPTION_KEY };
+const jobDeps: JobDeps = { pool, storage, gateway, enqueue, log };
 
 const kick = backgroundDrain({
   drain: async (budgetMs) => {
+    if (push) {
+      const swept = await republishWaiting({ pool, bus, log });
+      return { ...swept, delivered: await deliverDue(webhookDeps) };
+    }
     // Move expired and retryable jobs along, as a long-lived worker's supervisor would.
-    await boss.supervise();
-    const drained = await drainQueues(
-      bossJobSource(boss),
-      (name, job) => runPipelineJob(jobDeps, name, job),
-      { budgetMs },
-    );
+    await bus.maintain?.();
+    const drained = await drainQueues(bus, (name, job) => runPipelineJob(jobDeps, name, job), {
+      budgetMs,
+    });
     const delivered = await deliverDue(webhookDeps);
     return { ...drained, delivered };
   },

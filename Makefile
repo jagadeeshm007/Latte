@@ -106,7 +106,7 @@ build-web: ## Production build of the web app
 vercel-build: ## Build .vercel/output: static web app, bundled API function, routes and crons (ADR-0020)
 	node scripts/vercel-build.js
 
-vercel-smoke: db vercel-build ## Load the built function locally and check it answers (needs Docker)
+vercel-smoke: db vercel-build ## Load both built functions locally and check they answer (needs Docker)
 	node scripts/vercel-smoke.js
 
 supabase-cron: ## Schedule /api/cron/* every minute from the hosted Supabase (LATTE_URL=...; you run it, it changes production)

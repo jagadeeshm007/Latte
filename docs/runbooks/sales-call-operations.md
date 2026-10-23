@@ -6,24 +6,25 @@ Owner: engineering. Covers the checks named in HLD section 10. There is no alert
 
 - `GET /api/health`: the API process is up.
 - `GET /api/ready`: the API can reach Postgres. A 503 means the database is unreachable: check the Supabase status page and the session pooler host in `.env`.
-- Worker: its log prints `worker started`; each call logs `transcribed` and `scored` with the call id.
+- Jobs: where they run depends on `JOB_QUEUE` (ADR-0032). On Vercel (Vercel Queues, the default there) the queue consumer function logs `transcribed` and `scored` with the call id. Locally and in Docker (pg-boss) the worker logs `worker started`, then the same lines.
 
 ## Checks and what to do
 
 | Check | How | Threshold | Action |
 | --- | --- | --- | --- |
-| Failed calls | Calls page, view Failed | more than 5% of an hour's uploads | Read the reason on each call. "Recording must be stereo" needs a new recording. "Budget exhausted" needs `LLM_BUDGET_USD` raised, then Retry. "failed after several attempts" means Groq or Storage errors: check the worker log, then Retry. |
+| Failed calls | Calls page, view Failed | more than 5% of an hour's uploads | Read the reason on each call. "Recording must be stereo" needs a new recording. "Budget exhausted" needs `LLM_BUDGET_USD` raised, then Retry. "failed after several attempts" means Groq or Storage errors: check the worker log (on Vercel, the queue consumer function's log), then Retry. |
 | Unscored calls | Review queue, calls marked Unscored | more than 5% of scored calls | The judge failed (cut off, invalid output, provider). Check `model_calls` errors for purpose `score`; Retry once fixed. |
 | Budget | Dashboard, Model spend | above 80% | Raise `LLM_BUDGET_USD` or slow uploads; at 100% new calls fail with a clear reason. |
-| Dead letters | `SELECT count(*) FROM pgboss.job WHERE name LIKE '%-dead'` | any | Each row is a call whose job gave up; open the call and Retry. |
-| Rate limits | worker log `rate limited, rescheduled` | steady stream | Expected at free Groq limits; jobs reschedule themselves. For volume, move to a paid plan and raise `LIMIT_*` and `WORKER_CONCURRENCY`. |
+| Dead letters (pg-boss only) | `SELECT count(*) FROM pgboss.job WHERE name LIKE '%-dead'` | any | Each row is a call whose job gave up; open the call and Retry. Vercel Queues keeps no dead letters: the last delivery marks the call failed, so it shows under Failed calls. |
+| Calls left waiting | `SELECT count(*) FROM calls WHERE deleted_at IS NULL AND status IN ('uploaded', 'transcribed') AND updated_at < now() - interval '15 minutes'` | any, outside a large batch | On Vercel the minute sweep republishes these (`sweep republished waiting calls`); a count that keeps growing means the consumer is not being called: see "Calls stay Uploaded" in `deploy-vercel.md`. |
+| Rate limits | worker log `rate limited, rescheduled` | steady stream | Expected at free Groq limits; jobs reschedule themselves. For volume, move to a paid plan and raise `LIMIT_*` and `WORKER_CONCURRENCY` (pg-boss) or `QUEUE_MAX_CONCURRENCY_<TOPIC>` (Vercel Queues, then redeploy). |
 
 ## Common operations
 
 - Retry a call: Retry button on the call (QA or manager), or `POST /api/calls/:id/retry`.
 - Change the rubric: Rubric page as a manager; saving makes a new active version; old scores keep theirs.
 - Re-record the eval after a prompt or model change: `make eval-record` (live Groq calls, a few cents), then `make eval`.
-- Rotate keys: Supabase dashboard (secret key, database password) and Groq console; update `.env` and restart the API and worker.
+- Rotate keys: Supabase dashboard (secret key, database password) and Groq console; update `.env` and restart the API and worker; on Vercel, update the project variable and redeploy.
 
 ## Data
 

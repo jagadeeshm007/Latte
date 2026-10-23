@@ -1,47 +1,30 @@
+import type { Delivery, JobBus } from "./bus.ts";
 import { handleScore, handleTranscribe, type JobDeps } from "./handlers.ts";
 import { QUEUES } from "./queue.ts";
 
-// The pipeline's jobs, run two ways from the same code (ADR-0020): the local
-// worker subscribes with boss.work, and on Vercel a cron request drains the
-// queues with drainQueues until its time budget runs out.
-
-export interface CallJobData {
-  callId: string;
-  reschedules?: number;
-}
-
-/** The fields of a fetched pg-boss job the runners read. */
-export interface FetchedJob {
-  id: string;
-  retryCount: number;
-  data: CallJobData;
-}
+// The pipeline's jobs, run two ways from the same code (ADR-0020, ADR-0032):
+// a long-running worker subscribes through the job port, and on Vercel a
+// request drains the queues with drainQueues until its time budget runs out.
 
 export type PipelineQueue = typeof QUEUES.transcribe | typeof QUEUES.score;
 
 /** Transcribe first so a drain moves calls forward in the order they arrived. */
 export const PIPELINE_QUEUES: readonly PipelineQueue[] = [QUEUES.transcribe, QUEUES.score];
 
-/** runPipelineJob hands one fetched job to its handler; a throw means pg-boss retries it. */
+/** runPipelineJob hands one delivery to its handler; a throw means the queue system retries it. */
 export async function runPipelineJob(
   deps: JobDeps,
   queue: PipelineQueue,
-  job: FetchedJob,
+  delivery: Delivery,
 ): Promise<void> {
-  const info = {
-    callId: job.data.callId,
-    retryCount: job.retryCount,
-    reschedules: job.data.reschedules ?? 0,
-  };
+  const { callId, reschedules } = delivery.message;
+  if (!callId) throw new Error(`a ${queue} job needs a callId`);
+  const info = { callId, retryCount: delivery.attempt, reschedules: reschedules ?? 0 };
   await (queue === QUEUES.transcribe ? handleTranscribe(deps, info) : handleScore(deps, info));
 }
 
-/** The slice of pg-boss a drain needs, so tests can drive it without a database. */
-export interface JobSource {
-  fetch(queue: PipelineQueue, batchSize: number): Promise<FetchedJob[]>;
-  complete(queue: PipelineQueue, id: string): Promise<void>;
-  fail(queue: PipelineQueue, id: string, reason: string): Promise<void>;
-}
+/** The pull half of the job port a drain needs, so tests can drive it without a queue system. */
+export type JobSource = Pick<JobBus, "fetch" | "complete" | "fail">;
 
 export interface DrainResult {
   completed: number;
@@ -54,11 +37,11 @@ export interface DrainResult {
  * drainQueues fetches and runs pipeline jobs until the queues are empty or the
  * budget is spent. It only fetches while there is time left, so no job is
  * claimed and then abandoned; a job that outlives the request expires in
- * pg-boss and is retried.
+ * the queue system and is retried.
  */
 export async function drainQueues(
   source: JobSource,
-  run: (queue: PipelineQueue, job: FetchedJob) => Promise<void>,
+  run: (queue: PipelineQueue, job: Delivery) => Promise<void>,
   options: { budgetMs: number; batchSize?: number; now?: () => number },
 ): Promise<DrainResult> {
   const now = options.now ?? Date.now;
