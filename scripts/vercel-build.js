@@ -2,7 +2,7 @@
 //   .vercel/output/static            the web app (Vite build, same-origin API)
 //   .vercel/output/functions/api.func the API as one bundled Node function
 //   .vercel/output/functions/api/queues/pipeline.func
-//                                    with JOB_QUEUE=vercel, the Vercel Queues consumer (ADR-0032)
+//                                    the Vercel Queues consumer (ADR-0032), unless JOB_QUEUE=pgboss
 //   .vercel/output/config.json       routes, SPA fallback and the cron schedule
 // Run it with `make vercel-build`; Vercel runs it as the project's build command.
 // VERCEL_CRON_PLAN=hobby writes daily crons only (Hobby's limit); Supabase
@@ -53,7 +53,16 @@ if (!(plan in SCHEDULES)) {
 
 /** Matches RETRY_LIMIT in apps/api/src/jobs/queue.ts: the first delivery and four retries. */
 const MAX_DELIVERIES = 5;
-const pushQueue = process.env.JOB_QUEUE === "vercel";
+/**
+ * The queue system for this deployment (ADR-0032): Vercel Queues unless
+ * JOB_QUEUE=pgboss is set for the build. The build writes it into each
+ * function's environment, so the functions run what was built.
+ */
+const jobQueue = process.env.JOB_QUEUE || "vercel";
+if (!["vercel", "pgboss"].includes(jobQueue)) {
+  throw new Error(`JOB_QUEUE must be "vercel" or "pgboss", not "${jobQueue}"`);
+}
+const pushQueue = jobQueue === "vercel";
 
 /**
  * QUEUE_MAX_CONCURRENCY_<TOPIC> caps how many messages of a topic run at once,
@@ -91,7 +100,7 @@ const apiRequire = createRequire(path.join(apiDir, "package.json"));
 // given as text in DB_SSL_CA_PEM at build time; it ships beside the bundle and
 // the server certificate is verified. Without it TLS is used unverified.
 // Set here, not as a project variable: NODE_ENV=production there skips devDependencies at install.
-const environment = { NODE_ENV: "production" };
+const environment = { NODE_ENV: "production", JOB_QUEUE: jobQueue };
 if (process.env.DB_SSL_CA_PEM) environment.DB_SSL_CA = "certs/db-ca.crt";
 
 /** bundleFunction builds one entry into a function directory with its .vc-config.json. */
