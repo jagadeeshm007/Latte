@@ -9,7 +9,7 @@ ALL_PACKAGES := $(NODE_PACKAGES) apps/web
 POSTGRES_PORT ?= 54329
 export TEST_DATABASE_URL ?= postgres://postgres:postgres@localhost:$(POSTGRES_PORT)/scc_test
 
-.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack sdks sdks-test up down logs setup-deploy supabase-cron e2e-check clean
+.PHONY: load-seed status help setup dev dev-api dev-worker dev-web check format format-check lint typecheck test vuln eval eval-record render-seed db db-stop migrate seed env-check build-web vercel-build vercel-smoke sdk-build sdk-pack sdks sdks-test licenses up down logs setup-deploy supabase-cron e2e-check clean
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -43,6 +43,7 @@ typecheck: ## tsc --noEmit, every package; the SDK's types and docs/public's API
 	@for p in $(ALL_PACKAGES); do (cd $$p && $(PNPM) exec tsc --noEmit -p tsconfig.json) || exit 1; echo "typecheck: $$p clean"; done
 	@node packages/sdk/scripts/gen-types.ts --check
 	@cd apps/api && $(PNPM) exec tsx src/gen-docs.ts --check
+	@node scripts/gen-licenses.js --check
 
 test: db ## Unit and integration tests with coverage floors (starts Postgres)
 	@set -o pipefail; for p in $(ALL_PACKAGES); do echo "== test $$p"; (cd $$p && $(PNPM) exec vitest run --coverage 2>&1 | grep -E 'Test Files|Tests |ERROR|FAIL|×|AssertionError|Expected|Received' ) || exit 1; done
@@ -125,6 +126,9 @@ sdk-pack: sdk-build ## Pack the SDK as packages/sdk/latte-sdk-<version>.tgz, the
 
 # The Python, Go and Java SDKs are generated (ADR-0031); these run in Docker as you, so no tool is installed here.
 SDK_RUN = docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v "$$PWD:/w"
+
+licenses: ## Rewrite docs/public/legal/licenses.md from pnpm licenses list (after a dependency change)
+	node scripts/gen-licenses.js
 
 sdks: ## Regenerate the Python, Go and Java SDKs in sdks/ from the API's OpenAPI document (Docker)
 	node scripts/gen-sdks.js

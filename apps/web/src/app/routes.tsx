@@ -4,8 +4,11 @@ import {
   createRoute,
   createRouter,
   Navigate,
+  useRouter,
   type RouterHistory,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { z } from "zod";
 
 import { HomeRedirect } from "@/app/HomeRedirect";
 import { NotFound } from "@/app/NotFound";
@@ -20,6 +23,7 @@ import {
   DashboardPage,
   DevelopersPage,
   DocsPage,
+  LandingPage,
   MembersPage,
   NotificationsPage,
   PerformancePage,
@@ -32,9 +36,12 @@ import {
   UploadPage,
   WebhookPage,
 } from "@/app/pages";
+import { safeNext } from "@/app/public-paths";
 import { RootLayout } from "@/app/RootLayout";
 import { RouteError } from "@/app/RouteError";
 import { Loading } from "@/components/states";
+import { useSession } from "@/features/auth/session";
+import { SignInPage } from "@/features/auth/SignInPage";
 import { callsSearchSchema } from "@/features/calls/calls-search";
 import { performanceSearchSchema } from "@/features/manager/performance-search";
 import { settingsSearchSchema } from "@/features/settings/settings-search";
@@ -53,7 +60,42 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 
 const child = { getParentRoute: () => rootRoute };
 
-const homeRoute = createRoute({ ...child, path: "/", component: HomeRedirect });
+const homeRoute = createRoute({
+  ...child,
+  path: "/",
+  // Signed in, each role goes to its own home; signed out, the landing page.
+  component: function HomeRoute() {
+    return useSession().status === "signed_in" ? <HomeRedirect /> : <LandingPage />;
+  },
+});
+const signInRoute = createRoute({
+  ...child,
+  path: "/sign-in",
+  validateSearch: z.object({ next: z.string().optional().catch(undefined) }),
+  component: function SignInRoute() {
+    const { next } = signInRoute.useSearch();
+    const session = useSession();
+    const router = useRouter();
+    const signedIn = session.status === "signed_in";
+    useEffect(() => {
+      if (signedIn) router.history.replace(safeNext(next));
+    }, [signedIn, next, router]);
+    return signedIn ? <Loading shape="app" /> : <SignInPage />;
+  },
+});
+const legalIndexRoute = createRoute({
+  ...child,
+  path: "/legal",
+  component: () => <DocsPage folder="legal" slug="terms" />,
+});
+const legalPageRoute = createRoute({
+  ...child,
+  path: "/legal/$page",
+  component: function LegalPageRoute() {
+    const { page } = legalPageRoute.useParams();
+    return <DocsPage key={page} folder="legal" slug={page} />;
+  },
+});
 const queueRoute = createRoute({ ...child, path: "/queue", component: () => <QueuePage /> });
 const callsRoute = createRoute({
   ...child,
@@ -205,6 +247,9 @@ const agentRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([
   homeRoute,
+  signInRoute,
+  legalIndexRoute,
+  legalPageRoute,
   queueRoute,
   callsRoute,
   callRoute,

@@ -8,7 +8,7 @@ import { App } from "@/app/App";
 import { SignInPage } from "@/features/auth/SignInPage";
 import { detail, scorecard, summary } from "@/test/fixtures";
 import { server } from "@/test/msw";
-import { createTestQueryClient } from "@/test/render";
+import { createTestQueryClient, renderInRouter } from "@/test/render";
 
 // The shell: the sign-in gate, the role-specific menu and home, and routing.
 
@@ -62,17 +62,32 @@ beforeEach(() => {
 });
 
 describe("sign-in gate (US-00-003)", () => {
-  it("shows the sign-in page when signed out", async () => {
+  it("sends a signed-out visitor from a private page to sign-in, remembering where they were going", async () => {
+    session.state = { status: "signed_out" };
+
+    const history = createMemoryHistory({ initialEntries: ["/calls?flag=flagged"] });
+
+    render(<App queryClient={createTestQueryClient()} history={history} />);
+
+    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(history.location.pathname).toBe("/sign-in");
+    expect(new URLSearchParams(history.location.search).get("next")).toBe("/calls?flag=flagged");
+  });
+
+  it("shows the landing page at / when signed out", async () => {
     session.state = { status: "signed_out" };
 
     renderApp("/");
 
-    expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Every sales call checked against your rubric" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Footer" })).toBeInTheDocument();
   });
 
   it("shows any other sign-in error as given, and nothing on success", async () => {
     session.signIn.mockResolvedValueOnce("Email not confirmed").mockResolvedValueOnce(null);
-    render(<SignInPage />);
+    await renderInRouter(<SignInPage />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByText("Email not confirmed")).toBeInTheDocument();
@@ -84,7 +99,7 @@ describe("sign-in gate (US-00-003)", () => {
 
   it("shows a readable error for wrong credentials", async () => {
     session.signIn.mockResolvedValue("Invalid login credentials");
-    render(<SignInPage />);
+    await renderInRouter(<SignInPage />);
 
     await userEvent.type(screen.getByLabelText("Email"), "qa@salescall.test");
     await userEvent.type(screen.getByLabelText("Password"), "wrong");

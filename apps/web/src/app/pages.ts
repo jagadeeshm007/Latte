@@ -65,3 +65,6 @@ export const StatusPage = lazy(() =>
 export const SettingsPage = lazy(() =>
   import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
+export const LandingPage = lazy(() =>
+  import("@/features/landing/LandingPage").then((m) => ({ default: m.LandingPage })),
+);

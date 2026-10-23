@@ -126,7 +126,7 @@ const config = {
     },
     // The public docs as raw Markdown and text, for people and LLMs (llms.txt).
     {
-      src: "^/docs/.+\\.md$",
+      src: "^/(?:docs|legal)/.+\\.md$",
       headers: { "Content-Type": "text/markdown; charset=utf-8" },
       continue: true,
     },

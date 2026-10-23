@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { Lexer, type MarkedToken, type Token, type Tokens } from "marked";
-import { Fragment, type ReactNode } from "react";
+import { createContext, Fragment, type ReactNode, useContext } from "react";
 
 import { CodeBlock } from "@/features/developers/CodeBlock";
 
+import type { SiteFolder } from "./docs-queries";
 import { headingId } from "./heading-id";
 
 // Markdown as React elements, built from marked's tokens rather than its HTML
@@ -13,10 +14,18 @@ import { headingId } from "./heading-id";
 const PAGE_LINK = /^([\w-]+)\.md(?:#([\w-]+))?$/;
 const EXTERNAL = /^(https?:|mailto:)/i;
 
+/** Where `page.md` links lead: the folder the page itself is in. */
+const FolderContext = createContext<SiteFolder>("docs");
+
 function DocLink({ href, children }: { href: string; children: ReactNode }) {
+  const folder = useContext(FolderContext);
   const page = PAGE_LINK.exec(href);
   if (page?.[1]) {
-    return (
+    return folder === "legal" ? (
+      <Link to="/legal/$page" params={{ page: page[1] }} hash={page[2]} className="doc-link">
+        {children}
+      </Link>
+    ) : (
       <Link to="/docs/$page" params={{ page: page[1] }} hash={page[2]} className="doc-link">
         {children}
       </Link>
@@ -185,11 +194,13 @@ function block(token: Token, key: number): ReactNode {
   }
 }
 
-/** Markdown renders one docs page. */
-export function Markdown({ source }: { source: string }) {
+/** Markdown renders one docs or legal page; `folder` decides where its page links lead. */
+export function Markdown({ source, folder = "docs" }: { source: string; folder?: SiteFolder }) {
   return (
-    <div className="doc flex min-w-0 flex-col gap-3 text-sm leading-relaxed [&_.doc-code]:rounded [&_.doc-code]:bg-muted [&_.doc-code]:px-1 [&_.doc-code]:py-px [&_.doc-code]:font-mono [&_.doc-code]:text-[0.8125rem] [&_.doc-link]:font-medium [&_.doc-link]:underline [&_.doc-link]:underline-offset-4 [&_li]:my-1">
-      {Lexer.lex(source).map((token, i) => block(token, i))}
-    </div>
+    <FolderContext value={folder}>
+      <div className="doc flex min-w-0 flex-col gap-3 text-sm leading-relaxed [&_.doc-code]:rounded [&_.doc-code]:bg-muted [&_.doc-code]:px-1 [&_.doc-code]:py-px [&_.doc-code]:font-mono [&_.doc-code]:text-[0.8125rem] [&_.doc-link]:font-medium [&_.doc-link]:underline [&_.doc-link]:underline-offset-4 [&_li]:my-1">
+        {Lexer.lex(source).map((token, i) => block(token, i))}
+      </div>
+    </FolderContext>
   );
 }
