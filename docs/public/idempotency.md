@@ -33,4 +33,9 @@ curl -X POST "$LATTE_URL/api/uploads/transcripts" \
 
 The stored response is written after the request finishes, so a crash in between can leave a key unrecorded. Upload confirmation keeps its own uniqueness check on the storage path as the hard guard: a path can become a call once.
 
-With the TypeScript SDK, writes take `{ idempotencyKey }`, and `calls.upload` sets one from the file's storage path.
+With the SDKs:
+
+- TypeScript: writes take `{ idempotencyKey }`, and `calls.upload` sets one from the file's storage path.
+- Python: pass `_headers={"Idempotency-Key": key}` to the method.
+- Java: every method has an overload that takes a header map, for example `uploadTranscripts(request, Map.of("Idempotency-Key", key))`.
+- Go: headers are set on the configuration (`cfg.AddDefaultHeader("Idempotency-Key", key)`), so use a client made for that write.

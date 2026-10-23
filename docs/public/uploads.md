@@ -61,7 +61,7 @@ The answer is `201` with `{ "batchId": "...", "callIds": ["..."] }`. Processing 
 
 To upload more than 50 files as one batch, confirm the first 50 without a `batchId`, then send the rest in chunks of 50 with the `batchId` from the first answer. A path can be confirmed once, so a retried chunk cannot create doubles.
 
-With the TypeScript SDK this is one call; failed files come back in `failed` and the rest carry on:
+The TypeScript SDK does this in one call; failed files come back in `failed` and the rest carry on. The Python, Go and Java SDKs have one method per endpoint (`sign_uploads`, `confirm_uploads` and so on), so a loop over chunks of 50 does the same:
 
 ```ts
 const result = await latte.batches.create(

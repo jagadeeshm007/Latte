@@ -62,7 +62,7 @@ curl -s -H "Authorization: Bearer $LATTE_API_KEY" "$LATTE_URL/api/calls/CALL_ID"
 
 When `call.status` is `scored`, `call.overallScore` and `call.flag` are set, and `findings` lists each rubric item's result with the quoted line. The third line above is a guaranteed-returns breach, so this call is flagged.
 
-## The same with the SDK
+## The same with the TypeScript SDK
 
 ```ts
 import { LatteClient } from "@latte/sdk";
@@ -86,6 +86,21 @@ const batch = await latte.batches.createFromTranscripts(
 const done = await latte.batches.wait(batch.batchId!);
 console.log(done.state, done.scored, done.flagged);
 ```
+
+## The same in Python
+
+```python
+import os
+
+import latte_sdk
+
+config = latte_sdk.Configuration(host=os.environ["LATTE_URL"], access_token=os.environ["LATTE_API_KEY"])
+with latte_sdk.ApiClient(config) as client:
+    reference = latte_sdk.AccountApi(client).get_reference()
+    print([a.name for a in reference.agents])
+```
+
+Go and Java work the same way, one method per endpoint: see [SDKs](sdks.md).
 
 ## Next
 
