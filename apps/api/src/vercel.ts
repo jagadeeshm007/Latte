@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { attachDatabasePool, getDeadline, waitUntil } from "@vercel/functions";
@@ -6,12 +5,14 @@ import { attachDatabasePool, getDeadline, waitUntil } from "@vercel/functions";
 import { buildApp } from "./app.ts";
 import { createAuthAdmin } from "./auth-admin.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
-import { databaseUrl, loadConfig, jwksUrl, sslOptions } from "./config.ts";
+import { loadConfig, jwksUrl } from "./config.ts";
 import { createPool } from "./db/pool.ts";
+import { openJobSystem } from "./jobs/adapters/index.ts";
 import { backgroundDrain } from "./jobs/background.ts";
+import { enqueueVia } from "./jobs/bus.ts";
 import { drainQueues, runPipelineJob } from "./jobs/drain.ts";
 import { handlePurge, type JobDeps } from "./jobs/handlers.ts";
-import { bossEnqueue, bossJobSource, type Enqueue, startBoss } from "./jobs/queue.ts";
+import type { Enqueue } from "./jobs/queue.ts";
 import { evaluateAlerts, recordStatus, sendDigests } from "./jobs/scheduled.ts";
 import { createLogger } from "./logger.ts";
 import type { CronJobs } from "./routes/cron.ts";
@@ -21,7 +22,7 @@ import { buildGateway } from "./wiring.ts";
 
 // The Vercel Function entry point (ADR-0020, ADR-0029): the same Express app
 // as server.ts, built once per instance and exported as the request handler.
-// pg-boss runs without supervision or schedules here. Queuing a job starts a
+// The job system runs without supervision or schedules here (ADR-0032). Queuing a job starts a
 // drain after the response (waitUntil), so a call is processed within seconds
 // of its upload; /api/cron/*, called every minute by Supabase pg_cron, is the
 // backstop for retries and anything a drain left behind.
@@ -40,15 +41,11 @@ const config = {
 const log = createLogger(config);
 const pool = createPool(config);
 const storage = createStorage(config);
-const boss = await startBoss(
-  databaseUrl(config),
-  sslOptions(config, (p) => readFileSync(p, "utf8")),
-  { maintenance: false, max: 1 },
-);
+const { bus } = await openJobSystem(config, { serverless: true });
 // Idle connections are closed before Vercel suspends the instance.
 attachDatabasePool(pool);
 
-const queue = bossEnqueue(boss);
+const queue = enqueueVia(bus);
 /** Queues a job and, unless it is meant to wait, starts draining after this response. */
 const enqueue: Enqueue = async (name, data, options) => {
   await queue(name, data, options);
@@ -66,12 +63,10 @@ const webhookDeps = { pool, log, encryptionKey: config.DATA_ENCRYPTION_KEY };
 const kick = backgroundDrain({
   drain: async (budgetMs) => {
     // Move expired and retryable jobs along, as a long-lived worker's supervisor would.
-    await boss.supervise();
-    const drained = await drainQueues(
-      bossJobSource(boss),
-      (name, job) => runPipelineJob(jobDeps, name, job),
-      { budgetMs },
-    );
+    await bus.maintain?.();
+    const drained = await drainQueues(bus, (name, job) => runPipelineJob(jobDeps, name, job), {
+      budgetMs,
+    });
     const delivered = await deliverDue(webhookDeps);
     return { ...drained, delivered };
   },

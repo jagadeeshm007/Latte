@@ -67,6 +67,8 @@ const envSchema = z.object({
   LIMIT_SARVAM_RPM: z.coerce.number().int().positive().default(20),
 
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
+  /** The queue system behind the job port (ADR-0032); each value is an adapter in src/jobs/adapters. */
+  JOB_QUEUE: z.enum(["pgboss"]).default("pgboss"),
 });
 
 export type Config = z.infer<typeof envSchema>;

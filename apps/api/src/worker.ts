@@ -1,10 +1,10 @@
-import { readFileSync } from "node:fs";
-
-import { databaseUrl, loadConfig, sslOptions } from "./config.ts";
+import { loadConfig } from "./config.ts";
 import { createPool } from "./db/pool.ts";
-import { type CallJobData, PIPELINE_QUEUES, runPipelineJob } from "./jobs/drain.ts";
+import { openJobSystem } from "./jobs/adapters/index.ts";
+import { enqueueVia } from "./jobs/bus.ts";
+import { PIPELINE_QUEUES, runPipelineJob } from "./jobs/drain.ts";
 import { handlePurge, type JobDeps } from "./jobs/handlers.ts";
-import { bossEnqueue, QUEUES, startBoss } from "./jobs/queue.ts";
+import { QUEUES } from "./jobs/queue.ts";
 import { evaluateAlerts, recordStatus, sendDigests } from "./jobs/scheduled.ts";
 import { createLogger } from "./logger.ts";
 import { createStorage } from "./storage.ts";
@@ -16,45 +16,27 @@ import { buildGateway } from "./wiring.ts";
 const config = loadConfig();
 const log = createLogger(config);
 const pool = createPool(config);
-const boss = await startBoss(
-  databaseUrl(config),
-  sslOptions(config, (p) => readFileSync(p, "utf8")),
-);
+const { bus, scheduler } = await openJobSystem(config);
+if (!scheduler)
+  throw new Error(`the ${config.JOB_QUEUE} job system has no scheduler for the worker`);
 const deps: JobDeps = {
   pool,
   storage: createStorage(config),
   gateway: buildGateway(config, pool),
-  enqueue: bossEnqueue(boss),
+  enqueue: enqueueVia(bus),
   log,
 };
 
-const work = {
-  localConcurrency: config.WORKER_CONCURRENCY,
-  batchSize: 1,
-  includeMetadata: true,
-} as const;
 for (const queue of PIPELINE_QUEUES) {
-  await boss.work<CallJobData>(queue, work, async ([job]) => {
-    if (job) await runPipelineJob(deps, queue, job);
+  await bus.subscribe(queue, (delivery) => runPipelineJob(deps, queue, delivery), {
+    concurrency: config.WORKER_CONCURRENCY,
   });
 }
-await boss.work(QUEUES.purge, async () => {
-  await handlePurge(deps);
-});
-await boss.schedule(QUEUES.purge, "15 2 * * *");
+await scheduler.schedule(QUEUES.purge, "15 2 * * *", () => handlePurge(deps));
 // Alerts and digests are checked hourly; each digest decides whether it is due.
-await boss.work(QUEUES.alerts, async () => {
-  await evaluateAlerts(deps);
-});
-await boss.work(QUEUES.digests, async () => {
-  await sendDigests(deps);
-});
-await boss.schedule(QUEUES.alerts, "5 * * * *");
-await boss.schedule(QUEUES.digests, "10 * * * *");
-await boss.work(QUEUES.status, async () => {
-  await recordStatus(deps);
-});
-await boss.schedule(QUEUES.status, "*/5 * * * *");
+await scheduler.schedule(QUEUES.alerts, "5 * * * *", () => evaluateAlerts(deps));
+await scheduler.schedule(QUEUES.digests, "10 * * * *", () => sendDigests(deps));
+await scheduler.schedule(QUEUES.status, "*/5 * * * *", () => recordStatus(deps));
 // The webhook outbox is polled rather than queued: a delivery row is the job (ADR-0021).
 const WEBHOOK_POLL_MS = 15_000;
 let sending = false;
@@ -70,7 +52,10 @@ const webhookTimer = setInterval(() => {
     });
 }, WEBHOOK_POLL_MS);
 
-log.info({ concurrency: config.WORKER_CONCURRENCY, mode: config.MODEL_MODE }, "worker started");
+log.info(
+  { concurrency: config.WORKER_CONCURRENCY, mode: config.MODEL_MODE, queue: bus.name },
+  "worker started",
+);
 
 let closing = false;
 async function shutdown(reason: string): Promise<void> {
@@ -79,7 +64,7 @@ async function shutdown(reason: string): Promise<void> {
   log.info({ reason }, "worker shutting down");
   clearInterval(webhookTimer);
   setTimeout(() => process.exit(1), 30_000).unref();
-  await boss.stop({ graceful: true, timeout: 25_000 }).catch(() => undefined);
+  await bus.stop().catch(() => undefined);
   await pool.end();
   process.exit(0);
 }

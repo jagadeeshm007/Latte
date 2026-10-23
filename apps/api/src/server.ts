@@ -1,11 +1,10 @@
-import { readFileSync } from "node:fs";
-
 import { buildApp } from "./app.ts";
 import { createAuthAdmin } from "./auth-admin.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
-import { databaseUrl, jwksUrl, loadConfig, sslOptions } from "./config.ts";
+import { jwksUrl, loadConfig } from "./config.ts";
 import { createPool } from "./db/pool.ts";
-import { bossEnqueue, startBoss } from "./jobs/queue.ts";
+import { openJobSystem } from "./jobs/adapters/index.ts";
+import { enqueueVia } from "./jobs/bus.ts";
 import { createLogger } from "./logger.ts";
 import { createStorage } from "./storage.ts";
 
@@ -14,17 +13,14 @@ const config = loadConfig();
 const log = createLogger(config);
 const pool = createPool(config);
 const storage = createStorage(config);
-const boss = await startBoss(
-  databaseUrl(config),
-  sslOptions(config, (p) => readFileSync(p, "utf8")),
-);
+const { bus } = await openJobSystem(config);
 await storage.ensureBucket();
 
 const app = buildApp({
   config,
   pool,
   storage,
-  enqueue: bossEnqueue(boss),
+  enqueue: enqueueVia(bus),
   verify: createVerifier(remoteKeys(jwksUrl(config)), config.SUPABASE_URL),
   log,
   authAdmin: createAuthAdmin(config),
@@ -41,7 +37,7 @@ async function shutdown(reason: string): Promise<void> {
   log.info({ reason }, "shutting down");
   setTimeout(() => process.exit(1), 10_000).unref();
   server.close();
-  await boss.stop({ graceful: true, timeout: 5000 }).catch(() => undefined);
+  await bus.stop().catch(() => undefined);
   await pool.end();
   process.exit(0);
 }
