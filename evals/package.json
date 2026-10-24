@@ -18,8 +18,8 @@
     "@scc/gateway": "workspace:*",
     "@scc/shared": "workspace:*",
     "tsx": "4.23.15",
-    "zod": "4.6.5",
-    "wavefile": "11.0.0"
+    "wavefile": "11.0.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "24.13.4",

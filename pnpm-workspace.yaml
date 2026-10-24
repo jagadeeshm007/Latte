@@ -12,3 +12,8 @@ minimumReleaseAgeExclude:
   - "@audio-ui/core@0.1.2"
   - "@audio-ui/react@0.2.2"
   - "@vercel/queue@0.9.0"
+# @vercel/cli-config (through @vercel/functions) pins zod 4.1.11, below the
+# fix for GHSA-mrhx-c7xc-m3w5 (4.6.6); even its latest release does. Remove
+# once it ships a fixed zod.
+overrides:
+  "@vercel/cli-config>zod": 4.6.7
