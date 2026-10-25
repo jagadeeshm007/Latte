@@ -47,7 +47,7 @@ callModel(req: ChatRequest | SttRequest | TtsRequest, ctx: { purpose, callId? })
 
 ## Jobs
 
-- transcribe {callId}: claim `UPDATE calls SET status='transcribing', updated_at=now() WHERE id=$1 AND status IN ('uploaded','transcribing') RETURNING *`; if no row, exit. Download, decode, split, VAD, chunk, STT per chunk (RateLimitedError: `boss.send` the same job with startAfter and return), map, merge, write segments and status `transcribed` in one transaction, enqueue score. Other errors: retry by pg-boss (retryLimit 4, backoff); on final failure set failed with a user-safe reason.
+- transcribe {callId}: claim `UPDATE calls SET status='transcribing', updated_at=now() WHERE id=$1 AND status IN ('uploaded','transcribing') RETURNING *`; if no row, exit. Download, decode, split, VAD, chunk, STT per chunk (RateLimitedError: publish the same job again through the queue port with a delay and return), map, merge, write segments and status `transcribed` in one transaction, enqueue score. Other errors: retried by the queue system behind the port (ADR-0032: RETRY_LIMIT 4, backoff from 30 s); on final failure set failed with a user-safe reason.
 - score {callId}: claim `transcribed|scoring` to `scoring`; load segments and active rubric; rules and talk ratio; judge via gateway; ground and merge; write score and findings and status `scored` in one transaction (replace any previous score whose review is not done).
 - purge (daily cron): delete audio of calls past retention_until; sweep unconfirmed objects older than 1 day.
 
