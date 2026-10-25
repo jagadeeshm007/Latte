@@ -40,6 +40,9 @@ export function membersRouter(deps: AppDeps): Router {
       body.displayName,
       deps.config.WEB_ORIGIN,
     );
+    if (invited.signInLinkFailed) {
+      req.log.warn({ memberId: invited.id }, "invited an existing login; sign-in email not sent");
+    }
     const user = currentUser(req);
     await inTransaction(pool, async (client) => {
       await insertMember(client, { id: invited.id, ...body });
