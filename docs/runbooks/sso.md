@@ -17,17 +17,30 @@ a password.
 
 Google is the sign-in `.env.example` turns on; Microsoft is set up the same way.
 
-1. Google Cloud console > APIs and services > Credentials: create an OAuth
-   client of type "Web application". Under authorised redirect URIs, add the
-   callback URL Supabase shows on its Google provider page
-   (`https://<ref>.supabase.co/auth/v1/callback`). For Microsoft, register an
-   app in Entra with the same callback.
-2. Supabase > Authentication > Providers: enable Google (or Azure) with that
-   client id and secret.
-3. Add `google` (or `azure`) to `VITE_AUTH_PROVIDERS` and redeploy;
-   `make setup-deploy` copies it from `.env` to Vercel.
-3. Invite the person with the email their Google or Microsoft account uses.
+1. Google Cloud console > APIs and services > OAuth consent screen: user
+   type External (Internal only if every user is in your Workspace), scopes
+   `openid`, `email` and `profile`, then "Publish app" so the status is "In
+   production". In "Testing" only listed test users can sign in.
+2. Credentials: create an OAuth client of type "Web application". Under
+   authorised JavaScript origins add the production URL; under authorised
+   redirect URIs add the callback URL Supabase shows on its Google provider
+   page (`https://<ref>.supabase.co/auth/v1/callback`). For Microsoft,
+   register an app in Entra with the same callback.
+3. Supabase > Authentication > Providers: enable Google (or Azure) with that
+   client id and secret. The secret stays in Supabase, never in the repository.
+4. Supabase > Authentication > URL Configuration: the site URL is the
+   production URL; redirect URLs hold the bare production URL (the provider
+   returns to it with no path) and `<production URL>/**`.
+5. Add `google` (or `azure`) to `VITE_AUTH_PROVIDERS` and redeploy;
+   `make setup-deploy` copies it from `.env` to Vercel. The value is inlined
+   at build time, so a changed value needs a redeploy.
+6. Invite the person with the email their Google or Microsoft account uses.
    Supabase links the identity by verified email on first sign-in.
+
+Someone who signs in with Google before being invited gets a Supabase login
+but no role. Inviting them afterwards keeps that login (Google confirmed the
+email) and emails a sign-in link; an unconfirmed login for the email, from a
+password sign-up nobody confirmed, is replaced by a fresh invitation.
 
 ## SAML (a customer's identity provider)
 
@@ -54,5 +67,8 @@ request they make is refused. Removing them in the IdP stops new sign-ins.
 | Symptom | Cause | Action |
 | --- | --- | --- |
 | "This account has no role yet" | signed in without an invitation, or with another email | invite that email, or ask them to use the invited one |
+| Google says `redirect_uri_mismatch` | the redirect URI in the Google client is not the Supabase callback | set it to the callback URL from the Supabase Google provider page |
+| Only some Google accounts can sign in | the consent screen is still in "Testing" | publish the app |
+| No Google button | `VITE_AUTH_PROVIDERS` unset, or no redeploy since it was set | `vercel env ls production`, then redeploy |
 | Redirect returns to the wrong site | Supabase URL configuration | add the site URL and redirect URLs |
 | "No SSO provider for this domain" | the domain was not registered | `supabase sso list`, then `sso add` or `sso update --domains` |
