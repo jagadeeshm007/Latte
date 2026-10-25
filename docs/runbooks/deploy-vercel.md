@@ -13,7 +13,7 @@ function, fed by Vercel Queues) and the scheduled jobs.
 3. Push the branch. Vercel builds a preview deployment of it.
 4. Open the PR and merge it to `main`. Vercel builds production.
 5. Read the production URL under Project > Domains. Run `LATTE_URL=<url> make setup-deploy`, then redeploy so the function reads the new `WEB_ORIGIN` for invitations: `vercel redeploy <url> --target production` (this CLI has no `--prod` on `redeploy`).
-6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL and add `https://*-jagadeesh-1727.vercel.app/**` for previews.
+6. In Supabase > Authentication > URL Configuration, set the site URL to the production URL. Under redirect URLs, add `<production URL>/**` (invite and password reset links return to `/sign-in`) and `https://*-jagadeesh-1727.vercel.app/**` for previews.
 7. Schedule the backstop in Supabase: `LATTE_URL=<url> make supabase-cron` (see Background work below).
    Vercel Queues needs no setup of its own: the topics exist once the first deployment with the consumer is live.
 8. Release the SDK: push the tag `sdk-v<version>` matching `packages/sdk/package.json` (see the SDK README).
@@ -56,7 +56,7 @@ function, fed by Vercel Queues) and the scheduled jobs.
    | `GROQ_API_KEY`, `SARVAM_API_KEY` (and optional `OPENROUTER_API_KEY`, `GEMINI_API_KEY`) | provider keys |
    | `LLM_BUDGET_USD`, `AUDIO_RETENTION_DAYS` | as for any deployment |
    | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | public, inlined into the web build |
-   | `VITE_AUTH_PROVIDERS` | for example `google,azure,saml` once set up (`sso.md`) |
+   | `VITE_AUTH_PROVIDERS` | `google` once the Google provider is enabled in Supabase (`sso.md`), plus `azure` or `saml` when set up |
    | `VITE_API_URL` | leave unset: the API is on the same origin |
    | `VERCEL_CRON_PLAN` | `hobby` on a Hobby team, otherwise unset |
    | `JOB_QUEUE` | leave unset for Vercel Queues; `pgboss` only to go back to the previous drain (see Background work) |
