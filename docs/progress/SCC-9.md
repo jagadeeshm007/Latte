@@ -3,17 +3,17 @@
 - Task: SCC-9
 - Title: LatteLogo
 - Branch: chore/SCC-9-LatteLogo
-- Status: started
+- Status: merged
 - Owner: Jagadeesh
 - Started: 2026-10-25
 - Updated: 2026-10-25
 - Acceptance criteria: unknown
 
 ## Next
-- engineer reviews the logo in the app, then commit
+- none
 
 ## Done
-- none
+- Tulip logo and favicon (49a4b29), merged into main 2026-10-25 (#31)
 
 ## Blockers
 - none
@@ -22,5 +22,5 @@
 - none
 
 ## Links
-- MR: none
+- MR: https://github.com/jagadeeshm007/Latte/pull/31 (merged)
 - Ticket: none

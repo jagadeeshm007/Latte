@@ -3,15 +3,14 @@
 - Task: SCC-6
 - Title: TruthInDocs
 - Branch: docs/SCC-6-TruthInDocs
-- Status: in review
+- Status: merged
 - Owner: Jagadeesh
 - Started: 2026-10-23
-- Updated: 2026-10-23
+- Updated: 2026-10-25
 - Acceptance criteria: 4
 
 ## Next
-- Merge SCC-6-1, then the Intent into main
-- Then Intent B (durable pipeline: outbox, attempt history, provenance) with its own plan, and the multi-tenancy ADR (Intent G) alongside it
+- Intent B (durable pipeline: outbox, attempt history, provenance) with its own plan, and the multi-tenancy ADR (Intent G) alongside it
 
 ## Done
 - SCC-6-1: docs/architecture/production-readiness.md checks the outside review against the code; design docs no longer name pg-boss as the job system; ADR-0004 marked narrowed by ADR-0032; owner questions Q-012 to Q-016, now decided; the settings table with defaults
@@ -26,5 +25,5 @@
 - Provider limits follow the account through rate-limit headers (Q-012); no legal review for the demo (Q-015); audience is sales-led companies and telecom (Q-016)
 
 ## Links
-- MR: none
+- MR: https://github.com/jagadeeshm007/Latte/pull/26 (SCC-6-1, merged), https://github.com/jagadeeshm007/Latte/pull/28 (Intent, merged)
 - Ticket: none
