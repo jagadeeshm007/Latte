@@ -28,6 +28,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
+import { SetPasswordPage } from "@/features/auth/SetPasswordPage";
 import { NotificationBell } from "@/features/inbox/NotificationBell";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
 import { PlayerHost } from "@/features/player/PlayerHost";
@@ -156,6 +157,10 @@ export function RootLayout() {
   if (session.status !== "signed_in") {
     if (isPublicPath(pathname)) return <PublicLayout />;
     return <Navigate to="/sign-in" search={{ next: location.href }} replace />;
+  }
+  // From an invite or a reset link: a password first, whatever page the link opened.
+  if (session.passwordNeeded) {
+    return <SetPasswordPage reason={session.passwordNeeded} email={session.email} />;
   }
   return <Shell />;
 }

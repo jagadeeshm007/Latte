@@ -3,12 +3,29 @@
 Owner: engineering. Covers ADR-0024. Latte is invite-only: a person must be
 invited from the Members page before any sign-in method gives them a role.
 
+## Passwords
+
+An invite link signs the person in and asks them to choose a password before
+anything else, so they can sign in again by email. "Forgot password?" on the
+sign-in page emails a reset link that opens "Choose a new password". Both
+links come back to the site, so the production URL must be in Supabase >
+Authentication > URL Configuration (site URL, and `/sign-in` under redirect
+URLs). Someone who only signs in with Google, Microsoft or SAML never needs
+a password.
+
 ## Google or Microsoft (OIDC)
 
-1. Supabase > Authentication > Providers: enable Google or Azure (Microsoft)
-   with the client id and secret from Google Cloud or Microsoft Entra. Use the
-   callback URL Supabase shows.
-2. Add `google` or `azure` to `VITE_AUTH_PROVIDERS` and redeploy.
+Google is the sign-in `.env.example` turns on; Microsoft is set up the same way.
+
+1. Google Cloud console > APIs and services > Credentials: create an OAuth
+   client of type "Web application". Under authorised redirect URIs, add the
+   callback URL Supabase shows on its Google provider page
+   (`https://<ref>.supabase.co/auth/v1/callback`). For Microsoft, register an
+   app in Entra with the same callback.
+2. Supabase > Authentication > Providers: enable Google (or Azure) with that
+   client id and secret.
+3. Add `google` (or `azure`) to `VITE_AUTH_PROVIDERS` and redeploy;
+   `make setup-deploy` copies it from `.env` to Vercel.
 3. Invite the person with the email their Google or Microsoft account uses.
    Supabase links the identity by verified email on first sign-in.
 
