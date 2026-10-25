@@ -76,7 +76,8 @@ beforeAll(async () => {
         }
         json(200, {
           ...user(EXISTING_ID, existing.confirmed, existing.providers),
-          action_link: "https://x/verify" });
+          action_link: "https://x/verify",
+        });
         return;
       }
       if (method === "DELETE" && path === `/auth/v1/admin/users/${EXISTING_ID}`) {
