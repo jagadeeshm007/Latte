@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   AudioLinesIcon,
-  CoffeeIcon,
   BookCheckIcon,
   TrophyIcon,
   GaugeIcon,
@@ -23,6 +22,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { isPublicPath } from "@/app/public-paths";
 import { PublicLayout } from "@/app/PublicLayout";
+import { LatteMark } from "@/components/LatteMark";
 import { ErrorState, Loading } from "@/components/states";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -197,9 +197,7 @@ function Frame({ me }: { me: Me }) {
             to="/"
             className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-brand-foreground shadow-sm [&_svg]:size-4.5">
-              <CoffeeIcon aria-hidden="true" />
-            </span>
+            <LatteMark />
             <span className="font-heading text-sm leading-tight font-semibold">
               Latte
               <span className="block text-xs font-normal text-muted-foreground">QA workspace</span>
