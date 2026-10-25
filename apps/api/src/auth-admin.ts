@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 
 import type { Config } from "./config.ts";
 import { ConflictError } from "./errors.ts";
@@ -18,6 +18,16 @@ export interface AuthAdmin {
     redirectTo: string,
   ): Promise<{ id: string; signInLinkFailed?: boolean }>;
 }
+
+/**
+ * provenByProvider: the login was made only through Google, Microsoft or SAML,
+ * which proved the email. A password identity proves nothing when Supabase's
+ * "Confirm email" is off, so a login with one is never taken over.
+ */
+const provenByProvider = (user: User) =>
+  Boolean(user.email_confirmed_at) &&
+  (user.identities ?? []).length > 0 &&
+  (user.identities ?? []).every((identity) => identity.provider !== "email");
 
 const alreadyRegistered = (error: { message: string; code?: string | undefined }) =>
   error.code === "email_exists" || /already|registered|exists/i.test(error.message);
@@ -52,9 +62,9 @@ export function createAuthAdmin(
       }
       const existing = found.data.user;
 
-      if (existing.email_confirmed_at) {
-        // Google, Microsoft or a confirmed email proved the address is theirs:
-        // keep the login and email a link to sign in.
+      if (provenByProvider(existing)) {
+        // Their identity provider proved the address: keep the login and
+        // email a link to sign in.
         const link = await client.auth.signInWithOtp({
           email,
           options: { shouldCreateUser: false, emailRedirectTo: redirectTo },
@@ -62,8 +72,8 @@ export function createAuthAdmin(
         return link.error ? { id: existing.id, signInLinkFailed: true } : { id: existing.id };
       }
 
-      // Nobody proved this address, so whoever made the login may not own it.
-      // Replace it, so their password never reaches the invited person's role.
+      // A password sign-up may be a stranger's, confirmed or not. Replace the
+      // login, so their password never reaches the invited person's role.
       const removed = await client.auth.admin.deleteUser(existing.id);
       if (removed.error) throw new Error(`invite ${email}: ${removed.error.message}`);
       const again = await sendInvite(email, displayName, redirectTo);

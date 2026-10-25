@@ -38,9 +38,10 @@ Google is the sign-in `.env.example` turns on; Microsoft is set up the same way.
    Supabase links the identity by verified email on first sign-in.
 
 Someone who signs in with Google before being invited gets a Supabase login
-but no role. Inviting them afterwards keeps that login (Google confirmed the
-email) and emails a sign-in link; an unconfirmed login for the email, from a
-password sign-up nobody confirmed, is replaced by a fresh invitation.
+but no role. Inviting them afterwards keeps that login when it was made only
+with Google, Microsoft or SAML, and emails a sign-in link. A login with a
+password, confirmed or not, is replaced by a fresh invitation, so a stranger's
+sign-up for that email never receives the role.
 
 ## SAML (a customer's identity provider)
 

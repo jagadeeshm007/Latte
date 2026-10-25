@@ -9,8 +9,9 @@ import { ConflictError } from "./errors.ts";
 // SCC-7-1: someone not yet invited who signs in with Google still gets a
 // Supabase Auth user, only no profile. Inviting that email then failed with
 // "already registered" and the manager could never let them in. The invite
-// now takes over a login whose email is confirmed, and replaces one that is
-// not, so a stranger's unconfirmed password sign-up cannot be handed the role.
+// now takes over a login made only through Google, Microsoft or SAML, and
+// replaces any other, so a stranger's password sign-up for that email is
+// never handed the role (confirmed or not: that depends on a Supabase setting).
 
 interface Seen {
   method: string;
@@ -24,7 +25,7 @@ const EXISTING_ID = "22222222-2222-4222-8222-222222222222";
 let server: Server;
 let url: string;
 let seen: Seen[];
-let existing: { confirmed: boolean } | null;
+let existing: { confirmed: boolean; providers: string[] } | null;
 let lookupFails: boolean;
 let otpFails: boolean;
 
@@ -34,7 +35,7 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
   return text ? (JSON.parse(text) as Record<string, unknown>) : {};
 }
 
-function user(id: string, confirmed: boolean) {
+function user(id: string, confirmed: boolean, providers: string[] = []) {
   return {
     id,
     aud: "authenticated",
@@ -42,6 +43,7 @@ function user(id: string, confirmed: boolean) {
     email_confirmed_at: confirmed ? "2026-10-25T09:00:00Z" : null,
     app_metadata: {},
     user_metadata: {},
+    identities: providers.map((provider) => ({ id: `${provider}-1`, provider, user_id: id })),
     created_at: "2026-10-25T09:00:00Z",
   };
 }
@@ -72,7 +74,9 @@ beforeAll(async () => {
           json(500, { code: 500, error_code: "unexpected_failure", msg: "boom" });
           return;
         }
-        json(200, { ...user(EXISTING_ID, existing.confirmed), action_link: "https://x/verify" });
+        json(200, {
+          ...user(EXISTING_ID, existing.confirmed, existing.providers),
+          action_link: "https://x/verify" });
         return;
       }
       if (method === "DELETE" && path === `/auth/v1/admin/users/${EXISTING_ID}`) {
@@ -117,7 +121,7 @@ describe("authAdmin.invite", () => {
   });
 
   it("takes over a confirmed login with no profile and emails a sign-in link", async () => {
-    existing = { confirmed: true };
+    existing = { confirmed: true, providers: ["google"] };
 
     const out = await admin().invite("pat@example.com", "Pat", "https://latte.test");
 
@@ -130,7 +134,7 @@ describe("authAdmin.invite", () => {
   });
 
   it("still takes over the login when the sign-in email fails, and says so", async () => {
-    existing = { confirmed: true };
+    existing = { confirmed: true, providers: ["google"] };
     otpFails = true;
 
     const out = await admin().invite("pat@example.com", "Pat", "https://latte.test");
@@ -139,7 +143,7 @@ describe("authAdmin.invite", () => {
   });
 
   it("replaces an unconfirmed login and sends the normal invite", async () => {
-    existing = { confirmed: false };
+    existing = { confirmed: false, providers: ["email"] };
 
     const out = await admin().invite("pat@example.com", "Pat", "https://latte.test");
 
@@ -149,8 +153,27 @@ describe("authAdmin.invite", () => {
     expect(paths()).not.toContain("POST /auth/v1/otp");
   });
 
+  it("replaces a confirmed login made with a password, so its maker gets no role", async () => {
+    existing = { confirmed: true, providers: ["email"] };
+
+    const out = await admin().invite("pat@example.com", "Pat", "https://latte.test");
+
+    expect(out).toEqual({ id: NEW_ID });
+    expect(paths()).toContain(`DELETE /auth/v1/admin/users/${EXISTING_ID}`);
+    expect(paths()).not.toContain("POST /auth/v1/otp");
+  });
+
+  it("replaces a Google login that also has a password identity", async () => {
+    existing = { confirmed: true, providers: ["email", "google"] };
+
+    const out = await admin().invite("pat@example.com", "Pat", "https://latte.test");
+
+    expect(out).toEqual({ id: NEW_ID });
+    expect(paths()).toContain(`DELETE /auth/v1/admin/users/${EXISTING_ID}`);
+  });
+
   it("answers a conflict when the existing login cannot be found", async () => {
-    existing = { confirmed: true };
+    existing = { confirmed: true, providers: ["google"] };
     lookupFails = true;
 
     const invite = admin().invite("pat@example.com", "Pat", "https://latte.test");
