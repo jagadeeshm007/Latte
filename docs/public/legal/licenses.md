@@ -13,10 +13,10 @@ It runs on the open-source packages below, 243 in all. Each is used under its ow
 
 | Licence | Packages |
 | --- | --- |
-| MIT | 194 |
+| MIT | 193 |
 | ISC | 23 |
 | Apache-2.0 | 15 |
-| BSD-3-Clause | 2 |
+| BSD-3-Clause | 3 |
 | OFL-1.1 | 2 |
 | (AFL-2.1 OR BSD-3-Clause) | 1 |
 | (MIT OR CC0-1.0) | 1 |
@@ -91,7 +91,7 @@ It runs on the open-source packages below, 243 in all. Each is used under its ow
 | [ai](https://ai-sdk.dev/docs) | 7.0.140 | Apache-2.0 |
 | [atomic-sleep](https://github.com/davidmarkclements/atomic-sleep#readme) | 1.0.0 | MIT |
 | [balanced-match](https://github.com/juliangruber/balanced-match#readme) | 4.0.4 | MIT |
-| [body-parser](https://github.com/expressjs/body-parser#readme) | 2.3.0 | MIT |
+| [body-parser](https://github.com/expressjs/body-parser#readme) | 2.4.0 | MIT |
 | [brace-expansion](https://github.com/juliangruber/brace-expansion#readme) | 5.0.12 | MIT |
 | [bytes](https://github.com/visionmedia/bytes.js#readme) | 3.1.2 | MIT |
 | [call-bind-apply-helpers](https://github.com/ljharb/call-bind-apply-helpers#readme) | 1.0.2 | MIT |
@@ -207,6 +207,7 @@ It runs on the open-source packages below, 243 in all. Each is used under its ow
 | [process-warning](https://github.com/fastify/fastify-warning#readme) | 5.1.1 | MIT |
 | [proxy-addr](https://github.com/jshttp/proxy-addr#readme) | 2.0.8 | MIT |
 | [qs](https://github.com/ljharb/qs) | 6.16.0 | BSD-3-Clause |
+| [qs](https://github.com/ljharb/qs) | 6.16.1 | BSD-3-Clause |
 | [quick-format-unescaped](https://github.com/davidmarkclements/quick-format#readme) | 4.0.4 | MIT |
 | [range-parser](https://github.com/jshttp/range-parser#readme) | 1.3.0 | MIT |
 | [raw-body](https://github.com/stream-utils/raw-body#readme) | 3.0.2 | MIT |
@@ -256,7 +257,7 @@ It runs on the open-source packages below, 243 in all. Each is used under its ow
 | [tsx](https://tsx.hirok.io) | 4.23.15 | MIT |
 | [type-fest](https://github.com/sindresorhus/type-fest#readme) | 5.10.0 | (MIT OR CC0-1.0) |
 | [type-is](https://github.com/jshttp/type-is#readme) | 2.1.0 | MIT |
-| [undici](https://undici.nodejs.org) | 7.30.0 | MIT |
+| [undici](https://undici.nodejs.org) | 7.30.1 | MIT |
 | [unpipe](https://github.com/stream-utils/unpipe#readme) | 1.0.0 | MIT |
 | [use-sync-external-store](https://github.com/react/react#readme) | 1.7.0 | MIT |
 | [vary](https://github.com/jshttp/vary#readme) | 1.1.2 | MIT |
@@ -268,6 +269,5 @@ It runs on the open-source packages below, 243 in all. Each is used under its ow
 | [xdg-app-paths](https://github.com/rivy/js.xdg-app-paths#readme) | 5.5.1 | MIT |
 | [xdg-portable](https://github.com/rivy/js.xdg-portable#readme) | 7.3.0 | MIT |
 | [xtend](https://github.com/Raynos/xtend) | 4.0.2 | MIT |
-| [zod](https://zod.dev) | 4.1.11 | MIT |
-| [zod](https://zod.dev) | 4.6.5 | MIT |
+| [zod](https://zod.dev) | 4.6.7 | MIT |
 | [zustand](https://github.com/pmndrs/zustand) | 5.0.15 | MIT |
