@@ -17,7 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { toastManager } from "@/components/ui/toast";
-import { changePassword, signOutEverywhere } from "@/features/auth/session";
+import { NewPasswordForm } from "@/features/auth/NewPasswordForm";
+import { signOutEverywhere } from "@/features/auth/session";
 import { api, meQuery } from "@/lib/endpoints";
 
 import { DigestSettings } from "./DigestSettings";
@@ -35,9 +36,6 @@ const ROLE_LABEL: Record<Role, string> = {
   agent: "Sales agent",
   manager: "Manager",
 };
-
-/** The shortest password this page accepts; Supabase may ask for more. */
-const MIN_PASSWORD = 8;
 
 /** SettingsPage: a person's own settings, whatever their role. */
 export function SettingsPage({
@@ -157,22 +155,6 @@ function ProfileSettings({ me }: { me: Me }) {
 }
 
 function PasswordSettings() {
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const change = useMutation({
-    mutationFn: async () => {
-      const error = await changePassword(password);
-      if (error) throw new Error(error);
-    },
-    onSuccess: () => {
-      setPassword("");
-      setConfirm("");
-      toastManager.add({ type: "success", title: "Password changed" });
-    },
-  });
-  const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
-  const mismatch = confirm.length > 0 && confirm !== password;
-  const ready = password.length >= MIN_PASSWORD && confirm === password;
   return (
     <Frame>
       <FrameHeader className="px-4 py-3">
@@ -185,57 +167,11 @@ function PasswordSettings() {
         </FrameDescription>
       </FrameHeader>
       <FramePanel className="px-4 py-4">
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (ready) change.mutate();
-          }}
-        >
-          <div className="flex flex-wrap gap-3">
-            <Field className="min-w-56 flex-1">
-              <FieldLabel>New password</FieldLabel>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                aria-invalid={tooShort || undefined}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                }}
-              />
-            </Field>
-            <Field className="min-w-56 flex-1">
-              <FieldLabel>Repeat it</FieldLabel>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={confirm}
-                aria-invalid={mismatch || undefined}
-                onChange={(e) => {
-                  setConfirm(e.target.value);
-                }}
-              />
-            </Field>
-          </div>
-          <p className="text-xs text-muted-foreground" aria-live="polite">
-            {tooShort
-              ? `At least ${String(MIN_PASSWORD)} characters.`
-              : mismatch
-                ? "The two passwords are different."
-                : `At least ${String(MIN_PASSWORD)} characters.`}
-          </p>
-          {change.isError ? (
-            <Alert variant="error" role="alert">
-              <AlertDescription>{change.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div>
-            <Button type="submit" disabled={!ready || change.isPending}>
-              {change.isPending ? "Changing" : "Change password"}
-            </Button>
-          </div>
-        </form>
+        <NewPasswordForm
+          submitLabel="Change password"
+          pendingLabel="Changing"
+          onChanged={() => toastManager.add({ type: "success", title: "Password changed" })}
+        />
       </FramePanel>
     </Frame>
   );

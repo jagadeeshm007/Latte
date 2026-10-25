@@ -1,5 +1,11 @@
 import { useSyncExternalStore } from "react";
 
+import {
+  forgetArrival,
+  type PasswordNeeded,
+  rememberArrival,
+  rememberedArrival,
+} from "@/lib/arrival";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 
@@ -9,7 +15,13 @@ import { supabase } from "@/lib/supabase";
 export type SessionState =
   | { status: "loading" }
   | { status: "signed_out" }
-  | { status: "signed_in"; userId: string; email: string };
+  | {
+      status: "signed_in";
+      userId: string;
+      email: string;
+      /** Set when the person arrived from an invite or a reset link and has not chosen a password yet. */
+      passwordNeeded: PasswordNeeded | null;
+    };
 
 let state: SessionState = { status: "loading" };
 const listeners = new Set<() => void>();
@@ -23,15 +35,24 @@ function fromSession(
   session: { user: { id: string; email?: string | undefined } } | null,
 ): SessionState {
   return session
-    ? { status: "signed_in", userId: session.user.id, email: session.user.email ?? "" }
+    ? {
+        status: "signed_in",
+        userId: session.user.id,
+        email: session.user.email ?? "",
+        passwordNeeded: rememberedArrival(),
+      }
     : { status: "signed_out" };
 }
 
 void supabase.auth.getSession().then(({ data }) => {
+  // A link that did not sign anyone in (expired, used) leaves nothing to ask for.
+  if (!data.session) forgetArrival();
   set(fromSession(data.session));
 });
 supabase.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") rememberArrival("recovery");
   if (event === "SIGNED_OUT") {
+    forgetArrival();
     queryClient.clear();
   }
   set(fromSession(session));
@@ -59,7 +80,11 @@ export async function signOut(): Promise<void> {
 /** changePassword sets a new password for the signed-in person; returns Supabase's message on failure. */
 export async function changePassword(password: string): Promise<string | null> {
   const { error } = await supabase.auth.updateUser({ password });
-  return error ? error.message : null;
+  if (error) return error.message;
+  // The invite or reset that asked for a password is answered.
+  forgetArrival();
+  if (state.status === "signed_in") set({ ...state, passwordNeeded: null });
+  return null;
 }
 
 /** signOutEverywhere ends every session of this account, on every device, then this one. */
