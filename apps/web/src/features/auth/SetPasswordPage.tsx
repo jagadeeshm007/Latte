@@ -1,5 +1,4 @@
-import { AudioWaveformIcon } from "lucide-react";
-
+import { LatteMark } from "@/components/LatteMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
@@ -31,9 +30,7 @@ export function SetPasswordPage({ reason, email }: { reason: PasswordNeeded; ema
       <ThemeToggle className="absolute end-4 top-4" />
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <span className="mb-2 flex size-10 items-center justify-center rounded-xl bg-brand text-brand-foreground shadow-sm [&_svg]:size-5">
-            <AudioWaveformIcon aria-hidden="true" />
-          </span>
+          <LatteMark className="mb-2 size-10" />
           <CardTitle className="text-xl" role="heading" aria-level={1}>
             {copy.title}
           </CardTitle>
