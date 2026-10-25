@@ -1,7 +1,7 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { CoffeeIcon } from "lucide-react";
 import { Suspense } from "react";
 
+import { LatteMark } from "@/components/LatteMark";
 import { Loading } from "@/components/states";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,7 @@ export function PublicLayout() {
             to="/"
             className="flex items-center gap-2 rounded-md font-heading text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground [&_svg]:size-4">
-              <CoffeeIcon aria-hidden="true" />
-            </span>
+            <LatteMark className="size-7" />
             Latte
           </Link>
           <nav aria-label="Site" className="flex items-center gap-1">
