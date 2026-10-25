@@ -87,6 +87,19 @@ export async function changePassword(password: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * requestPasswordReset emails a reset link that comes back to the sign-in
+ * page, where the recovery opens "Choose a new password". Supabase answers
+ * the same whether or not the account exists; returns its message on failure
+ * (a rate limit, say).
+ */
+export async function requestPasswordReset(email: string): Promise<string | null> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: `${window.location.origin}/sign-in`,
+  });
+  return error ? error.message : null;
+}
+
 /** signOutEverywhere ends every session of this account, on every device, then this one. */
 export async function signOutEverywhere(): Promise<void> {
   await supabase.auth.signOut({ scope: "global" });

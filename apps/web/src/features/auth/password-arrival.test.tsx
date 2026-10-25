@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/app/App";
-import { arrivalReason } from "@/lib/arrival";
+import { arrivalReason, captureArrival, forgetArrival, rememberedArrival } from "@/lib/arrival";
 import { server } from "@/test/msw";
 import { createTestQueryClient } from "@/test/render";
 
@@ -116,5 +116,14 @@ describe("arrivalReason", () => {
     ];
 
     expect(reasons).toEqual(["invite", "recovery", null, null]);
+  });
+
+  it("keeps the reason for the tab, so a refresh still asks, until it is answered", () => {
+    captureArrival({ hash: "#access_token=x&type=invite", search: "" });
+    const afterRefresh = rememberedArrival();
+
+    forgetArrival();
+
+    expect([afterRefresh, rememberedArrival()]).toEqual(["invite", null]);
   });
 });
