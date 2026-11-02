@@ -179,6 +179,7 @@ export function recordingQueue() {
   const sent: {
     queue: string;
     callId: string | undefined;
+    workspace?: string;
     startAfterSeconds: number | undefined;
     priority: number | undefined;
   }[] = [];
@@ -186,6 +187,7 @@ export function recordingQueue() {
     sent.push({
       queue,
       callId: data.callId,
+      ...(data.workspace ? { workspace: data.workspace } : {}),
       startAfterSeconds: options?.startAfterSeconds,
       priority: options?.priority,
     });

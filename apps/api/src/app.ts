@@ -10,6 +10,7 @@ import type { DemoContext } from "./demo/context.ts";
 import { demoAuthenticate } from "./demo/guard.ts";
 import { demoPublicRouter } from "./demo/routes.ts";
 import { demoEnqueue, demoStorage } from "./demo/scoped.ts";
+import { demoUploadLimit, demoUploadRelease } from "./demo/uploads.ts";
 import { errorHandler, notFoundHandler } from "./errors.ts";
 import { idempotency } from "./idempotency.ts";
 import { openApiDocument } from "./openapi.ts";
@@ -60,8 +61,10 @@ function demoRoutes(deps: AppDeps, demo: DemoContext, exportSecret: Buffer): Rou
   };
   const router = Router();
   router.use(demoAllowlist);
+  router.use(demoUploadLimit(demo));
   router.use(idempotency(demo.pool));
   apiRoutes(router, demoDeps, exportSecret);
+  router.use(demoUploadRelease(demo));
   return router;
 }
 
