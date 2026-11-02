@@ -18,6 +18,7 @@
     "seed": "tsx --env-file-if-exists=../../.env src/seed.ts",
     "seed:reset-passwords": "tsx --env-file-if-exists=../../.env src/seed.ts --reset-passwords",
     "load-seed": "tsx --env-file-if-exists=../../.env src/load-seed.ts",
+    "demo-seed": "tsx --env-file-if-exists=../../.env src/demo-seed.ts",
     "status": "tsx --env-file-if-exists=../../.env src/status.ts",
     "env:check": "tsx --env-file-if-exists=../../.env src/env-check.ts",
     "lint": "eslint . --max-warnings 0",
