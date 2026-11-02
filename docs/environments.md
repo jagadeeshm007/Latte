@@ -38,3 +38,4 @@ so the version is read, not compared; adding one is a follow-up for
 | home page | product | / | 200 | Sales call compliance and coaching |
 | sign-in page | product | /sign-in | 200 | Sales call compliance and coaching |
 | public status | api | /api/status | 200 | "components" |
+| demo status | api | /api/demo | 200 | "enabled" |

@@ -128,10 +128,26 @@ does not undo a migration: every migration has a down file
 (`apps/api/src/db/migrations/*.down.sql`); run it by hand only if the old code
 cannot work with the new schema.
 
+## Demo mode
+
+The public demo (ADR-0033) runs in the `demo` schema of the production database.
+
+Turn it on:
+
+1. `pnpm --filter @scc/api migrate` against the hosted database. It builds the `demo` schema from the same migrations, then the demo's own tables.
+2. Add the variables in Vercel for production: `DEMO_SECRET` (`openssl rand -hex 32`, as a secret), `DEMO_MODE=true`, and optionally `DEMO_DAILY_UPLOADS` (default 50).
+3. `make demo-seed` with `DATABASE_URL` and the Supabase variables of production in `.env`. It loads the 22 scripted calls into the demo schema and queues them; any it could not queue are picked up by the minute sweep.
+4. Redeploy production so the functions read the new variables.
+5. Check: `GET /api/demo` answers `{"enabled":true,...}`, the landing page shows "Experience the app", and the demo dashboard shows scored calls once the pipeline has run.
+
+Turn it off: set `DEMO_MODE=false` (or remove it) and redeploy. The `demo` schema stays and nothing reads it.
+
 ## When something is wrong
 
 | Symptom | Check | Action |
 | --- | --- | --- |
+| "Experience the app" is missing | `GET /api/demo`; the function logs for a config error naming `DEMO_SECRET` | set `DEMO_MODE=true` and `DEMO_SECRET`, then redeploy |
+| Demo calls stay Uploaded | `GET /api/demo` is enabled; the consumer and sweep logs for jobs with `workspace: "demo"` | a demo job where demo mode is off is dropped with "dropped a demo job"; turn demo mode on and the sweep republishes them |
 | Calls stay Uploaded | the consumer function's logs in Vercel; `sweep republished waiting calls` in the API logs; `cron.job_run_details` for `latte-work` (a 401 in `net._http_response` means `CRON_SECRET` differs) | no consumer function in the deployment means it was built with `JOB_QUEUE=pgboss`; messages published but never delivered: check the consumer is reachable by Vercel at `/api/queues/pipeline` (an untested assumption, see ADR-0032); `make supabase-cron` again after changing the secret |
 | Calls wait a long time with a cap set | the consumer function runs as many at once as the cap and no more | expected while the cap holds them back; raise `QUEUE_MAX_CONCURRENCY_<TOPIC>` within the provider's limits and redeploy |
 | `stoppedBy: "budget"` on every run (pg-boss only) | the queue is behind | expected under a burst; if it persists, use Vercel Queues or move the worker to a long-lived host (`make dev-worker` code runs unchanged) |

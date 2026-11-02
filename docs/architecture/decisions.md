@@ -39,6 +39,7 @@ settled again, differently, in each file that runs into it.
 | ADR-0030 | Calls uploaded as transcripts, and a notice when a batch finishes | api, data model, pipeline, sdk, web | Accepted | moderate: migration 0014 has a down file, which refuses while transcript calls exist |
 | ADR-0031 | Python, Go and Java SDKs generated from the OpenAPI document | sdk, distribution | Accepted | easy: any SDK can later be hand-written or published to a registry under the same names |
 | ADR-0032 | Pipeline jobs behind a portable queue port, on Vercel Queues first | jobs, deployment | Accepted | easy: every queue system is an adapter behind one port, chosen by configuration |
+| ADR-0033 | A public demo inside production, in a separate Postgres schema | auth, data model, api, jobs, web | Accepted | easy: `DEMO_MODE=false` and a redeploy turn it off |
 
 ## Conflicts that were settled
 
