@@ -299,13 +299,20 @@ export function fakeGateway(
 export async function insertScoredCall(
   pool: Pool,
   fx: Fixture,
-  o: { callDate: string; needsReview?: boolean; score?: number; agentId?: string },
+  o: {
+    callDate: string;
+    needsReview?: boolean;
+    score?: number;
+    agentId?: string;
+    uploadedBy?: string;
+    filename?: string;
+  },
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
     `WITH b AS (INSERT INTO batches (name, created_by) VALUES ('Scored', $4) RETURNING id),
           c AS (INSERT INTO calls (agent_id, team_id, product_id, call_date, batch_id, uploaded_by, original_filename,
                                    mime_type, size_bytes, storage_path, status, retention_until)
-                SELECT $1, $2, $3, $5::date, b.id, $4, 'c.wav', 'audio/wav', 10,
+                SELECT $1, $2, $3, $5::date, b.id, $4, $8, 'audio/wav', 10,
                        $4::text || '/' || gen_random_uuid() || '.wav', 'scored', current_date + 90 FROM b
                 RETURNING id)
      INSERT INTO scores (call_id, rubric_id, overall_score, judge_status, talk_ratio, needs_review, review_status)
@@ -316,10 +323,11 @@ export async function insertScoredCall(
       o.agentId ?? fx.agentA,
       fx.teamId,
       fx.productId,
-      fx.users.qa,
+      o.uploadedBy ?? fx.users.qa,
       o.callDate,
       o.score ?? 80,
       o.needsReview ?? false,
+      o.filename ?? "c.wav",
     ],
   );
   return rows[0]!.id;

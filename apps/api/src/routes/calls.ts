@@ -241,7 +241,7 @@ export function callsRouter(deps: AppDeps): Router {
     const q = callListQuerySchema.parse(req.query);
     const user = currentUser(req);
     res.json(
-      await calls.listCalls(pool, scopeOf(user), {
+      await calls.listCalls(pool, scopeOf(user, req.demo), {
         status: q.status,
         needsReview: q.needsReview === undefined ? undefined : q.needsReview === "true",
         agentId: q.agentId,
@@ -267,10 +267,10 @@ export function callsRouter(deps: AppDeps): Router {
     // Personal data is masked unless QA or a manager, signed in to the app, asks to see it (ADR-0023).
     const showPii =
       reveal === "pii" && !req.apiKey && (user.role === "qa_reviewer" || user.role === "manager");
-    const summary = await calls.getCallSummary(pool, scopeOf(user), id);
+    const summary = await calls.getCallSummary(pool, scopeOf(user, req.demo), id);
     if (!summary) throw new NotFoundError("call not found");
     const [row, score, findings, segments] = await Promise.all([
-      calls.getCallRow(pool, scopeOf(user), id),
+      calls.getCallRow(pool, scopeOf(user, req.demo), id),
       getScore(pool, id),
       listFindings(pool, id),
       calls.listSegments(pool, id),
@@ -321,13 +321,13 @@ export function callsRouter(deps: AppDeps): Router {
   router.post("/calls/:id/audio-url", async (req, res) => {
     const { id } = idParam.parse(req.params);
     const user = currentUser(req);
-    const row = await calls.getCallRow(pool, scopeOf(user), id);
+    const row = await calls.getCallRow(pool, scopeOf(user, req.demo), id);
     if (!row) throw new NotFoundError("call not found");
     if (!row.storage_path)
       throw new AppError("the audio for this call has been deleted", 410, "audio_purged");
     const { download } = audioUrlRequestSchema.parse(req.body ?? {});
     const name = download
-      ? (await calls.getCallSummary(pool, scopeOf(user), id))?.originalFilename
+      ? (await calls.getCallSummary(pool, scopeOf(user, req.demo), id))?.originalFilename
       : undefined;
     const url = await storage.signDownload(row.storage_path, config.SIGNED_URL_SECONDS, name);
     await audit(pool, user.id, "audio_url_issued", id);
@@ -355,7 +355,7 @@ export function callsRouter(deps: AppDeps): Router {
       const { id } = idParam.parse(req.params);
       const user = currentUser(req);
       await inTransaction(pool, async (client) => {
-        if (!(await calls.setArchived(client, scopeOf(user), id, archived)))
+        if (!(await calls.setArchived(client, scopeOf(user, req.demo), id, archived)))
           throw new NotFoundError("call not found");
         await audit(client, user.id, action, id);
       });

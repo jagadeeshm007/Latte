@@ -9,6 +9,16 @@ import type { Queryable } from "../db/pool.ts";
 export interface Scope {
   /** Set for sales agents: only calls of this agent are visible. */
   agentId: string | null;
+  /**
+   * Set for demo visitors (ADR-0033): calls another visitor uploaded are
+   * hidden. Only demo requests set it; the visitors table exists only there.
+   */
+  visitorId?: string | null;
+}
+
+/** visitorClause hides other visitors' uploads; `$n` is the visitor id's parameter. */
+function visitorClause(column: string, n: number): string {
+  return ` AND (${column} = $${String(n)} OR NOT EXISTS (SELECT 1 FROM visitors v WHERE v.id = ${column}))`;
 }
 
 export interface CallRow {
@@ -155,6 +165,10 @@ export async function listCalls(
     where.push(sql.replaceAll("?", `$${String(params.length)}`));
   };
   if (scope.agentId) add("c.agent_id = ?", scope.agentId);
+  if (scope.visitorId) {
+    params.push(scope.visitorId);
+    where.push(visitorClause("c.uploaded_by", params.length).slice(" AND ".length));
+  }
   if (filter.agentId) add("c.agent_id = ?", filter.agentId);
   if (filter.teamId) add("c.team_id = ?", filter.teamId);
   if (filter.productId) add("c.product_id = ?", filter.productId);
@@ -225,6 +239,10 @@ export async function getCallSummary(
     params.push(scope.agentId);
     extra = " AND c.agent_id = $2";
   }
+  if (scope.visitorId) {
+    params.push(scope.visitorId);
+    extra += visitorClause("c.uploaded_by", params.length);
+  }
   const { rows } = await db.query<SummaryRow>(
     `${SUMMARY_SELECT} WHERE c.id = $1 AND c.deleted_at IS NULL${extra}`,
     params,
@@ -238,6 +256,10 @@ export async function getCallRow(db: Queryable, scope: Scope, id: string): Promi
   if (scope.agentId) {
     params.push(scope.agentId);
     extra = " AND agent_id = $2";
+  }
+  if (scope.visitorId) {
+    params.push(scope.visitorId);
+    extra += visitorClause("calls.uploaded_by", params.length);
   }
   const { rows } = await db.query<CallRow>(
     `SELECT id, agent_id, status, storage_path, mime_type, duration_ms, audio_purged_at, language, product_id, input FROM calls WHERE id = $1 AND deleted_at IS NULL${extra}`,
@@ -480,6 +502,10 @@ export async function setArchived(
   if (scope.agentId) {
     params.push(scope.agentId);
     extra = " AND agent_id = $2";
+  }
+  if (scope.visitorId) {
+    params.push(scope.visitorId);
+    extra += visitorClause("calls.uploaded_by", params.length);
   }
   const { rowCount } = await db.query(
     `UPDATE calls SET archived_at = ${archived ? "now()" : "NULL"}, updated_at = now()

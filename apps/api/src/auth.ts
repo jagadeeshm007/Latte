@@ -99,11 +99,18 @@ export function currentUser(req: { user?: Me }): Me {
   return req.user;
 }
 
-/** scopeOf is the SQL visibility of the caller: agents see only their own calls (tenet 4). */
-export function scopeOf(user: Me): { agentId: string | null } {
+/**
+ * scopeOf is the SQL visibility of the caller: agents see only their own
+ * calls (tenet 4), and a demo visitor no other visitor's upload (ADR-0033).
+ */
+export function scopeOf(
+  user: Me,
+  demo?: { visitorId: string },
+): { agentId: string | null; visitorId: string | null } {
+  const visitorId = demo?.visitorId ?? null;
   if (user.role === "agent") {
     // An agent profile always links an agent record (chk_profiles_agent_link).
-    return { agentId: user.agentId ?? "00000000-0000-0000-0000-000000000000" };
+    return { agentId: user.agentId ?? "00000000-0000-0000-0000-000000000000", visitorId };
   }
-  return { agentId: null };
+  return { agentId: null, visitorId };
 }

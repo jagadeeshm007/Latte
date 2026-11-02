@@ -5,6 +5,7 @@ import { pinoHttp } from "pino-http";
 
 import { apiKeyGate } from "./api-access.ts";
 import { authenticate } from "./auth.ts";
+import { demoAllowlist } from "./demo/allowlist.ts";
 import type { DemoContext } from "./demo/context.ts";
 import { demoAuthenticate } from "./demo/guard.ts";
 import { demoPublicRouter } from "./demo/routes.ts";
@@ -58,6 +59,7 @@ function demoRoutes(deps: AppDeps, demo: DemoContext, exportSecret: Buffer): Rou
     enqueue: demoEnqueue(deps.enqueue),
   };
   const router = Router();
+  router.use(demoAllowlist);
   router.use(idempotency(demo.pool));
   apiRoutes(router, demoDeps, exportSecret);
   return router;

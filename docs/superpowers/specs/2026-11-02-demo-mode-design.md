@@ -114,11 +114,14 @@ the tests sweep every route to prove it. Recorded in ADR-0033.
 - Blocked: members, API keys, webhooks, billing and usage, status notices,
   batches and exports, `PATCH /me`, rubric edits, alert rule edits, digest
   settings, audio upload (`/uploads/sign`, `/uploads/confirm`).
-- Allowed writes: `POST /uploads/transcripts` with one transcript; review
-  actions on calls the visitor uploaded; marking their notifications read.
-  The seeded calls are shared by everyone, so they stay read-only.
+- Allowed writes: `POST /uploads/transcripts` with one transcript, asking
+  for an audio link of a visible call, and marking their notifications read.
+  Review actions are QA-only in the app (`requireRole("qa_reviewer")`), so a
+  demo manager has none; the seeded calls are read-only for everyone.
 - Calls uploaded by another visitor are hidden: in demo, the call scope adds
-  "not uploaded by another visitor" to every call query that takes a scope.
+  "not uploaded by another visitor" to every call query that takes a scope,
+  and the review queue. Dashboards are aggregates (counts and scores, no
+  text), so they include every demo call.
 - Upload limit, one transaction, in this order:
   1. `demo.device_uploads` has the fingerprint: `409 demo_upload_used`.
   2. `demo.daily_uploads` for today is at the cap: `429 demo_busy`.
@@ -169,8 +172,9 @@ Local Postgres, `MODEL_MODE=replay` or the fake gateway, test first.
 - Identity: no raw IP or user agent stored; bad, expired or wrong-audience
   tokens are 401; with the flag off, demo tokens are 401 and `/api/demo/*`
   is 404.
-- Allowlist: blocked routes are 403; review on a seeded call is 403, on the
-  visitor's own call allowed.
+- Allowlist: blocked routes are 403; review actions are 403; every route
+  declared in `src/routes` is swept with a demo token and none returns real
+  data.
 - Limits: second upload from the same fingerprint is 409 for a new visitor;
   the cap gives 429; oversized gives 422; two parallel uploads make one call.
 - Cleanup: expired visitors and their calls go; seeded calls and live

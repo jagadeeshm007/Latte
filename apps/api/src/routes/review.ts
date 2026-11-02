@@ -12,7 +12,7 @@ import {
 import { Router } from "express";
 import { z } from "zod";
 
-import { currentUser, requireRole } from "../auth.ts";
+import { currentUser, requireRole, scopeOf } from "../auth.ts";
 import type { AppDeps } from "./deps.ts";
 import { inTransaction } from "../db/pool.ts";
 import { AppError, ConflictError, NotFoundError } from "../errors.ts";
@@ -60,14 +60,14 @@ export function reviewRouter(deps: AppDeps): Router {
   const qaOrManager = requireRole("qa_reviewer", "manager");
   const manager = requireRole("manager");
 
-  router.get("/review/queue", qaOrManager, async (_req, res) => {
+  router.get("/review/queue", qaOrManager, async (req, res) => {
     const { rows } = await pool.query<{ id: string }>(
       `SELECT s.call_id AS id FROM scores s JOIN calls c ON c.id = s.call_id
         WHERE s.review_status = 'pending' AND c.archived_at IS NULL AND c.deleted_at IS NULL
         ORDER BY s.created_at LIMIT 100`,
     );
     const items = await Promise.all(
-      rows.map((r) => calls.getCallSummary(pool, { agentId: null }, r.id)),
+      rows.map((r) => calls.getCallSummary(pool, scopeOf(currentUser(req), req.demo), r.id)),
     );
     res.json({ items: items.filter((i) => i !== null) });
   });
