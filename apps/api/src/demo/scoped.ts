@@ -1,3 +1,6 @@
+import type { Gateway } from "@scc/gateway";
+
+import type { JobDeps } from "../jobs/handlers.ts";
 import type { Enqueue } from "../jobs/queue.ts";
 import type { Storage } from "../storage.ts";
 
@@ -25,4 +28,19 @@ export function demoStorage(inner: Storage): Storage {
 /** demoEnqueue tags every job for the demo schema, follow-ups included. */
 export function demoEnqueue(inner: Enqueue): Enqueue {
   return (queue, data, options) => inner(queue, { ...data, workspace: "demo" }, options);
+}
+
+/**
+ * demoJobDeps is the pipeline's dependencies on the demo schema: the demo
+ * pool, storage under demo/, follow-up jobs tagged for the demo, and a
+ * gateway whose ledger (and month budget) is the demo's own.
+ */
+export function demoJobDeps(base: JobDeps, demoPool: JobDeps["pool"], gateway: Gateway): JobDeps {
+  return {
+    pool: demoPool,
+    storage: demoStorage(base.storage),
+    gateway,
+    enqueue: demoEnqueue(base.enqueue),
+    log: base.log,
+  };
 }

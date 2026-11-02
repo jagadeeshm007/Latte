@@ -1,6 +1,7 @@
 import { waitUntil } from "@vercel/functions";
 import { QueueClient } from "@vercel/queue";
 
+import { demoJobDeps } from "./demo/scoped.ts";
 import { nodeFunctionHandler, vercelPushConsumer } from "./jobs/adapters/vercel.ts";
 import { PIPELINE_QUEUES, runPipelineJob } from "./jobs/drain.ts";
 import type { JobDeps } from "./jobs/handlers.ts";
@@ -13,8 +14,13 @@ import { deliverDue } from "./webhooks/sender.ts";
 // score topics; Vercel calls it once per message, at most each trigger's
 // maxConcurrency at a time, and redelivers a message whose handler throws.
 
-const { log, pool, storage, queue, gateway, webhookDeps } = await openServerless();
-const jobDeps: JobDeps = { pool, storage, gateway, enqueue: queue, log };
+const { log, pool, storage, queue, gateway, demo, demoGateway, webhookDeps } =
+  await openServerless();
+const mainJobDeps: JobDeps = { pool, storage, gateway, enqueue: queue, log };
+const jobDeps: JobDeps =
+  demo && demoGateway
+    ? { ...mainJobDeps, demo: demoJobDeps(mainJobDeps, demo.pool, demoGateway) }
+    : mainJobDeps;
 
 const callback = vercelPushConsumer(
   new QueueClient(),

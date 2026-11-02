@@ -4,6 +4,7 @@ import { attachDatabasePool } from "@vercel/functions";
 
 import { loadConfig } from "./config.ts";
 import { createPool } from "./db/pool.ts";
+import { openDemo } from "./demo/context.ts";
 import { openJobSystem } from "./jobs/adapters/index.ts";
 import { enqueueVia } from "./jobs/bus.ts";
 import { createLogger } from "./logger.ts";
@@ -26,8 +27,10 @@ export async function openServerless() {
   const pool = createPool(config);
   const storage = createStorage(config);
   const { bus } = await openJobSystem(config, { serverless: true });
+  const demo = openDemo(config);
   // Idle connections are closed before Vercel suspends the instance.
   attachDatabasePool(pool);
+  if (demo) attachDatabasePool(demo.pool);
   return {
     config,
     log,
@@ -36,6 +39,8 @@ export async function openServerless() {
     bus,
     queue: enqueueVia(bus),
     gateway: buildGateway(config, pool),
+    demo,
+    demoGateway: demo ? buildGateway(config, demo.pool) : undefined,
     webhookDeps: { pool, log, encryptionKey: config.DATA_ENCRYPTION_KEY },
   };
 }

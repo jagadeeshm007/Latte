@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { DEFAULT_RUBRIC } from "@scc/shared";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -9,6 +8,7 @@ import {
   type Fixture,
   fakeGateway,
   insertScoredCall,
+  judgeBody,
   log,
   recordingQueue,
   resetData,
@@ -63,29 +63,6 @@ async function uploadOk(body: Record<string, unknown>) {
   const res = await upload(body);
   expect(res.status).toBe(201);
   return res;
-}
-
-/** A judge answer that meets every item, citing the first line. */
-function judgeBody() {
-  return {
-    choices: [
-      {
-        finish_reason: "stop",
-        message: {
-          content: JSON.stringify({
-            items: DEFAULT_RUBRIC.map((i) => ({
-              key: i.key,
-              status: i.type === "prohibited" ? "clear" : "met",
-              segments: i.type === "prohibited" ? [] : [0],
-              note: "because",
-            })),
-            coaching: ["Keep it up."],
-          }),
-        },
-      },
-    ],
-    usage: { prompt_tokens: 100, completion_tokens: 50 },
-  };
 }
 
 /** Runs the pipeline with a gateway that refuses speech-to-text: a transcript never needs it. */

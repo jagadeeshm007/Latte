@@ -334,3 +334,26 @@ export async function insertScoredCall(
   );
   return rows[0]!.id;
 }
+
+/** A judge answer that meets every item, citing the first line. */
+export function judgeBody() {
+  return {
+    choices: [
+      {
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            items: DEFAULT_RUBRIC.map((i) => ({
+              key: i.key,
+              status: i.type === "prohibited" ? "clear" : "met",
+              segments: i.type === "prohibited" ? [] : [0],
+              note: "because",
+            })),
+            coaching: ["Keep it up."],
+          }),
+        },
+      },
+    ],
+    usage: { prompt_tokens: 100, completion_tokens: 50 },
+  };
+}

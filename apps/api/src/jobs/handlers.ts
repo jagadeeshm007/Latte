@@ -29,6 +29,8 @@ export interface JobDeps {
   gateway: Gateway;
   enqueue: Enqueue;
   log: Logger;
+  /** The same dependencies on the demo schema (ADR-0033); absent when DEMO_MODE is off. */
+  demo?: JobDeps;
 }
 
 export interface JobInfo {

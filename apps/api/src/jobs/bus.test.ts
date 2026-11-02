@@ -16,6 +16,16 @@ describe("readEnvelope", () => {
     });
   });
 
+  it("carries the demo workspace and reads a job without one as the real schema", () => {
+    expect(readEnvelope({ v: 1, callId: "c", workspace: "demo" })).toEqual({
+      v: 1,
+      callId: "c",
+      workspace: "demo",
+    });
+    expect(readEnvelope({ callId: "c" }).workspace).toBeUndefined();
+    expect(() => readEnvelope({ callId: "c", workspace: "public" })).toThrow();
+  });
+
   it("refuses an unknown version or a malformed field", () => {
     expect(() => readEnvelope({ v: 2, callId: "c" })).toThrow();
     expect(() => readEnvelope({ callId: "" })).toThrow();

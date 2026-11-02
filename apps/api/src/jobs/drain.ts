@@ -17,10 +17,17 @@ export async function runPipelineJob(
   queue: PipelineQueue,
   delivery: Delivery,
 ): Promise<void> {
-  const { callId, reschedules } = delivery.message;
+  const { callId, reschedules, workspace } = delivery.message;
   if (!callId) throw new Error(`a ${queue} job needs a callId`);
+  // A demo job runs on the demo schema's dependencies (ADR-0033). Where demo
+  // mode is off it can never run, so it is acknowledged rather than retried.
+  const target = workspace === "demo" ? deps.demo : deps;
+  if (!target) {
+    deps.log.warn({ callId, queue }, "dropped a demo job: demo mode is off");
+    return;
+  }
   const info = { callId, retryCount: delivery.attempt, reschedules: reschedules ?? 0 };
-  await (queue === QUEUES.transcribe ? handleTranscribe(deps, info) : handleScore(deps, info));
+  await (queue === QUEUES.transcribe ? handleTranscribe(target, info) : handleScore(target, info));
 }
 
 /** The pull half of the job port a drain needs, so tests can drive it without a queue system. */

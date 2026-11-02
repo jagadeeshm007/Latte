@@ -4,6 +4,7 @@ import { buildApp } from "./app.ts";
 import { createAuthAdmin } from "./auth-admin.ts";
 import { createVerifier, remoteKeys } from "./auth.ts";
 import { jwksUrl } from "./config.ts";
+import { demoJobDeps } from "./demo/scoped.ts";
 import { backgroundDrain } from "./jobs/background.ts";
 import { drainQueues, runPipelineJob } from "./jobs/drain.ts";
 import { handlePurge, type JobDeps } from "./jobs/handlers.ts";
@@ -28,7 +29,8 @@ export const MAX_DURATION_SECONDS = 300;
 /** Kept back from the deadline for the job in hand to finish. */
 const MARGIN_MS = 60_000;
 
-const { config, log, pool, storage, bus, queue, gateway, webhookDeps } = await openServerless();
+const { config, log, pool, storage, bus, queue, gateway, demo, demoGateway, webhookDeps } =
+  await openServerless();
 const push = bus.capabilities.delivery === "push";
 
 /** Queues a job and, with a pull queue and unless it is meant to wait, starts draining after this response. */
@@ -36,12 +38,21 @@ const enqueue: Enqueue = async (name, data, options) => {
   await queue(name, data, options);
   if (!push && !options?.startAfterSeconds) kick();
 };
-const jobDeps: JobDeps = { pool, storage, gateway, enqueue, log };
+const mainJobDeps: JobDeps = { pool, storage, gateway, enqueue, log };
+const jobDeps: JobDeps =
+  demo && demoGateway
+    ? { ...mainJobDeps, demo: demoJobDeps(mainJobDeps, demo.pool, demoGateway) }
+    : mainJobDeps;
 
 const kick = backgroundDrain({
   drain: async (budgetMs) => {
     if (push) {
-      const swept = await republishWaiting({ pool, bus, log });
+      const swept = await republishWaiting({
+        pool,
+        ...(demo ? { demoPool: demo.pool } : {}),
+        bus,
+        log,
+      });
       return { ...swept, delivered: await deliverDue(webhookDeps) };
     }
     // Move expired and retryable jobs along, as a long-lived worker's supervisor would.
@@ -101,6 +112,7 @@ const app = buildApp({
   log,
   authAdmin: createAuthAdmin(config),
   cron,
+  ...(demo ? { demo } : {}),
 });
 
 export default app;

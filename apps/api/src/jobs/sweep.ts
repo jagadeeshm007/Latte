@@ -17,6 +17,8 @@ const SWEEP_LIMIT = 100;
 
 export interface SweepDeps {
   pool: Pool;
+  /** The demo schema's pool (ADR-0033), swept too when demo mode is on. */
+  demoPool?: Pool;
   bus: Pick<JobBus, "publish">;
   log: Pick<Logger, "info">;
 }
@@ -28,16 +30,23 @@ export interface SweepDeps {
  * and a call that has moved on gets a new key.
  */
 export async function republishWaiting(deps: SweepDeps): Promise<{ republished: number }> {
-  const waiting = await listWaitingCalls(deps.pool, WAITING_SECONDS, SWEEP_LIMIT);
-  for (const call of waiting) {
-    const topic = call.status === "uploaded" ? QUEUES.transcribe : QUEUES.score;
-    await deps.bus.publish(
-      topic,
-      { callId: call.id },
-      { idempotencyKey: `${call.id}:${topic}:${call.since}` },
-    );
+  const schemas = [
+    { pool: deps.pool, workspace: undefined },
+    ...(deps.demoPool ? [{ pool: deps.demoPool, workspace: "demo" as const }] : []),
+  ];
+  let republished = 0;
+  for (const { pool, workspace } of schemas) {
+    const waiting = await listWaitingCalls(pool, WAITING_SECONDS, SWEEP_LIMIT);
+    for (const call of waiting) {
+      const topic = call.status === "uploaded" ? QUEUES.transcribe : QUEUES.score;
+      await deps.bus.publish(
+        topic,
+        { callId: call.id, ...(workspace ? { workspace } : {}) },
+        { idempotencyKey: `${workspace ? `${workspace}:` : ""}${call.id}:${topic}:${call.since}` },
+      );
+    }
+    republished += waiting.length;
   }
-  if (waiting.length > 0)
-    deps.log.info({ republished: waiting.length }, "sweep republished waiting calls");
-  return { republished: waiting.length };
+  if (republished > 0) deps.log.info({ republished }, "sweep republished waiting calls");
+  return { republished };
 }

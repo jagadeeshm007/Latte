@@ -1,5 +1,7 @@
 import { loadConfig } from "./config.ts";
 import { createPool } from "./db/pool.ts";
+import { openDemo } from "./demo/context.ts";
+import { demoJobDeps } from "./demo/scoped.ts";
 import { openJobSystem } from "./jobs/adapters/index.ts";
 import { enqueueVia } from "./jobs/bus.ts";
 import { PIPELINE_QUEUES, runPipelineJob } from "./jobs/drain.ts";
@@ -19,13 +21,19 @@ const pool = createPool(config);
 const { bus, scheduler } = await openJobSystem(config);
 if (!scheduler)
   throw new Error(`the ${config.JOB_QUEUE} job system has no scheduler for the worker`);
-const deps: JobDeps = {
+const mainDeps: JobDeps = {
   pool,
   storage: createStorage(config),
   gateway: buildGateway(config, pool),
   enqueue: enqueueVia(bus),
   log,
 };
+// Demo jobs run on the demo schema (ADR-0033); alerts, digests, status and
+// webhooks never do.
+const demo = openDemo(config);
+const deps: JobDeps = demo
+  ? { ...mainDeps, demo: demoJobDeps(mainDeps, demo.pool, buildGateway(config, demo.pool)) }
+  : mainDeps;
 
 for (const queue of PIPELINE_QUEUES) {
   await bus.subscribe(queue, (delivery) => runPipelineJob(deps, queue, delivery), {
@@ -65,6 +73,7 @@ async function shutdown(reason: string): Promise<void> {
   clearInterval(webhookTimer);
   setTimeout(() => process.exit(1), 30_000).unref();
   await bus.stop().catch(() => undefined);
+  await demo?.pool.end();
   await pool.end();
   process.exit(0);
 }
