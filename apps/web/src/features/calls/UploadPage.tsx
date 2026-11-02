@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { toastManager } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useSession } from "@/features/auth/session";
 import { api, referenceQuery } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
 
@@ -67,9 +68,23 @@ type UploadMode = "audio" | "transcript";
 
 export function UploadPage() {
   const reference = useQuery(referenceQuery);
+  const session = useSession();
+  const demo = session.status === "signed_in" && session.demo === true;
   const [mode, setMode] = useState<UploadMode>("audio");
   if (reference.isPending) return <Loading label="Loading the upload form" />;
   if (reference.isError) return <ErrorState error={reference.error} />;
+  // The demo takes one transcript and no recordings (ADR-0033).
+  if (demo) {
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Upload a transcript"
+          description="The demo scores one transcript per device: paste a call or add a .txt or .json file, up to 200 lines. It is deleted after a day."
+        />
+        <TranscriptUploadForm reference={reference.data} />
+      </div>
+    );
+  }
   const switcher = (
     <ToggleGroup
       variant="outline"

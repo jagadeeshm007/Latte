@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "@/features/auth/session";
 import { SetPasswordPage } from "@/features/auth/SetPasswordPage";
+import { DemoBanner } from "@/features/demo/DemoBanner";
 import { NotificationBell } from "@/features/inbox/NotificationBell";
 import { MiniPlayer } from "@/features/player/MiniPlayer";
 import { PlayerHost } from "@/features/player/PlayerHost";
@@ -162,10 +163,10 @@ export function RootLayout() {
   if (session.passwordNeeded) {
     return <SetPasswordPage reason={session.passwordNeeded} email={session.email} />;
   }
-  return <Shell />;
+  return <Shell demo={session.demo === true} />;
 }
 
-function Shell() {
+function Shell({ demo }: { demo: boolean }) {
   const me = useQuery(meQuery);
   if (me.isPending) return <Loading label="Loading your account" shape="app" />;
   if (me.isError) {
@@ -178,7 +179,7 @@ function Shell() {
       </main>
     );
   }
-  return <Frame me={me.data} />;
+  return <Frame me={me.data} demo={demo} />;
 }
 
 function initials(name: string): string {
@@ -188,7 +189,13 @@ function initials(name: string): string {
   ).toUpperCase();
 }
 
-function Frame({ me }: { me: Me }) {
+/** What a demo visitor does not get (ADR-0033): the API refuses these, so the menu hides them. */
+const DEMO_HIDDEN = new Set(["/batches"]);
+
+function Frame({ me, demo }: { me: Me; demo: boolean }) {
+  const nav = NAV.filter((n) => n.roles.includes(me.role) && !(demo && DEMO_HIDDEN.has(n.to)));
+  // Account and workspace settings are real people's; a demo has none of them.
+  const settings = demo ? [] : SETTINGS_NAV.filter((n) => n.roles.includes(me.role));
   return (
     <div className="min-h-svh bg-background text-foreground md:grid md:grid-cols-[15rem_1fr]">
       <aside className="flex flex-col border-b bg-sidebar md:sticky md:top-0 md:h-svh md:border-e md:border-b-0 print:hidden">
@@ -224,13 +231,15 @@ function Frame({ me }: { me: Me }) {
           <span className="hidden px-2.5 pt-2 pb-1.5 text-xs font-medium text-muted-foreground md:block">
             Workspace
           </span>
-          {NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
+          {nav.map((n) => (
             <NavLink key={n.to} item={n} />
           ))}
-          <span className="hidden px-2.5 pt-4 pb-1.5 text-xs font-medium text-muted-foreground md:block">
-            Settings
-          </span>
-          {SETTINGS_NAV.filter((n) => n.roles.includes(me.role)).map((n) => (
+          {settings.length > 0 ? (
+            <span className="hidden px-2.5 pt-4 pb-1.5 text-xs font-medium text-muted-foreground md:block">
+              Settings
+            </span>
+          ) : null}
+          {settings.map((n) => (
             <NavLink key={n.to} item={n} />
           ))}
         </nav>
@@ -242,14 +251,15 @@ function Frame({ me }: { me: Me }) {
               <ThemeToggle />
             </div>
           </div>
-          <UserCard me={me} />
+          <UserCard me={me} demo={demo} />
         </div>
       </aside>
       {/* One player for the whole app, so a call keeps playing across pages. */}
       <PlayerHost />
       <MiniPlayer />
       <main className="min-w-0 px-4 py-6 md:px-8 md:py-8">
-        <div className="mx-auto mb-4 w-full max-w-7xl empty:hidden">
+        <div className="mx-auto mb-4 flex w-full max-w-7xl flex-col gap-2 empty:hidden">
+          {demo ? <DemoBanner /> : null}
           <StatusBanner />
         </div>
         <div className="mx-auto w-full max-w-7xl">
@@ -277,7 +287,8 @@ function NavLink({ item }: { item: NavItem }) {
   );
 }
 
-function UserCard({ me }: { me: Me }) {
+function UserCard({ me, demo }: { me: Me; demo: boolean }) {
+  const leave = demo ? "Exit demo" : "Sign out";
   return (
     <div className="flex items-center gap-2.5 rounded-lg px-1">
       <Avatar className="size-8">
@@ -290,8 +301,8 @@ function UserCard({ me }: { me: Me }) {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Sign out"
-        title="Sign out"
+        aria-label={leave}
+        title={leave}
         onClick={() => void signOut()}
       >
         <LogOutIcon aria-hidden="true" />

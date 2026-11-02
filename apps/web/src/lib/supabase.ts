@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 import { captureArrival } from "@/lib/arrival";
+import { demoToken } from "@/lib/demo-token";
 import { env } from "@/lib/env";
 
 // Before the client reads and clears the URL: was this an invite or a reset link?
@@ -11,8 +12,13 @@ export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PU
   auth: { persistSession: true, autoRefreshToken: true },
 });
 
-/** accessToken is the signed-in user's current token, refreshed by supabase-js when it nears expiry. */
+/**
+ * accessToken is the demo's token during a demo (ADR-0033), else the
+ * signed-in user's current token, refreshed by supabase-js when it nears expiry.
+ */
 export async function accessToken(): Promise<string | null> {
+  const demo = demoToken();
+  if (demo) return demo;
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }

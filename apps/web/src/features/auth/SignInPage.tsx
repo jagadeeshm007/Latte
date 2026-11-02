@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardPanel, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { DemoButton } from "@/features/demo/DemoButton";
 import { env } from "@/lib/env";
 
 import { requestPasswordReset, signIn, signInWithProvider, signInWithSso } from "./session";
@@ -147,6 +148,9 @@ export function SignInPage() {
           )}
         </CardPanel>
       </Card>
+      <div className="w-full max-w-sm">
+        <DemoButton size="default" />
+      </div>
       <nav aria-label="About Latte" className="flex flex-wrap justify-center gap-x-4 text-xs">
         <Link to="/" className="text-muted-foreground hover:text-foreground">
           About Latte

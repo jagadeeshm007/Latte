@@ -12,6 +12,8 @@ import { setupServer } from "msw/node";
  */
 export const handlers = [
   http.get("*/healthz", () => HttpResponse.json({ status: "ok", version: "msw" })),
+  // The landing and sign-in pages ask whether the demo is on; off unless a test says so.
+  http.get("*/api/demo", () => HttpResponse.json({ enabled: false })),
   // A call page fetches its recording link as soon as it opens.
   http.post("*/api/calls/:id/audio-url", () =>
     HttpResponse.json({ url: "https://storage.test/a.wav", expiresInSeconds: 600 }),

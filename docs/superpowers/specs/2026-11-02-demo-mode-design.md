@@ -110,8 +110,9 @@ the tests sweep every route to prove it. Recorded in ADR-0033.
   until someone adds them.
 - Allowed reads: `/me`, calls (list, detail, transcript, audio URL), review
   queue and findings, rubrics, reference data, analytics and dashboards,
-  coaching, inbox and notifications, saved views, alert rules (read).
-- Blocked: members, API keys, webhooks, billing and usage, status notices,
+  coaching, inbox and notifications, saved views, alert rules (read), and
+  model usage (the dashboard's spend card, from the demo's own ledger).
+- Blocked: members, API keys, webhooks, billing, status notices,
   batches and exports, `PATCH /me`, rubric edits, alert rule edits, digest
   settings, audio upload (`/uploads/sign`, `/uploads/confirm`).
 - Allowed writes: `POST /uploads/transcripts` with one transcript, asking

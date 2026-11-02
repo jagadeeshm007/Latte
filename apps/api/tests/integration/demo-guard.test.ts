@@ -100,6 +100,8 @@ const ALLOWED_READS = [
   "/saved-views?page=calls",
   "/notifications",
   "/notifications/unread-count",
+  "/usage",
+  "/usage/history",
 ];
 
 describe("the demo allowlist", () => {
@@ -113,7 +115,6 @@ describe("the demo allowlist", () => {
       ["GET", "/webhooks"],
       ["GET", "/billing/prices"],
       ["GET", "/billing/statement"],
-      ["GET", "/usage"],
       ["GET", "/batches"],
       ["POST", "/status/notices"],
       ["PATCH", "/me"],

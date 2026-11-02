@@ -6,6 +6,7 @@ import {
   rememberArrival,
   rememberedArrival,
 } from "@/lib/arrival";
+import { demoToken, forgetDemo, onDemoChange } from "@/lib/demo-token";
 import { queryClient } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 
@@ -21,15 +22,37 @@ export type SessionState =
       email: string;
       /** Set when the person arrived from an invite or a reset link and has not chosen a password yet. */
       passwordNeeded: PasswordNeeded | null;
+      /** True during a demo session (ADR-0033): no Supabase account, sample data only. */
+      demo?: boolean;
     };
 
+const DEMO_STATE: SessionState = {
+  status: "signed_in",
+  userId: "demo",
+  email: "",
+  passwordNeeded: null,
+  demo: true,
+};
+
 let state: SessionState = { status: "loading" };
+/** The Supabase session's state, kept apart so ending a demo falls back to it. */
+let supabaseState: SessionState = { status: "loading" };
 const listeners = new Set<() => void>();
 
-function set(next: SessionState): void {
-  state = next;
+function publish(): void {
+  state = demoToken() ? DEMO_STATE : supabaseState;
   for (const listener of listeners) listener();
 }
+
+function set(next: SessionState): void {
+  supabaseState = next;
+  publish();
+}
+
+onDemoChange(() => {
+  queryClient.clear();
+  publish();
+});
 
 function fromSession(
   session: { user: { id: string; email?: string | undefined } } | null,
@@ -73,7 +96,12 @@ export async function signIn(email: string, password: string): Promise<string | 
   return error ? error.message : null;
 }
 
+/** signOut ends a demo, or the Supabase session. */
 export async function signOut(): Promise<void> {
+  if (demoToken()) {
+    forgetDemo();
+    return;
+  }
   await supabase.auth.signOut();
 }
 
@@ -83,7 +111,7 @@ export async function changePassword(password: string): Promise<string | null> {
   if (error) return error.message;
   // The invite or reset that asked for a password is answered.
   forgetArrival();
-  if (state.status === "signed_in") set({ ...state, passwordNeeded: null });
+  if (supabaseState.status === "signed_in") set({ ...supabaseState, passwordNeeded: null });
   return null;
 }
 

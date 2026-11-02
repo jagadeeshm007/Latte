@@ -26,6 +26,9 @@ const ALLOWED: Record<string, string[]> = {
     "/saved-views",
     "/notifications",
     "/notifications/unread-count",
+    // The dashboard's model spend card: the demo schema's own ledger.
+    "/usage",
+    "/usage/history",
   ],
   POST: [
     "/uploads/transcripts",

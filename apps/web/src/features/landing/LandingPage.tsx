@@ -15,6 +15,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DemoButton } from "@/features/demo/DemoButton";
 import { CodeBlock } from "@/features/developers/CodeBlock";
 
 /** The source repository; the landing page and footer link to it. */
@@ -105,6 +106,7 @@ export function LandingPage() {
             Read the docs
           </Button>
         </div>
+        <DemoButton />
         <p className="text-xs text-muted-foreground">
           Access is by invitation from your organisation's manager.
         </p>
