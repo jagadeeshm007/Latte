@@ -1174,3 +1174,31 @@ export const postNoticeRequestSchema = z.object({
   severity: z.enum(NOTICE_SEVERITIES),
 });
 export type PostNoticeRequest = z.input<typeof postNoticeRequestSchema>;
+
+// The public demo (ADR-0033).
+
+/** A demo upload: one transcript, small enough to score cheaply. */
+export const DEMO_MAX_LINES = 200;
+export const DEMO_MAX_CHARACTERS = 20_000;
+
+export const demoStatusSchema = z.object({
+  enabled: z.boolean(),
+  /** Demo uploads still open today, across every visitor; absent when the demo is off. */
+  uploadsLeftToday: z.number().int().min(0).optional(),
+});
+export type DemoStatus = z.infer<typeof demoStatusSchema>;
+
+/** Browser signals that, with the IP, tell one device from another; the API stores only their hash. */
+export const demoSessionRequestSchema = z.object({
+  platform: z.string().max(64).default(""),
+  language: z.string().max(35).default(""),
+  timeZone: z.string().max(64).default(""),
+  screen: z.string().max(32).default(""),
+});
+export type DemoSessionRequest = z.input<typeof demoSessionRequestSchema>;
+
+export const demoSessionSchema = z.object({
+  token: z.string(),
+  expiresAt: timestamp,
+});
+export type DemoSession = z.infer<typeof demoSessionSchema>;

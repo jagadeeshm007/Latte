@@ -5,6 +5,7 @@ import type { CronJobs } from "./cron.ts";
 import type { VerifyToken } from "../auth.ts";
 import type { Config } from "../config.ts";
 import type { Pool } from "../db/pool.ts";
+import type { DemoContext } from "../demo/context.ts";
 import type { Enqueue } from "../jobs/queue.ts";
 import type { Storage } from "../storage.ts";
 
@@ -24,4 +25,6 @@ export interface AppDeps {
   authAdmin?: AuthAdmin;
   /** The scheduled tasks behind /api/cron/*; only the Vercel entry point provides them. */
   cron?: CronJobs;
+  /** The public demo (ADR-0033); absent when DEMO_MODE is off. */
+  demo?: DemoContext;
 }

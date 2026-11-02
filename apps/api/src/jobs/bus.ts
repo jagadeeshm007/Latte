@@ -16,6 +16,8 @@ export const jobEnvelopeSchema = z.object({
   v: z.literal(1).default(1),
   callId: z.string().min(1).optional(),
   reschedules: z.number().int().min(0).optional(),
+  /** The schema the call lives in; absent means the real one (ADR-0033). */
+  workspace: z.literal("demo").optional(),
 });
 export type JobEnvelope = z.output<typeof jobEnvelopeSchema>;
 /** What a producer publishes; the bus adds the version. */

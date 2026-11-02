@@ -5,6 +5,10 @@ import { pinoHttp } from "pino-http";
 
 import { apiKeyGate } from "./api-access.ts";
 import { authenticate } from "./auth.ts";
+import type { DemoContext } from "./demo/context.ts";
+import { demoAuthenticate } from "./demo/guard.ts";
+import { demoPublicRouter } from "./demo/routes.ts";
+import { demoEnqueue, demoStorage } from "./demo/scoped.ts";
 import { errorHandler, notFoundHandler } from "./errors.ts";
 import { idempotency } from "./idempotency.ts";
 import { openApiDocument } from "./openapi.ts";
@@ -24,6 +28,40 @@ import { reviewRouter } from "./routes/review.ts";
 import { publicStatusRouter, statusNoticesRouter } from "./routes/status.ts";
 import { teamsRouter } from "./routes/teams.ts";
 import { webhooksRouter } from "./routes/webhooks.ts";
+
+/** apiRoutes mounts every signed-in route on `router`, each built on `deps`. */
+function apiRoutes(router: Router, deps: AppDeps, exportSecret: Buffer): void {
+  router.use(meRouter(deps));
+  router.use(callsRouter(deps));
+  router.use(reviewRouter(deps));
+  router.use(batchesRouter(deps, exportSecret));
+  router.use(apiKeysRouter(deps));
+  router.use(webhooksRouter(deps));
+  router.use(inboxRouter(deps));
+  router.use(alertsRouter(deps));
+  router.use(teamsRouter(deps));
+  router.use(membersRouter(deps));
+  router.use(billingRouter(deps));
+  router.use(statusNoticesRouter(deps));
+}
+
+/**
+ * demoRoutes builds the signed-in routes on the demo schema: the demo pool,
+ * storage under demo/, jobs tagged for the demo. Model calls and webhooks
+ * run from the same deps, so they too land in demo tables.
+ */
+function demoRoutes(deps: AppDeps, demo: DemoContext, exportSecret: Buffer): Router {
+  const demoDeps: AppDeps = {
+    ...deps,
+    pool: demo.pool,
+    storage: demoStorage(deps.storage),
+    enqueue: demoEnqueue(deps.enqueue),
+  };
+  const router = Router();
+  router.use(idempotency(demo.pool));
+  apiRoutes(router, demoDeps, exportSecret);
+  return router;
+}
 
 /** buildApp wires middleware and routes; server.ts only starts it. */
 export function buildApp(deps: AppDeps): Express {
@@ -104,6 +142,9 @@ export function buildApp(deps: AppDeps): Express {
     : randomBytes(32);
   app.use("/api", exportLinksRouter(deps, exportSecret));
 
+  // Public, like the status page: whether the demo is on, and starting a session (ADR-0033).
+  app.use("/api", demoPublicRouter(deps.demo));
+
   const api = Router();
   api.use(
     authenticate(
@@ -114,19 +155,15 @@ export function buildApp(deps: AppDeps): Express {
   );
   api.use(apiKeyGate(deps.pool));
   api.use(idempotency(deps.pool));
-  api.use(meRouter(deps));
-  api.use(callsRouter(deps));
-  api.use(reviewRouter(deps));
-  api.use(batchesRouter(deps, exportSecret));
-  api.use(apiKeysRouter(deps));
-  api.use(webhooksRouter(deps));
-  api.use(inboxRouter(deps));
-  api.use(alertsRouter(deps));
-  api.use(teamsRouter(deps));
-  api.use(membersRouter(deps));
-  api.use(billingRouter(deps));
-  api.use(statusNoticesRouter(deps));
-  app.use("/api", api);
+  apiRoutes(api, deps, exportSecret);
+
+  // A demo visitor gets the same routes built on the demo schema, behind the
+  // demo's own sign-in; nothing on that branch holds the real pool.
+  const demoApi = deps.demo ? demoRoutes(deps, deps.demo, exportSecret) : null;
+  app.use("/api", demoAuthenticate(deps.demo), (req, res, next) => {
+    if (req.demo && demoApi) demoApi(req, res, next);
+    else api(req, res, next);
+  });
 
   app.use(notFoundHandler);
   app.use(errorHandler);

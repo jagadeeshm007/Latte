@@ -10,6 +10,8 @@ import { buildApp } from "../../src/app.ts";
 import { createVerifier } from "../../src/auth.ts";
 import { migrate, migrateDemo } from "../../src/db/migrate.ts";
 import { createPool, DEMO_SEARCH_PATH, inTransaction, type Pool } from "../../src/db/pool.ts";
+import type { DemoContext } from "../../src/demo/context.ts";
+import { demoKeys } from "../../src/demo/keys.ts";
 import type { Enqueue } from "../../src/jobs/queue.ts";
 import { PgUsageStore, saveRubricVersion } from "../../src/repo/reference.ts";
 import type { AppDeps } from "../../src/routes/deps.ts";
@@ -56,6 +58,24 @@ export async function resetData(pool: Pool): Promise<void> {
   );
   // A single price row the migration seeds; put the defaults back for each test.
   await pool.query("DELETE FROM billing_prices; INSERT INTO billing_prices (id) VALUES (1)");
+}
+
+/** resetDemo empties the demo schema, its visitors and its counters. */
+export async function resetDemo(demo: Pool): Promise<void> {
+  await demo.query("TRUNCATE visitors, device_uploads, daily_uploads, session_starts");
+  await resetData(demo);
+}
+
+/** testDemo is demo mode switched on over the given demo pool. */
+export function testDemo(
+  demo: Pool,
+  options: { dailyUploads?: number; secret?: string } = {},
+): DemoContext {
+  return {
+    pool: demo,
+    keys: demoKeys(options.secret ?? "demo-secret-for-tests-".padEnd(40, "x")),
+    dailyUploads: options.dailyUploads ?? 50,
+  };
 }
 
 export interface Fixture {

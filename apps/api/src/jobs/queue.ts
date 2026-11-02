@@ -12,9 +12,12 @@ export const QUEUES = {
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
+/** Where a job's call lives: absent for the real schema, "demo" for the public demo (ADR-0033). */
+export type Workspace = "demo";
+
 export type Enqueue = (
   queue: QueueName,
-  data: { callId?: string; reschedules?: number },
+  data: { callId?: string; reschedules?: number; workspace?: Workspace },
   options?: { startAfterSeconds?: number; priority?: number },
 ) => Promise<void>;
 
