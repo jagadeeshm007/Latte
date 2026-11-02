@@ -10,6 +10,8 @@ import { AudioError } from "../audio/decode.ts";
 import { type SttChunkResult, transcribeRecording } from "../audio/transcribe.ts";
 import { translateLines } from "../audio/translate.ts";
 import { inTransaction, type Pool } from "../db/pool.ts";
+import { clearExpiredVisitors } from "../demo/cleanup.ts";
+import { DEMO_FOLDER } from "../demo/scoped.ts";
 import { purgeApiTraffic } from "../repo/api-keys.ts";
 import * as calls from "../repo/calls.ts";
 import { audit, rubricFor } from "../repo/reference.ts";
@@ -342,6 +344,8 @@ export async function handlePurge(
   let orphans = 0;
   const dayAgo = now.getTime() - 24 * 3600 * 1000;
   for (const folder of await storage.list("")) {
+    // The demo's objects belong to calls in the demo schema; its own purge sweeps them (ADR-0033).
+    if (folder.name === DEMO_FOLDER) continue;
     const objects = await storage.list(folder.name);
     const paths = objects.map((o) => `${folder.name}/${o.name}`);
     const known = await calls.knownStoragePaths(pool, paths);
@@ -357,5 +361,11 @@ export async function handlePurge(
   const deliveries = await purgeDeliveries(pool);
   await pool.query("DELETE FROM idempotency_keys WHERE created_at < now() - interval '24 hours'");
   log.info({ purged, orphans, stuck, apiRequests, deliveries }, "purge done");
+  if (deps.demo) {
+    const { demo } = deps;
+    await handlePurge(demo, now);
+    const cleared = await clearExpiredVisitors(demo.pool, demo.storage);
+    log.info(cleared, "demo visitors cleared");
+  }
   return { purged, orphans };
 }
