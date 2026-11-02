@@ -15,20 +15,39 @@ export type Pool = pg.Pool;
 export type Client = pg.PoolClient;
 export type Queryable = Pick<pg.Pool, "query">;
 
-/** createPool builds the one pg pool per process. Nothing connects until the first query. */
+/**
+ * The demo schema's path (ADR-0033). public is never on it: a table missing
+ * from demo fails the query instead of reading real data.
+ */
+export const DEMO_SEARCH_PATH = "demo, extensions";
+
+/**
+ * createPool builds a pg pool. Nothing connects until the first query. With
+ * searchPath, every connection sets it before its first query; pg runs a
+ * client's queries in order, so none can run on the default path.
+ */
 export function createPool(
   config: Pick<
     Config,
     "DATABASE_URL" | "DB_POOL_MAX" | "DB_SSL" | "DB_SSL_CA" | "SUPABASE_POOLER_HOST"
-  >,
+  > & { searchPath?: string },
 ): pg.Pool {
-  return new pg.Pool({
+  const pool = new pg.Pool({
     connectionString: databaseUrl(config),
     max: config.DB_POOL_MAX,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
     ssl: sslOptions(config, (p) => readFileSync(p, "utf8")),
   });
+  const { searchPath } = config;
+  if (searchPath) {
+    pool.on("connect", (client) => {
+      // Closing on failure makes every query queued behind the SET fail too,
+      // so none of them runs on the default path.
+      client.query(`SET search_path TO ${searchPath}`).catch(() => client.end());
+    });
+  }
+  return pool;
 }
 
 /** inTransaction runs fn in one transaction and rolls back on any error. */

@@ -8,8 +8,8 @@ import { type Mock, vi } from "vitest";
 
 import { buildApp } from "../../src/app.ts";
 import { createVerifier } from "../../src/auth.ts";
-import { migrate } from "../../src/db/migrate.ts";
-import { createPool, inTransaction, type Pool } from "../../src/db/pool.ts";
+import { migrate, migrateDemo } from "../../src/db/migrate.ts";
+import { createPool, DEMO_SEARCH_PATH, inTransaction, type Pool } from "../../src/db/pool.ts";
 import type { Enqueue } from "../../src/jobs/queue.ts";
 import { PgUsageStore, saveRubricVersion } from "../../src/repo/reference.ts";
 import type { AppDeps } from "../../src/routes/deps.ts";
@@ -29,9 +29,24 @@ export async function testPool(): Promise<Pool> {
     DB_SSL: false,
     SUPABASE_POOLER_HOST: "unused",
   });
-  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await pool.query(
+    "DROP SCHEMA IF EXISTS demo CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;",
+  );
   await migrate(pool);
   return pool;
+}
+
+/** testDemoPool builds the demo schema (ADR-0033) beside the real one and returns its pool. */
+export async function testDemoPool(root: Pool): Promise<Pool> {
+  const demo = createPool({
+    DATABASE_URL,
+    DB_POOL_MAX: 2,
+    DB_SSL: false,
+    SUPABASE_POOLER_HOST: "unused",
+    searchPath: DEMO_SEARCH_PATH,
+  });
+  await migrateDemo(root, demo);
+  return demo;
 }
 
 export async function resetData(pool: Pool): Promise<void> {

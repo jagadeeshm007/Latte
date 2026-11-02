@@ -69,6 +69,23 @@ const envSchema = z.object({
   WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
   /** The queue system behind the job port (ADR-0032); each value is an adapter in src/jobs/adapters. */
   JOB_QUEUE: z.enum(["pgboss", "vercel"]).default("pgboss"),
+
+  /** The public demo in its own schema (ADR-0033); off unless set. */
+  DEMO_MODE: boolString,
+  /** Signs demo tokens and keys the device hash; required with DEMO_MODE. */
+  DEMO_SECRET: optional(z.string().min(32)),
+  /** Demo uploads scored per UTC day, across every visitor: the ceiling on demo spend. */
+  DEMO_DAILY_UPLOADS: z.coerce.number().int().min(1).default(50),
+});
+
+const configSchema = envSchema.superRefine((env, ctx) => {
+  if (env.DEMO_MODE && !env.DEMO_SECRET) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["DEMO_SECRET"],
+      message: "required when DEMO_MODE is true",
+    });
+  }
 });
 
 export type Config = z.infer<typeof envSchema>;
@@ -89,7 +106,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const present = Object.fromEntries(
     Object.entries(env).filter(([, value]) => value !== undefined && value !== ""),
   );
-  const parsed = envSchema.safeParse(present);
+  const parsed = configSchema.safeParse(present);
   if (!parsed.success) {
     throw new ConfigError(`invalid environment:\n${z.prettifyError(parsed.error)}`);
   }

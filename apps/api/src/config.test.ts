@@ -32,6 +32,23 @@ describe("loadConfig", () => {
     }
   });
 
+  it("keeps demo mode off by default with a cap of 50 uploads a day", () => {
+    const config = loadConfig(base);
+
+    expect([config.DEMO_MODE, config.DEMO_DAILY_UPLOADS, config.DEMO_SECRET]).toEqual([
+      false,
+      50,
+      undefined,
+    ]);
+  });
+
+  it("refuses demo mode without a demo secret", () => {
+    expect(() => loadConfig({ ...base, DEMO_MODE: "true" })).toThrow(/DEMO_SECRET/);
+    expect(loadConfig({ ...base, DEMO_MODE: "true", DEMO_SECRET: "s".repeat(32) }).DEMO_MODE).toBe(
+      true,
+    );
+  });
+
   it("parses LOG_PRETTY as a boolean", () => {
     expect(loadConfig({ ...base, LOG_PRETTY: "true" }).LOG_PRETTY).toBe(true);
     expect(loadConfig({ ...base, LOG_PRETTY: "false" }).LOG_PRETTY).toBe(false);
